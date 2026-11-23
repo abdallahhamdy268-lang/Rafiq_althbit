@@ -1,0 +1,2852 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#00112B" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="رفيق التثبيت" />
+  <title>رفيق التثبيت — الختمة المرنة (٣٠ جزءاً)</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #00112B;
+      --bg-card: #071C3B;
+      --bg-card-2: #0C244A;
+      --bg-elevated: #122E5A;
+      --gold-hi: #EFC879;
+      --gold-light: #DBC474;
+      --gold-mid: #D0A151;
+      --gold-deep: #BB9042;
+      --gold-grad: linear-gradient(135deg, #EFC879 0%, #D0A151 55%, #BB9042 100%);
+      --gold-soft: rgba(208, 161, 81, 0.14);
+      --gold-border: rgba(208, 161, 81, 0.26);
+      --gold-border-strong: rgba(239, 200, 121, 0.58);
+      --text-main: #F7F8FA;
+      --text-muted: #9AB0CE;
+      --text-dim: #6C84A6;
+      --success: #38C98F;
+      --success-soft: rgba(56, 201, 143, 0.14);
+      --info: #5AA9FF;
+      --info-soft: rgba(90, 169, 255, 0.14);
+      --warn: #F4B942;
+      --warn-soft: rgba(244, 185, 66, 0.15);
+      --danger: #FF6B7A;
+      --danger-soft: rgba(255, 107, 122, 0.14);
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-card: 0 10px 28px rgba(0, 6, 18, 0.45);
+      --nav-height: 70px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-deep);
+      background-image:
+        radial-gradient(circle at 85% 6%, rgba(208, 161, 81, 0.12), transparent 36%),
+        radial-gradient(circle at 12% 35%, rgba(26, 67, 130, 0.24), transparent 45%),
+        radial-gradient(circle at 50% 100%, rgba(187, 144, 66, 0.08), transparent 40%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Cairo', 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(0, 17, 43, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--gold-border);
+      padding: 12px 16px;
+    }
+
+    .header-inner {
+      max-width: 980px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: #041736;
+      border: 1.5px solid var(--gold-border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(208, 161, 81, 0.22);
+      flex-shrink: 0;
+    }
+
+    .brand-text h1 {
+      margin: 0;
+      font-size: 1.12rem;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      background: var(--gold-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.25;
+    }
+
+    .brand-text span {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      background: var(--gold-soft);
+      border: 1px solid var(--gold-border);
+      color: var(--gold-hi);
+      white-space: nowrap;
+    }
+
+    .install-btn {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: none;
+      background: var(--gold-grad);
+      color: #00112B;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .desktop-nav {
+      display: none;
+      max-width: 980px;
+      margin: 14px auto 0;
+      padding: 0 16px;
+      gap: 8px;
+    }
+
+    .desktop-nav button {
+      flex: 1;
+      padding: 11px 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+    }
+
+    .desktop-nav button.active {
+      background: linear-gradient(180deg, rgba(208, 161, 81, 0.22), rgba(208, 161, 81, 0.08));
+      border-color: var(--gold-border-strong);
+      color: var(--gold-hi);
+      box-shadow: 0 6px 20px rgba(208, 161, 81, 0.14);
+    }
+
+    .main-wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 16px 14px calc(var(--nav-height) + 28px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .tab-panel {
+      display: none;
+      animation: fadeSlide 0.22s ease;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      background: linear-gradient(165deg, var(--bg-card) 0%, #051630 100%);
+      border: 1px solid var(--gold-border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-subtle {
+      border-color: rgba(154, 176, 206, 0.16);
+    }
+
+    .card-active-wird {
+      background:
+        radial-gradient(circle at 100% 0%, rgba(90, 169, 255, 0.16), transparent 52%),
+        linear-gradient(155deg, #0C254C 0%, #051630 100%);
+      border: 1.5px solid rgba(90, 169, 255, 0.52);
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 12px 0;
+      flex-wrap: wrap;
+    }
+
+    .card-title h2 {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gold-accent { color: var(--gold-hi); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    @media (min-width: 720px) {
+      .desktop-nav { display: flex; }
+      .bottom-nav { display: none !important; }
+      .main-wrap { padding: 18px 16px 40px; }
+      .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .hero-card {
+      background:
+        radial-gradient(circle at 0% 0%, rgba(239, 200, 121, 0.15), transparent 55%),
+        linear-gradient(155deg, #0A2246 0%, #04142D 100%);
+      border: 1px solid var(--gold-border-strong);
+    }
+
+    .hero-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .hero-layout {
+        flex-direction: row;
+        align-items: center;
+      }
+    }
+
+    .ring-wrap {
+      position: relative;
+      width: 136px;
+      height: 136px;
+      margin: 0 auto;
+      flex-shrink: 0;
+    }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .ring-pct {
+      font-size: 1.7rem;
+      font-weight: 900;
+      background: var(--gold-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+    }
+
+    .ring-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .hero-bars {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    .progress-block-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      margin-bottom: 4px;
+    }
+
+    .progress-block-head strong { color: var(--text-main); }
+    .progress-block-head span { color: var(--gold-hi); font-weight: 700; }
+
+    .bar-track {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .bar-fill-gold {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--gold-grad);
+      transition: width 0.35s ease;
+    }
+
+    .bar-fill-info {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #4B9BFF, #7CC2FF);
+      transition: width 0.35s ease;
+    }
+
+    .bar-fill-success {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #27B37B, #5AE0A8);
+      transition: width 0.35s ease;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(208, 161, 81, 0.18);
+      border-radius: var(--radius-md);
+      padding: 11px 12px;
+    }
+
+    .stat-label { font-size: 0.73rem; color: var(--text-muted); font-weight: 600; }
+    .stat-value { font-size: 1.08rem; font-weight: 800; color: var(--gold-hi); margin-top: 2px; line-height: 1.3; }
+    .stat-sub { font-size: 0.71rem; color: var(--text-dim); margin-top: 2px; }
+
+    .alert-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(239, 200, 121, 0.16), rgba(187, 144, 66, 0.07));
+      border: 1px solid var(--gold-border-strong);
+      margin-bottom: 14px;
+      font-size: 0.85rem;
+    }
+
+    .alert-banner strong { color: var(--gold-hi); display: block; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 15px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.15s ease, background 0.15s ease;
+      min-height: 42px;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-gold {
+      background: var(--gold-grad);
+      color: #00112B;
+      box-shadow: 0 4px 16px rgba(208, 161, 81, 0.28);
+    }
+
+    .btn-outline {
+      background: rgba(208, 161, 81, 0.08);
+      border-color: var(--gold-border);
+      color: var(--gold-hi);
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .btn-success {
+      background: var(--success-soft);
+      border-color: rgba(56, 201, 143, 0.42);
+      color: var(--success);
+    }
+
+    .btn-info {
+      background: var(--info-soft);
+      border-color: rgba(90, 169, 255, 0.42);
+      color: var(--info);
+    }
+
+    .btn-danger {
+      background: var(--danger-soft);
+      border-color: rgba(255, 107, 122, 0.35);
+      color: var(--danger);
+    }
+
+    .btn-sm { padding: 6px 10px; font-size: 0.78rem; min-height: 34px; }
+    .btn-block { width: 100%; }
+
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .task-row.done {
+      background: rgba(56, 201, 143, 0.09);
+      border-color: rgba(56, 201, 143, 0.32);
+    }
+
+    .check-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      border: 2px solid var(--gold-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.18s ease;
+      color: #00112B;
+      font-weight: 900;
+      font-size: 0.85rem;
+    }
+
+    .task-row.done .check-circle {
+      background: var(--success);
+      border-color: var(--success);
+    }
+
+    .task-text { flex: 1; }
+    .task-text strong { display: block; font-size: 0.86rem; color: var(--text-main); }
+    .task-row.done .task-text strong { text-decoration: line-through; color: var(--text-muted); }
+    .task-text small { display: block; font-size: 0.75rem; color: var(--text-muted); }
+
+    /* Classic Structured Weekly Schedule (Flexible — No Fixed Times) */
+    .week-day-row {
+      background: var(--bg-card-2);
+      border: 1px solid rgba(154, 176, 206, 0.15);
+      border-radius: var(--radius-md);
+      padding: 13px;
+      margin-bottom: 10px;
+    }
+
+    .week-day-row.today {
+      border-color: var(--gold-border-strong);
+      box-shadow: 0 0 0 1px rgba(239, 200, 121, 0.22);
+    }
+
+    .week-day-row.maqraa-day {
+      background: linear-gradient(155deg, #0D264D, #071A38);
+    }
+
+    .week-day-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-bottom: 9px;
+      margin-bottom: 10px;
+      border-bottom: 1px dashed rgba(208, 161, 81, 0.22);
+    }
+
+    .week-sessions-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    @media (min-width: 680px) {
+      .week-sessions-grid {
+        grid-template-columns: 1.15fr 1fr;
+      }
+    }
+
+    .session-col {
+      background: rgba(0, 17, 43, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 9px;
+    }
+
+    .session-col-title {
+      font-size: 0.73rem;
+      font-weight: 800;
+      color: var(--gold-hi);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .day-name { font-size: 0.96rem; font-weight: 800; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .tag-gold { background: var(--gold-soft); color: var(--gold-hi); border: 1px solid var(--gold-border); }
+    .tag-info { background: var(--info-soft); color: var(--info); border: 1px solid rgba(90, 169, 255, 0.32); }
+    .tag-success { background: var(--success-soft); color: var(--success); border: 1px solid rgba(56, 201, 143, 0.35); }
+    .tag-warn { background: var(--warn-soft); color: var(--warn); border: 1px solid rgba(244, 185, 66, 0.4); }
+    .tag-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(255, 107, 122, 0.4); }
+
+    .seg-control {
+      display: flex;
+      background: #041229;
+      border: 1px solid var(--gold-border);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+
+    .seg-btn {
+      flex: 1;
+      padding: 9px 6px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.81rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .seg-btn.active {
+      background: var(--gold-grad);
+      color: #00112B;
+      font-weight: 800;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 18px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--gold-border);
+    }
+
+    .phase-header h3 { margin: 0; font-size: 0.92rem; font-weight: 800; color: var(--gold-hi); }
+    .phase-header span { font-size: 0.76rem; color: var(--text-muted); font-weight: 700; }
+
+    .juz-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(154, 176, 206, 0.16);
+      border-radius: var(--radius-md);
+      padding: 13px;
+      margin-bottom: 10px;
+      transition: border-color 0.2s ease;
+    }
+
+    .juz-card.completed {
+      border-color: rgba(56, 201, 143, 0.42);
+      background: linear-gradient(160deg, rgba(56, 201, 143, 0.08), var(--bg-card));
+    }
+
+    .juz-card.active-juz {
+      border-color: var(--gold-border-strong);
+      box-shadow: 0 6px 20px rgba(208, 161, 81, 0.12);
+    }
+
+    .juz-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .juz-title { font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .juz-sub { font-size: 0.77rem; color: var(--text-muted); margin-top: 2px; }
+    .juz-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+
+    .surah-list {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(208, 161, 81, 0.22);
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 6px;
+    }
+
+    .surah-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 7px 9px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    .surah-chip.done {
+      background: var(--success-soft);
+      border-color: rgba(56, 201, 143, 0.4);
+      color: var(--success);
+    }
+
+    /* Rating Buttons */
+    .rating-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 10px 0 12px;
+    }
+
+    .rating-choice {
+      padding: 11px 10px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.16s ease;
+    }
+
+    .rating-choice small { display: block; font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
+    .rating-choice.selected-excellent { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+    .rating-choice.selected-vgood { background: var(--gold-soft); border-color: var(--gold-hi); color: var(--gold-hi); }
+    .rating-choice.selected-good { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+    .rating-choice.selected-repeat { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+
+    /* Solid New Surah Group Card */
+    .link-group-card {
+      background: rgba(4, 18, 41, 0.78);
+      border: 1px solid var(--gold-border);
+      border-radius: var(--radius-md);
+      padding: 13px;
+      margin-bottom: 11px;
+    }
+
+    .link-group-card.priority {
+      border-color: rgba(244, 185, 66, 0.6);
+    }
+
+    .passage-chain {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .passage-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .passage-pill.needs-work {
+      background: var(--warn-soft);
+      border-color: rgba(244, 185, 66, 0.45);
+      color: var(--warn);
+    }
+
+    .form-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 560px) { .form-grid-2 { grid-template-columns: repeat(2, 1fr); } }
+
+    label.field-label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
+
+    input[type="text"], input[type="number"], input[type="date"], select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(208, 161, 81, 0.25);
+      background: #04132B;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--gold-hi);
+      box-shadow: 0 0 0 2px rgba(239, 200, 121, 0.18);
+    }
+
+    input[type="range"] { width: 100%; accent-color: #D0A151; height: 6px; cursor: pointer; }
+
+    .timer-display {
+      text-align: center;
+      padding: 18px 12px;
+      border-radius: var(--radius-md);
+      background: radial-gradient(circle at 50% 0%, rgba(239, 200, 121, 0.14), #04132A 75%);
+      border: 1px solid var(--gold-border);
+      margin: 12px 0;
+    }
+
+    .timer-clock {
+      font-size: 3.1rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      background: var(--gold-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-phase-name { margin-top: 6px; font-size: 0.92rem; font-weight: 800; color: var(--text-main); }
+    .timer-phase-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    .phase-pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
+
+    .phase-pill {
+      padding: 7px 4px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.7rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .phase-pill.current { background: var(--gold-soft); border-color: var(--gold-hi); color: var(--gold-hi); }
+    .phase-pill.passed { background: var(--success-soft); border-color: rgba(56, 201, 143, 0.4); color: var(--success); }
+
+    .dist-bar { display: flex; height: 16px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.08); margin: 10px 0; }
+    .dist-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.78rem; color: var(--text-muted); }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-left: 5px; }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      background: rgba(2, 16, 38, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--gold-border);
+      display: flex;
+      justify-content: space-around;
+      padding: 6px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .bottom-nav button {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.66rem;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 5px 2px;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.18s ease;
+    }
+
+    .bottom-nav button svg { width: 22px; height: 22px; stroke-width: 2; }
+    .bottom-nav button.active { color: var(--gold-hi); }
+    .bottom-nav button.active::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      width: 28px;
+      height: 3px;
+      border-radius: 0 0 4px 4px;
+      background: var(--gold-grad);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: calc(var(--nav-height) + 18px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0D2852;
+      border: 1px solid var(--gold-hi);
+      color: var(--text-main);
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      z-index: 90;
+      white-space: nowrap;
+      max-width: 92vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 8, 22, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 80;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--gold-border-strong);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      width: 100%;
+      max-width: 470px;
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+    }
+
+    .log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      margin-bottom: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 20px 14px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px dashed rgba(208, 161, 81, 0.28);
+      border-radius: var(--radius-md);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <!-- Clean Open Quran Book Icon (NO stars) -->
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H10a2.5 2.5 0 0 1 2 1 2.5 2.5 0 0 1 2-1h5.5A2.5 2.5 0 0 1 22 5.5v12a2.5 2.5 0 0 1-2.5 2.5H14a2.5 2.5 0 0 0-2 1 2.5 2.5 0 0 0-2-1H4.5A2.5 2.5 0 0 1 2 17.5v-12z" stroke="#EFC879" stroke-width="1.8" fill="rgba(208,161,81,0.12)"/>
+            <line x1="12" y1="4" x2="12" y2="21" stroke="#D0A151" stroke-width="1.8"/>
+            <line x1="5.5" y1="8.5" x2="9" y2="8.5" stroke="#F7F8FA" stroke-width="1.5"/>
+            <line x1="5.5" y1="12" x2="9" y2="12" stroke="#D0A151" stroke-width="1.5"/>
+            <line x1="15" y1="8.5" x2="18.5" y2="8.5" stroke="#F7F8FA" stroke-width="1.5"/>
+            <line x1="15" y1="12" x2="18.5" y2="12" stroke="#D0A151" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>رفيق التثبيت</h1>
+          <span>خطة مرنة • ٣٠ جزءاً • تثبيت قديم وجديد</span>
+        </div>
+      </div>
+      <div class="header-badges">
+        <button id="installPwaBtn" class="install-btn" onclick="promptInstall()">تثبيت التطبيق</button>
+        <div class="pill-badge" id="streakBadge">🔥 0 أيام</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Desktop Navigation -->
+  <nav class="desktop-nav" aria-label="التنقل الرئيسي">
+    <button class="active" data-tab="dashboard" onclick="switchTab('dashboard')">الرئيسية والجديد</button>
+    <button data-tab="schedule" onclick="switchTab('schedule')">الجدول الأسبوعي</button>
+    <button data-tab="solid" onclick="switchTab('solid')">صندوق التثبيت</button>
+    <button data-tab="map" onclick="switchTab('map')">خريطة ٣٠ جزء</button>
+    <button data-tab="tools" onclick="switchTab('tools')">المؤقت والحاسبة</button>
+  </nav>
+
+  <main class="main-wrap">
+
+    <!-- ================= TAB 1: HOME + NEW MEMORIZATION ================= -->
+    <section id="tab-dashboard" class="tab-panel active">
+      <div id="stabilizationAlert"></div>
+
+      <!-- 1. Overall Khatma Progress -->
+      <div class="card hero-card">
+        <div class="hero-layout">
+          <div class="ring-wrap">
+            <svg width="136" height="136" viewBox="0 0 136 136">
+              <defs>
+                <linearGradient id="goldRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#EFC879"/>
+                  <stop offset="55%" stop-color="#D0A151"/>
+                  <stop offset="100%" stop-color="#BB9042"/>
+                </linearGradient>
+              </defs>
+              <circle cx="68" cy="68" r="56" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10"/>
+              <circle id="khatmaRingCircle" cx="68" cy="68" r="56" fill="none" stroke="url(#goldRingGrad)" stroke-width="10"
+                stroke-linecap="round" stroke-dasharray="352" stroke-dashoffset="352" transform="rotate(-90 68 68)"/>
+            </svg>
+            <div class="ring-center">
+              <div class="ring-pct" id="khatmaPct">0%</div>
+              <div class="ring-sub" id="khatmaPagesText">0 / 604 وجهاً</div>
+            </div>
+          </div>
+
+          <div class="hero-bars">
+            <div>
+              <div class="progress-block-head">
+                <strong>الترميم (القديم: ٣٠ ← ١٢)</strong>
+                <span id="revProgressLabel">0 / 19 جزء</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill-gold" id="revProgressBar" style="width:0%"></div></div>
+              <div style="font-size:0.73rem; color:var(--text-muted); margin-top:2px;" id="revPagesDetail"></div>
+            </div>
+
+            <div>
+              <div class="progress-block-head">
+                <strong>الحفظ الجديد (المقرأة: ١١ ← ١)</strong>
+                <span id="newProgressLabel" style="color:var(--info);">0 / 11 جزء</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill-info" id="newProgressBar" style="width:0%"></div></div>
+              <div style="font-size:0.73rem; color:var(--text-muted); margin-top:2px;" id="newPagesDetail"></div>
+            </div>
+
+            <div>
+              <div class="progress-block-head">
+                <strong>صندوق التثبيت (قديم + جديد)</strong>
+                <span id="solidProgressLabel" style="color:var(--success);">0 أجزاء • 0 مقاطع</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill-success" id="solidProgressBar" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. NEW MEMORIZATION DIRECTLY ON HOME PAGE -->
+      <div id="homeNewWorkflowCard"></div>
+
+      <!-- 3. Quick Overview Stats -->
+      <div class="grid-4" style="margin-bottom:14px;">
+        <div class="stat-box" onclick="switchTab('map')" style="cursor:pointer;">
+          <div class="stat-label">الجزء الحالي (ترميم)</div>
+          <div class="stat-value" id="statCurrentRev">—</div>
+          <div class="stat-sub" id="statCurrentRevSub">—</div>
+        </div>
+        <div class="stat-box" onclick="switchTab('map'); setMapFilter('new');" style="cursor:pointer;">
+          <div class="stat-label">الجزء الحالي (جديد)</div>
+          <div class="stat-value" style="color:var(--info);" id="statCurrentNew">—</div>
+          <div class="stat-sub" id="statCurrentNewSub">—</div>
+        </div>
+        <div class="stat-box" onclick="switchTab('solid'); setSolidTab('new');" style="cursor:pointer;">
+          <div class="stat-label">تثبيت الجديد (ربط)</div>
+          <div class="stat-value" style="font-size:0.98rem;" id="statSolidNewCount">0 مقاطع</div>
+          <div class="stat-sub" id="statSolidNewSub">في صندوق التثبيت</div>
+        </div>
+        <div class="stat-box" onclick="switchTab('schedule')" style="cursor:pointer;">
+          <div class="stat-label">إنجاز الأسبوع</div>
+          <div class="stat-value" style="color:var(--success);" id="statWeekPct">0%</div>
+          <div class="stat-sub" id="statWeekSub">0 من 21 مهمة</div>
+        </div>
+      </div>
+
+      <!-- 4. Today's Flexible Tasks (No Fixed Time) -->
+      <div class="card">
+        <div class="card-title">
+          <h2>⚡ مهام اليوم (<span class="gold-accent" id="todayDayTitle">اليوم</span>)</h2>
+          <span class="tag tag-gold">وقت مرن خلال اليوم</span>
+        </div>
+        <div id="todayTasksContainer"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-gold btn-sm" onclick="quickAddRevPage()">+١ وجه ترميم قديم</button>
+          <button class="btn btn-outline btn-sm" onclick="switchTab('solid')">فتح صندوق التثبيت</button>
+          <button class="btn btn-ghost btn-sm" onclick="switchTab('tools')">شغّل المؤقت</button>
+        </div>
+      </div>
+
+      <!-- 5. Fast Juz 30 Completion Widget -->
+      <div class="card card-subtle" id="juz30FastCard" style="display:none;">
+        <div class="card-title">
+          <h2>🎯 تقفيل جزء عمّ (٤ سور فقط)</h2>
+          <span class="tag tag-gold">اضغط عند الانتهاء</span>
+        </div>
+        <p style="margin:0 0 10px; font-size:0.82rem; color:var(--text-muted);">
+          بمجرد التعليم على السور الأربع المتبقية، ينتقل <strong>الجزء ٣٠ (عمّ)</strong> تلقائياً إلى <strong>صندوق التثبيت (تثبيت قديم)</strong> وتبدأ من سورة المرسلات في جزء تبارك.
+        </p>
+        <div class="surah-list" id="juz30QuickSurahs"></div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 2: WEEKLY SCHEDULE (CLASSIC ORGANIZATION, FLEXIBLE TIME) ================= -->
+    <section id="tab-schedule" class="tab-panel">
+      <div class="card">
+        <div class="card-title">
+          <h2>📅 الجدول الأسبوعي المرن (ساعة يومياً — في أي وقت)</h2>
+          <button class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع وأرشفته</button>
+        </div>
+        <p style="margin:0 0 12px; font-size:0.82rem; color:var(--text-muted);">
+          بنفس تنظيم الخطة الأسبوعية (<strong>جلسة أساسية ٤٠ د + جلسة تثبيت أو مقرأة ٢٠ د</strong>) لكن بدون أي تقييد بأوقات يومية؛ نفّذ كل جلسة في الوقت الذي يناسبك خلال اليوم.
+        </p>
+        <div id="scheduleList"></div>
+      </div>
+
+      <div class="card card-subtle">
+        <div class="card-title">
+          <h2>🗂️ أرشيف الأسابيع السابقة</h2>
+          <span class="tag tag-gold" id="archiveCountTag">0 أسابيع</span>
+        </div>
+        <div id="weekArchiveList"></div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 3: SOLID BOX (OLD + NEW + RECITATION LOG) ================= -->
+    <section id="tab-solid" class="tab-panel">
+      <!-- Top Summary of Old vs New Solid Box -->
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div class="stat-box" style="cursor:pointer;" onclick="setSolidTab('new')">
+          <div class="stat-label">🛡️ تثبيت جديد (اللي سمّعته)</div>
+          <div class="stat-value" style="color:var(--info);" id="solidBoxNewSummary">0 مقاطع</div>
+          <div class="stat-sub">لربط السور الكبيرة وتثبيتها</div>
+        </div>
+        <div class="stat-box" style="cursor:pointer;" onclick="setSolidTab('old')">
+          <div class="stat-label">🛡️ تثبيت قديم (أجزاء مكتملة)</div>
+          <div class="stat-value" style="color:var(--success);" id="solidBoxOldSummary">0 أجزاء</div>
+          <div class="stat-sub">كل جزء يكتمل يدخل هنا تلقائياً</div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:13px;">
+        <div class="seg-control" style="margin-bottom:0;">
+          <button class="seg-btn active" id="solidTabNew" onclick="setSolidTab('new')">تثبيت جديد (الربط)</button>
+          <button class="seg-btn" id="solidTabOld" onclick="setSolidTab('old')">تثبيت قديم (الأجزاء)</button>
+          <button class="seg-btn" id="solidTabLogs" onclick="setSolidTab('logs')">سجل التسميع</button>
+        </div>
+      </div>
+
+      <!-- SUB-PANEL A: تثبيت جديد -->
+      <div id="solidPanelNew">
+        <div class="card hero-card">
+          <div class="card-title">
+            <h2>🔗 صندوق التثبيت — تثبيت الجديد (ربط السور الكبيرة)</h2>
+            <button class="btn btn-outline btn-sm" onclick="openManualLinkModal()">+ إضافة مقطع سابق</button>
+          </div>
+          <p style="margin:0 0 12px; font-size:0.82rem; color:var(--text-muted);">
+            كل ورد جديد تضغط عليه <strong>"تم التسميع"</strong> في الرئيسية يدخل هنا تلقائياً تحت اسم السورة، لتجمع مقاطع السور الطويلة وتربطها معاً فلا يتفلت أولها.
+          </p>
+          <div id="linkingAlertBanner"></div>
+          <div id="linkingGroupsContainer"></div>
+        </div>
+      </div>
+
+      <!-- SUB-PANEL B: تثبيت قديم -->
+      <div id="solidPanelOld" style="display:none;">
+        <div class="card hero-card">
+          <div class="card-title">
+            <h2>🛡️ صندوق التثبيت — تثبيت القديم (الأجزاء المكتملة)</h2>
+            <span class="tag tag-success" id="solidCountBadge">0 أجزاء</span>
+          </div>
+          <p style="margin:0 0 12px; font-size:0.82rem; color:var(--text-muted);">
+            كل جزء تُتمّ ترميمه (٣٠←١٢) أو حفظه الجديد بالكامل (١١←١) يدخل هنا تلقائياً ليبقى ثابتاً بسرد ١٠ دقائق يومياً.
+          </p>
+          <div id="solidBoxList"></div>
+        </div>
+
+        <div class="card card-subtle">
+          <div class="card-title">
+            <h2>🔄 لفة الـ ٥ أيام السريعة لجزء عمّ (١٠ د/يوم)</h2>
+            <button class="btn btn-outline btn-sm" onclick="resetAmmaCycle()">لفة جديدة</button>
+          </div>
+          <div id="ammaCycleList"></div>
+        </div>
+      </div>
+
+      <!-- SUB-PANEL C: سجل التسميع -->
+      <div id="solidPanelLogs" style="display:none;">
+        <div class="card card-subtle">
+          <div class="card-title">
+            <h2>🕌 سجل حصص التسميع والتقييمات</h2>
+            <span class="tag tag-info" id="maqraaCountTag">0 حصص</span>
+          </div>
+          <div id="maqraaLogList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 4: 30-JUZ FULL KHATMA MAP ================= -->
+    <section id="tab-map" class="tab-panel">
+      <div class="card" style="padding:13px;">
+        <div class="seg-control" style="margin-bottom:8px;">
+          <button class="seg-btn active" id="filterRev" onclick="setMapFilter('revision')">الترميم (١٩ جزء)</button>
+          <button class="seg-btn" id="filterNew" onclick="setMapFilter('new')">الجديد (١١ جزء)</button>
+          <button class="seg-btn" id="filterAll" onclick="setMapFilter('all')">الختمة (٣٠)</button>
+        </div>
+        <div style="font-size:0.79rem; color:var(--text-muted); text-align:center;">
+          أي جزء يكتمل في <strong>الترميم</strong> أو <strong>الجديد</strong> ينتقل تلقائياً إلى <strong>صندوق التثبيت (تثبيت قديم)</strong>.
+        </div>
+      </div>
+      <div id="juzMapContainer"></div>
+    </section>
+
+    <!-- ================= TAB 5: TIMER, CALCULATOR & BACKUP ================= -->
+    <section id="tab-tools" class="tab-panel">
+      <div class="card hero-card">
+        <div class="card-title">
+          <h2>⏱️ مؤقت "دكتور الصفحة" والتثبيت</h2>
+          <label style="display:flex; align-items:center; gap:5px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="timerSoundToggle" checked style="accent-color:#D0A151;" />
+            تنبيه صوتي
+          </label>
+        </div>
+
+        <div class="seg-control" style="margin-bottom:8px;">
+          <button class="seg-btn active" id="modeDoctor" onclick="setTimerMode('doctor')">ترميم وجه (١٢ د)</button>
+          <button class="seg-btn" id="modeLink" onclick="setTimerMode('link')">تثبيت جديد (٦ د)</button>
+          <button class="seg-btn" id="modeSolid" onclick="setTimerMode('solid')">تثبيت قديم (١٠ د)</button>
+        </div>
+
+        <div class="timer-display">
+          <div class="timer-clock" id="timerClock">12:00</div>
+          <div class="timer-phase-name" id="timerPhaseName">المرحلة ١: الكشف بالقلم الرصاص</div>
+          <div class="timer-phase-hint" id="timerPhaseHint">اقرأ الوجه نظر بصوت مسموع وعلّم على الآيات المتفلتة فقط (دقيقتان)</div>
+          <div class="phase-pills" id="doctorPhasePills">
+            <div class="phase-pill current" data-p="0">١. كشف (٢د)</div>
+            <div class="phase-pill" data-p="1">٢. ترميم (٥د)</div>
+            <div class="phase-pill" data-p="2">٣. اختبار (٣د)</div>
+            <div class="phase-pill" data-p="3">٤. قفلة (٢د)</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button class="btn btn-gold" id="timerStartBtn" onclick="toggleTimer()">ابدأ الجلسة</button>
+          <button class="btn btn-outline" onclick="resetTimer()">إعادة ضبط</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <h2>🧮 حاسبة الوقت المرنة (مربوطة بباقي ختمتك)</h2>
+          <span class="tag tag-gold" id="calcModeBadge">إنجاز عالٍ</span>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <div class="progress-block-head">
+            <strong>الوقت اليومي المتاح (في أي وقت باليوم)</strong>
+            <span id="calcMinVal">60 دقيقة</span>
+          </div>
+          <input type="range" id="calcDailyMin" min="15" max="90" step="5" value="60" oninput="updateCalculator()" />
+          <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="setCalcMin(20)">٢٠ د</button>
+            <button class="btn btn-ghost btn-sm" onclick="setCalcMin(30)">٣٠ د</button>
+            <button class="btn btn-ghost btn-sm" onclick="setCalcMin(45)">٤٥ د</button>
+            <button class="btn btn-outline btn-sm" onclick="setCalcMin(60)">٦٠ د (خطتك)</button>
+            <button class="btn btn-ghost btn-sm" onclick="setCalcMin(90)">٩٠ د</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <div class="progress-block-head">
+            <strong>مقدار الحفظ الجديد في حصة المقرأة (مرتان/أسبوع)</strong>
+            <span id="calcNewPagesVal">1.25 وجه/حصة</span>
+          </div>
+          <input type="range" id="calcNewPages" min="0.5" max="2" step="0.25" value="1.25" oninput="updateCalculator()" />
+        </div>
+
+        <div class="dist-bar" id="calcDistBar"></div>
+        <div class="dist-legend" id="calcDistLegend"></div>
+
+        <div class="grid-4" style="margin-top:12px;">
+          <div class="stat-box">
+            <div class="stat-label">صافي الترميم/أسبوع</div>
+            <div class="stat-value" id="calcRevWeek">0 وجه</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">مدة إنهاء الجزء</div>
+            <div class="stat-value" id="calcWeeksJuz">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">لمّ باقي القديم</div>
+            <div class="stat-value" id="calcOldMonths">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">إنهاء الجديد (١١ جزء)</div>
+            <div class="stat-value" style="color:var(--info);" id="calcNewMonths">—</div>
+          </div>
+        </div>
+
+        <div id="calcAdviceBox" style="margin-top:12px; padding:10px 12px; border-radius:10px; background:rgba(208,161,81,0.09); border:1px solid var(--gold-border); font-size:0.82rem; color:var(--text-main);"></div>
+      </div>
+
+      <div class="card card-subtle">
+        <div class="card-title">
+          <h2>📱 النسخ الاحتياطي وتثبيت الأندرويد</h2>
+        </div>
+        <p style="margin:0 0 12px; font-size:0.81rem; color:var(--text-muted);">
+          كل بياناتك محفوظة محلياً على جهازك وتعمل بدون إنترنت. صدّر نسخة احتياطية JSON كل فترة لحفظ تقدمك بأمان.
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة احتياطية (JSON)</button>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;">
+            استيراد نسخة احتياطية
+            <input type="file" accept=".json" onchange="importBackup(event)" style="display:none;" />
+          </label>
+          <button class="btn btn-ghost btn-sm" onclick="openAndroidModal()">طريقة التثبيت على الأندرويد</button>
+          <button class="btn btn-danger btn-sm" onclick="resetAllData()">إعادة ضبط التطبيق</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Android Bottom Navigation -->
+  <nav class="bottom-nav" aria-label="شريط التنقل السفلي">
+    <button class="active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      <span>الرئيسية</span>
+    </button>
+    <button data-tab="schedule" onclick="switchTab('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>الجدول</span>
+    </button>
+    <button data-tab="solid" onclick="switchTab('solid')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>التثبيت</span>
+    </button>
+    <button data-tab="map" onclick="switchTab('map')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>٣٠ جزء</span>
+    </button>
+    <button data-tab="tools" onclick="switchTab('tools')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+      <span>المؤقت</span>
+    </button>
+  </nav>
+
+  <!-- Modal: Recitation Completion & Rating -->
+  <div class="modal-backdrop" id="reciteModal" onclick="if(event.target===this) closeModal('reciteModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2>✅ تم التسميع — اختر التقييم</h2>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('reciteModal')">إغلاق</button>
+      </div>
+      <div id="reciteModalSummary" style="padding:10px 12px; border-radius:10px; background:rgba(90,169,255,0.1); border:1px solid rgba(90,169,255,0.3); margin-bottom:12px; font-size:0.84rem;"></div>
+
+      <label class="field-label">تقييم التسميع في المقرأة:</label>
+      <div class="rating-grid" id="ratingGrid">
+        <button type="button" class="rating-choice selected-excellent" data-rate="ممتاز" onclick="selectRating('ممتاز')">
+          ممتاز (متقن)
+          <small>تسميع سلس بدون أخطاء</small>
+        </button>
+        <button type="button" class="rating-choice" data-rate="جيد جداً" onclick="selectRating('جيد جداً')">
+          جيد جداً
+          <small>تعثّر بسيط جداً</small>
+        </button>
+        <button type="button" class="rating-choice" data-rate="جيد" onclick="selectRating('جيد')">
+          جيد (يحتاج تثبيت)
+          <small>يُميّز كأولوية في تثبيت الجديد</small>
+        </button>
+        <button type="button" class="rating-choice" data-rate="يحتاج إعادة" onclick="selectRating('يحتاج إعادة')">
+          يحتاج إعادة
+          <small>يُضاف كأولوية إعادة وتثبيت</small>
+        </button>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <label class="field-label">ملاحظات الشيخ أو المتشابهات (اختياري)</label>
+        <input type="text" id="reciteSheikhNote" placeholder="مثلاً: انتبه للآية ١٥ والربط مع المقطع السابق" />
+      </div>
+
+      <div style="margin-bottom:12px; display:flex; flex-direction:column; gap:8px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--gold-hi); cursor:pointer;">
+          <input type="checkbox" id="reciteAutoMap" checked style="width:17px; height:17px; accent-color:#D0A151;" />
+          إضافة الأوجه تلقائياً لرصيد الجزء في خريطة ٣٠ جزء
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--info); cursor:pointer;">
+          <input type="checkbox" id="reciteAddToLink" checked style="width:17px; height:17px; accent-color:#5AA9FF;" />
+          نقل المقطع تلقائياً إلى "صندوق التثبيت ← تثبيت جديد"
+        </label>
+      </div>
+
+      <button class="btn btn-gold btn-block" onclick="confirmRecitation()">تأكيد التسميع وإتاحة تسجيل الورد التالي</button>
+    </div>
+  </div>
+
+  <!-- Modal: Add Previous Passage to New Solid Box -->
+  <div class="modal-backdrop" id="manualLinkModal" onclick="if(event.target===this) closeModal('manualLinkModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2>🔗 إضافة مقطع سابق لتثبيت الجديد</h2>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('manualLinkModal')">إغلاق</button>
+      </div>
+      <p style="margin:0 0 10px; font-size:0.8rem; color:var(--text-muted);">
+        أضف أي مقاطع حفظتها سابقاً في بداية السورة (مثلاً أوائل سورة يونس) لتربطها وتثبّتها مع الجديد داخل صندوق التثبيت.
+      </p>
+      <form onsubmit="saveManualLinkPassage(event)" class="form-grid">
+        <div>
+          <label class="field-label">اسم السورة</label>
+          <input type="text" id="mlSurah" value="سورة يونس" required />
+        </div>
+        <div>
+          <label class="field-label">المقطع / الآيات</label>
+          <input type="text" id="mlPassage" placeholder="مثلاً: آية ١ – ٢٠" required />
+        </div>
+        <div>
+          <label class="field-label">عدد الأوجه</label>
+          <input type="number" id="mlPages" step="0.25" min="0.25" max="20" value="2" required />
+        </div>
+        <div>
+          <label class="field-label">مستوى تثبيته حالياً</label>
+          <select id="mlRating">
+            <option value="ممتاز">ممتاز</option>
+            <option value="جيد جداً" selected>جيد جداً</option>
+            <option value="جيد">جيد (يحتاج تثبيت)</option>
+            <option value="يحتاج إعادة">يحتاج إعادة</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-gold">إضافة إلى تثبيت الجديد</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Flexible Day -->
+  <div class="modal-backdrop" id="editDayModal" onclick="if(event.target===this) closeModal('editDayModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2>تعديل جدول يوم <span class="gold-accent" id="editDayName"></span></h2>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('editDayModal')">إغلاق</button>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label class="field-label">الجلسة ١ — المهمة الأساسية (٤٠ دقيقة)</label>
+          <input type="text" id="editMainText" />
+        </div>
+        <div>
+          <label class="field-label">الجلسة ٢ — التسميع أو المقرأة (١٠ دقائق)</label>
+          <input type="text" id="editSecondText" />
+        </div>
+        <div>
+          <label class="field-label">صندوق التثبيت — قديم وجديد (١٠ دقائق)</label>
+          <input type="text" id="editSolidText" />
+        </div>
+        <button class="btn btn-gold" onclick="saveDayEdit()">تحديث مهام اليوم</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Android Install Guide -->
+  <div class="modal-backdrop" id="androidModal" onclick="if(event.target===this) closeModal('androidModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2>📱 تثبيت التطبيق على الأندرويد</h2>
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('androidModal')">إغلاق</button>
+      </div>
+      <div style="font-size:0.84rem; color:var(--text-muted); line-height:1.75;">
+        <p style="margin-top:0;"><strong style="color:var(--gold-hi);">الطريقة ١ (فورية بدون نت):</strong><br/>افتح ملف <code>rafiq_altathbit_v4.html</code> على موبايلك بمتصفح <strong>Chrome</strong> واحفظه في المفضلة.</p>
+        <p><strong style="color:var(--gold-hi);">الطريقة ٢ (تطبيق بأيقونة على شاشة الأندرويد):</strong><br/>
+        ١. فك ضغط ملف <code>rafiq_altathbit_android_pwa_v4.zip</code>.<br/>
+        ٢. ارفع المجلد مجاناً على <strong>Vercel</strong> أو <strong>Netlify Drop</strong> (في ٣٠ ثانية).<br/>
+        ٣. افتح الرابط على Chrome في موبايلك ← اضغط <strong>"تثبيت التطبيق"</strong> (أو قائمة الـ ٣ نقط ← Install App).<br/>
+        ٤. يظهر بأيقونته الذهبية على شاشة الموبايل ويعمل بملء الشاشة <strong>بدون إنترنت</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastEl"></div>
+
+  <script>
+    const STORAGE_KEY = 'rafiq_altathbit_khatma_v4';
+
+    const DEFAULT_JUZ = [
+      {
+        num: 30, track: 'revision', phase: 'المرحلة ١: أجزاء الانطلاقة (٣٠ – ٢٨)',
+        title: 'الجزء ٣٠ (عمّ)', range: 'من الناس إلى النبأ', totalPages: 23, donePages: 18, basePages: 18,
+        note: 'أتممت ١٨ وجهاً حتى الانفطار — متبقٍ ٤ سور فقط!',
+        surahs: [
+          { name: 'التكوير', pages: 1, done: false },
+          { name: 'عبس', pages: 1, done: false },
+          { name: 'النازعات', pages: 1.5, done: false },
+          { name: 'النبأ', pages: 1.5, done: false }
+        ]
+      },
+      {
+        num: 29, track: 'revision', phase: 'المرحلة ١: أجزاء الانطلاقة (٣٠ – ٢٨)',
+        title: 'الجزء ٢٩ (تبارك)', range: 'من المرسلات إلى الملك', totalPages: 20, donePages: 0, basePages: 0, note: '',
+        surahs: [
+          { name: 'المرسلات', pages: 1.5, done: false },
+          { name: 'الإنسان', pages: 2, done: false },
+          { name: 'القيامة', pages: 1, done: false },
+          { name: 'المدثر', pages: 2, done: false },
+          { name: 'المزمل', pages: 1.5, done: false },
+          { name: 'الجن', pages: 2, done: false },
+          { name: 'نوح', pages: 1.5, done: false },
+          { name: 'المعارج', pages: 2, done: false },
+          { name: 'الحاقة', pages: 2, done: false },
+          { name: 'القلم', pages: 2, done: false },
+          { name: 'الملك', pages: 2.5, done: false }
+        ]
+      },
+      {
+        num: 28, track: 'revision', phase: 'المرحلة ١: أجزاء الانطلاقة (٣٠ – ٢٨)',
+        title: 'الجزء ٢٨ (قد سمع)', range: 'من التحريم إلى المجادلة • بعده أسبوع تثبيت', totalPages: 20, donePages: 0, basePages: 0, note: '',
+        surahs: [
+          { name: 'التحريم', pages: 2, done: false },
+          { name: 'الطلاق', pages: 2, done: false },
+          { name: 'التغابن', pages: 2, done: false },
+          { name: 'المنافقون', pages: 1.5, done: false },
+          { name: 'الجمعة', pages: 1.5, done: false },
+          { name: 'الصف', pages: 1.5, done: false },
+          { name: 'الممتحنة', pages: 2.5, done: false },
+          { name: 'الحشر', pages: 3.5, done: false },
+          { name: 'المجادلة', pages: 3.5, done: false }
+        ]
+      },
+      { num: 27, track: 'revision', phase: 'المرحلة ٢: المفصّل والحواميم (٢٧ – ٢٣)', title: 'الجزء ٢٧', range: 'الحديد ← الذاريات (٣١)', totalPages: 20, donePages: 0, note: '' },
+      { num: 26, track: 'revision', phase: 'المرحلة ٢: المفصّل والحواميم (٢٧ – ٢٣)', title: 'الجزء ٢٦', range: 'الذاريات (٣٠) ← الأحقاف', totalPages: 20, donePages: 0, note: '' },
+      { num: 25, track: 'revision', phase: 'المرحلة ٢: المفصّل والحواميم (٢٧ – ٢٣)', title: 'الجزء ٢٥', range: 'الجاثية ← فصلت (٤٧) • بعده أسبوع تثبيت', totalPages: 20, donePages: 0, note: '' },
+      { num: 24, track: 'revision', phase: 'المرحلة ٢: المفصّل والحواميم (٢٧ – ٢٣)', title: 'الجزء ٢٤', range: 'فصلت (٤٦) ← الزمر (٣٢)', totalPages: 20, donePages: 0, note: '' },
+      { num: 23, track: 'revision', phase: 'المرحلة ٢: المفصّل والحواميم (٢٧ – ٢٣)', title: 'الجزء ٢٣', range: 'الزمر (٣١) ← يس (٢٨)', totalPages: 20, donePages: 0, note: '' },
+      { num: 22, track: 'revision', phase: 'المرحلة ٣: الأجزاء الوسطى (٢٢ – ١٧)', title: 'الجزء ٢٢', range: 'يس (٢٧) ← الأحزاب (٣١) • بعده أسبوع تثبيت', totalPages: 20, donePages: 0, note: '' },
+      { num: 21, track: 'revision', phase: 'المرحلة ٣: الأجزاء الوسطى (٢٢ – ١٧)', title: 'الجزء ٢١', range: 'الأحزاب (٣٠) ← العنكبوت (٤٦)', totalPages: 20, donePages: 0, note: '' },
+      { num: 20, track: 'revision', phase: 'المرحلة ٣: الأجزاء الوسطى (٢٢ – ١٧)', title: 'الجزء ٢٠', range: 'العنكبوت (٤٥) ← النمل (٥٦)', totalPages: 20, donePages: 0, note: '' },
+      { num: 19, track: 'revision', phase: 'المرحلة ٣: الأجزاء الوسطى (٢٢ – ١٧)', title: 'الجزء ١٩', range: 'النمل (٥٥) ← الفرقان (٢١) • بعده أسبوع تثبيت', totalPages: 20, donePages: 0, note: '' },
+      { num: 18, track: 'revision', phase: 'المرحلة ٣: الأجزاء الوسطى (٢٢ – ١٧)', title: 'الجزء ١٨', range: 'الفرقان (٢٠) ← المؤمنون', totalPages: 20, donePages: 0, note: '' },
+      { num: 17, track: 'revision', phase: 'المرحلة ٣: الأجزاء الوسطى (٢٢ – ١٧)', title: 'الجزء ١٧', range: 'الحج ← الأنبياء', totalPages: 20, donePages: 0, note: '' },
+      { num: 16, track: 'revision', phase: 'المرحلة ٤: الوصول لسورة يونس (١٦ – ١٢)', title: 'الجزء ١٦', range: 'طه ← الكهف (٧٥) • بعده أسبوع تثبيت', totalPages: 20, donePages: 0, note: '' },
+      { num: 15, track: 'revision', phase: 'المرحلة ٤: الوصول لسورة يونس (١٦ – ١٢)', title: 'الجزء ١٥', range: 'الكهف (٧٤) ← الإسراء', totalPages: 20, donePages: 0, note: '' },
+      { num: 14, track: 'revision', phase: 'المرحلة ٤: الوصول لسورة يونس (١٦ – ١٢)', title: 'الجزء ١٤', range: 'النحل ← الحجر', totalPages: 20, donePages: 0, note: '' },
+      { num: 13, track: 'revision', phase: 'المرحلة ٤: الوصول لسورة يونس (١٦ – ١٢)', title: 'الجزء ١٣', range: 'إبراهيم ← يوسف (٥٣) • بعده أسبوع تثبيت', totalPages: 20, donePages: 0, note: '' },
+      { num: 12, track: 'revision', phase: 'المرحلة ٤: الوصول لسورة يونس (١٦ – ١٢)', title: 'الجزء ١٢ (هود ويوسف)', range: 'يوسف (٥٢) ← بداية هود • نهاية الترميم!', totalPages: 20, donePages: 0, note: '' },
+
+      {
+        num: 11, track: 'new', phase: 'مسار الجديد — السبع الطوال وما قبلها (١١ – ٧)',
+        title: 'الجزء ١١ (يونس والتوبة)', range: 'سورة يونس + أواخر التوبة (٩٣–١٢٩)', totalPages: 20, donePages: 0, basePages: 0,
+        note: 'موضعك الحالي في المقرأة (الإثنين والخميس)',
+        surahs: [
+          { name: 'سورة يونس (الربع ١)', pages: 3.5, done: false },
+          { name: 'سورة يونس (الربع ٢)', pages: 3.5, done: false },
+          { name: 'سورة يونس (الربع ٣)', pages: 3.5, done: false },
+          { name: 'سورة يونس (الربع ٤)', pages: 3.5, done: false },
+          { name: 'أواخر التوبة (٩٣–١٢٩)', pages: 6, done: false }
+        ]
+      },
+      { num: 10, track: 'new', phase: 'مسار الجديد — السبع الطوال وما قبلها (١١ – ٧)', title: 'الجزء ١٠', range: 'التوبة (١–٩٢) ← الأنفال (٤١)', totalPages: 20, donePages: 0, note: '' },
+      { num: 9, track: 'new', phase: 'مسار الجديد — السبع الطوال وما قبلها (١١ – ٧)', title: 'الجزء ٩', range: 'الأنفال (١–٤٠) ← الأعراف (٨٨)', totalPages: 20, donePages: 0, note: '' },
+      { num: 8, track: 'new', phase: 'مسار الجديد — السبع الطوال وما قبلها (١١ – ٧)', title: 'الجزء ٨', range: 'الأعراف (١–٨٧) ← الأنعام (١١١)', totalPages: 20, donePages: 0, note: '' },
+      { num: 7, track: 'new', phase: 'مسار الجديد — السبع الطوال وما قبلها (١١ – ٧)', title: 'الجزء ٧', range: 'الأنعام (١–١١٠) ← المائدة (٨٢)', totalPages: 20, donePages: 0, note: '' },
+      { num: 6, track: 'new', phase: 'مسار الجديد — السور الطوال (٦ – ١)', title: 'الجزء ٦', range: 'المائدة (١–٨١) ← النساء (١٤٨)', totalPages: 20, donePages: 0, note: '' },
+      { num: 5, track: 'new', phase: 'مسار الجديد — السور الطوال (٦ – ١)', title: 'الجزء ٥', range: 'سورة النساء (٢٤ – ١٤٧)', totalPages: 20, donePages: 0, note: '' },
+      { num: 4, track: 'new', phase: 'مسار الجديد — السور الطوال (٦ – ١)', title: 'الجزء ٤', range: 'النساء (١–٢٣) ← آل عمران (٩٣)', totalPages: 20, donePages: 0, note: '' },
+      { num: 3, track: 'new', phase: 'مسار الجديد — السور الطوال (٦ – ١)', title: 'الجزء ٣', range: 'آل عمران (١–٩٢) ← البقرة (٢٥٣)', totalPages: 20, donePages: 0, note: '' },
+      { num: 2, track: 'new', phase: 'مسار الجديد — السور الطوال (٦ – ١)', title: 'الجزء ٢', range: 'سورة البقرة (١٤٢ – ٢٥٢)', totalPages: 20, donePages: 0, note: '' },
+      { num: 1, track: 'new', phase: 'مسار الجديد — السور الطوال (٦ – ١)', title: 'الجزء ١ (الختام المبارك)', range: 'البقرة (١–١٤١) + الفاتحة', totalPages: 21, donePages: 0, note: '' }
+    ];
+
+    // Classic Weekly Schedule structure (Saturday -> Friday, Session 1: 40m + Session 2: 20m) — completely flexible without time-of-day labels
+    const DEFAULT_SCHEDULE = [
+      { id: 'sat', jsDay: 6, name: 'السبت', maqraa: false, main: 'ترميم المرسلات + الإنسان (٣.٥ أوجه)', second: 'تسميع المرسلات والإنسان ومراجعتها (١٠ د)', solid: 'صندوق التثبيت: الناس ← البينة + ربط الجديد (١٠ د)', mDone: false, eDone: false, sDone: false },
+      { id: 'sun', jsDay: 0, name: 'الأحد', maqraa: false, main: 'حفظ ورد سورة يونس الجديد (٤٠ د)', second: 'تثبيت وربط ورد يونس بالسابق (١٠ د)', solid: 'صندوق التثبيت: القدر ← الفجر (١٠ د)', mDone: false, eDone: false, sDone: false },
+      { id: 'mon', jsDay: 1, name: 'الإثنين', maqraa: true, main: '١٥ د مراجعة ورد يونس + ١٥ د ترميم القيامة', second: 'تسميع الورد الجديد في المقرأة + التقييم', solid: 'صندوق التثبيت: الغاشية ← البروج (١٠ د)', mDone: false, eDone: false, sDone: false },
+      { id: 'tue', jsDay: 2, name: 'الثلاثاء', maqraa: false, main: 'ترميم المدثر + المزمل (٣.٥ أوجه)', second: 'تسميع المدثر والمزمل ومراجعتها (١٠ د)', solid: 'صندوق التثبيت: الانشقاق ← التكوير + ربط الجديد (١٠ د)', mDone: false, eDone: false, sDone: false },
+      { id: 'wed', jsDay: 3, name: 'الأربعاء', maqraa: false, main: 'حفظ ورد سورة يونس الجديد (٤٠ د)', second: 'تثبيت وربط ورد يونس بالسابق (١٠ د)', solid: 'صندوق التثبيت: عبس ← النبأ (١٠ د)', mDone: false, eDone: false, sDone: false },
+      { id: 'thu', jsDay: 4, name: 'الخميس', maqraa: true, main: '١٥ د مراجعة ورد يونس + ٢٥ د تجميع ترميم الأسبوع', second: 'تسميع الورد الجديد في المقرأة + التقييم', solid: 'صندوق التثبيت: جلسة تثبيت وربط الجديد (١٠ د)', mDone: false, eDone: false, sDone: false },
+      { id: 'fri', jsDay: 5, name: 'الجمعة', maqraa: false, main: 'ترميم الجن + نوح (٣.٥ أوجه) أو تعويض الأسبوع', second: 'تسميع الجن ونوح ومراجعتها (١٠ د)', solid: 'صندوق التثبيت: بداية لفة جديدة للقديم والجديد (١٠ د)', mDone: false, eDone: false, sDone: false }
+    ];
+
+    const DEFAULT_AMMA_CYCLE = [
+      { id: 'c1', label: 'اليوم ١: الناس ← البينة', done: false },
+      { id: 'c2', label: 'اليوم ٢: القدر ← الفجر', done: false },
+      { id: 'c3', label: 'اليوم ٣: الغاشية ← البروج', done: false },
+      { id: 'c4', label: 'اليوم ٤: الانشقاق ← التكوير', done: false },
+      { id: 'c5', label: 'اليوم ٥: عبس ← النبأ', done: false }
+    ];
+
+    function getInitialState() {
+      return {
+        juzList: JSON.parse(JSON.stringify(DEFAULT_JUZ)),
+        schedule: JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)),
+        weekArchives: [],
+        solidMeta: {},
+        ammaCycle: JSON.parse(JSON.stringify(DEFAULT_AMMA_CYCLE)),
+        activeWird: null,
+        maqraaLogs: [],
+        newLinkingGroups: [],
+        streak: { count: 0, lastDate: '' },
+        mapFilter: 'revision',
+        solidSubTab: 'new',
+        expandedJuz: { 30: true, 29: true, 11: true },
+        calcDailyMin: 60,
+        calcNewPages: 1.25
+      };
+    }
+
+    let state = loadState();
+    let editingDayId = null;
+    let selectedRating = 'ممتاز';
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('rafiq_altathbit_khatma_v3') || localStorage.getItem('rafiq_altathbit_khatma_v2');
+        if (!raw) return getInitialState();
+        const parsed = JSON.parse(raw);
+        const init = getInitialState();
+        let sched = init.schedule;
+        if (parsed.schedule && parsed.schedule.length === 7) {
+          sched = parsed.schedule.map((d, i) => ({
+            ...init.schedule[i],
+            ...d,
+            main: d.main || d.morning || init.schedule[i].main,
+            second: d.second || d.evening || init.schedule[i].second
+          }));
+        }
+        return {
+          ...init,
+          ...parsed,
+          juzList: parsed.juzList && parsed.juzList.length === 30 ? parsed.juzList : init.juzList,
+          schedule: sched,
+          ammaCycle: parsed.ammaCycle || init.ammaCycle,
+          solidMeta: parsed.solidMeta || {},
+          newLinkingGroups: parsed.newLinkingGroups || [],
+          expandedJuz: parsed.expandedJuz || init.expandedJuz
+        };
+      } catch (e) {
+        return getInitialState();
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {}
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toastEl');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(window._toastT);
+      window._toastT = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    function touchStreak() {
+      const today = new Date().toISOString().slice(0, 10);
+      if (state.streak.lastDate === today) return;
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      if (state.streak.lastDate === yesterday) {
+        state.streak.count += 1;
+      } else {
+        state.streak.count = 1;
+      }
+      state.streak.lastDate = today;
+    }
+
+    function syncSolidBoxMembership(juz) {
+      const isComplete = juz.donePages >= juz.totalPages - 0.01;
+      if (isComplete && !state.solidMeta[juz.num]) {
+        state.solidMeta[juz.num] = {
+          reviews: 0,
+          lastReviewed: '',
+          addedAt: new Date().toISOString().slice(0, 10)
+        };
+        showToast(`مبارك! دخل ${juz.title} تلقائياً في صندوق التثبيت (تثبيت قديم)`);
+      } else if (!isComplete && state.solidMeta[juz.num]) {
+        delete state.solidMeta[juz.num];
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.add('active');
+
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderAll();
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderSchedule();
+      renderSolidTab();
+      renderMap();
+      updateCalculator();
+    }
+
+    // ================= TAB 1: HOME + NEW MEMORIZATION =================
+    function renderDashboard() {
+      const revList = state.juzList.filter(j => j.track === 'revision');
+      const newList = state.juzList.filter(j => j.track === 'new');
+
+      const totalPages = state.juzList.reduce((s, j) => s + j.totalPages, 0);
+      const donePages = state.juzList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+      const pct = Math.round((donePages / totalPages) * 100);
+
+      const revDoneJuz = revList.filter(j => j.donePages >= j.totalPages - 0.01).length;
+      const revDonePages = revList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+      const revTotalPages = revList.reduce((s, j) => s + j.totalPages, 0);
+
+      const newDoneJuz = newList.filter(j => j.donePages >= j.totalPages - 0.01).length;
+      const newDonePages = newList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+      const newTotalPages = newList.reduce((s, j) => s + j.totalPages, 0);
+
+      const solidOldCount = revDoneJuz + newDoneJuz;
+      const activeLinkGroups = state.newLinkingGroups.filter(g => !g.archived);
+      const solidNewPassages = activeLinkGroups.reduce((s, g) => s + g.passages.length, 0);
+
+      const circ = 352;
+      document.getElementById('khatmaRingCircle').style.strokeDashoffset = circ - (circ * pct / 100);
+      document.getElementById('khatmaPct').textContent = pct + '%';
+      document.getElementById('khatmaPagesText').textContent = `${formatNum(donePages)} / ${totalPages} وجهاً`;
+
+      document.getElementById('revProgressLabel').textContent = `${revDoneJuz} / 19 جزء`;
+      document.getElementById('revProgressBar').style.width = `${(revDonePages / revTotalPages * 100).toFixed(1)}%`;
+      document.getElementById('revPagesDetail').textContent = `${formatNum(revDonePages)} من ${revTotalPages} وجهاً (متبقٍ ${formatNum(revTotalPages - revDonePages)})`;
+
+      document.getElementById('newProgressLabel').textContent = `${newDoneJuz} / 11 جزء`;
+      document.getElementById('newProgressBar').style.width = `${(newDonePages / newTotalPages * 100).toFixed(1)}%`;
+      document.getElementById('newPagesDetail').textContent = `${formatNum(newDonePages)} من ${newTotalPages} وجهاً (متبقٍ ${formatNum(newTotalPages - newDonePages)})`;
+
+      document.getElementById('solidProgressLabel').textContent = `${solidOldCount} أجزاء قديم • ${solidNewPassages} مقاطع جديد`;
+      document.getElementById('solidProgressBar').style.width = `${(solidOldCount / 30 * 100).toFixed(1)}%`;
+
+      document.getElementById('streakBadge').textContent = `🔥 ${state.streak.count} أيام`;
+
+      // Render New Memorization Workflow directly inside Home Page
+      renderHomeNewWorkflow();
+
+      const curRev = revList.find(j => j.donePages < j.totalPages - 0.01) || revList[revList.length - 1];
+      const curNew = newList.find(j => j.donePages < j.totalPages - 0.01) || newList[newList.length - 1];
+
+      document.getElementById('statCurrentRev').textContent = `الجزء ${curRev.num}`;
+      document.getElementById('statCurrentRevSub').textContent = `${formatNum(curRev.donePages)} / ${curRev.totalPages} وجهاً`;
+
+      document.getElementById('statCurrentNew').textContent = `الجزء ${curNew.num}`;
+      document.getElementById('statCurrentNewSub').textContent = `${formatNum(curNew.donePages)} / ${curNew.totalPages} وجهاً`;
+
+      document.getElementById('statSolidNewCount').textContent = `${solidNewPassages} مقاطع`;
+      document.getElementById('statSolidNewSub').textContent = activeLinkGroups.length > 0 ? `في ${activeLinkGroups.length} سورة بصندوق التثبيت` : 'اضغط لفتح التثبيت';
+
+      let doneT = 0, totalT = state.schedule.length * 3;
+      state.schedule.forEach(d => {
+        if (d.mDone) doneT++;
+        if (d.eDone) doneT++;
+        if (d.sDone) doneT++;
+      });
+      document.getElementById('statWeekPct').textContent = Math.round(doneT / totalT * 100) + '%';
+      document.getElementById('statWeekSub').textContent = `${doneT} من ${totalT} مهمة`;
+
+      const alertBox = document.getElementById('stabilizationAlert');
+      if (revDoneJuz > 0 && revDoneJuz % 3 === 0) {
+        alertBox.innerHTML = `
+          <div class="alert-banner">
+            <span style="font-size:1.3rem;">🛡️</span>
+            <div>
+              <strong>حان موعد "أسبوع التثبيت" (أتممت ${revDoneJuz} أجزاء ترميم)!</strong>
+              استمر في جديد المقرأة عادي، وخصص مهام الترميم هذا الأسبوع لمراجعة الأجزاء الـ ${solidOldCount} في صندوق التثبيت قبل فتح الجزء التالي.
+            </div>
+          </div>`;
+      } else {
+        alertBox.innerHTML = '';
+      }
+
+      const jsToday = new Date().getDay();
+      const todayObj = state.schedule.find(d => d.jsDay === jsToday) || state.schedule[0];
+      document.getElementById('todayDayTitle').textContent = todayObj.name + (todayObj.maqraa ? ' • يوم المقرأة' : '');
+      document.getElementById('todayTasksContainer').innerHTML = `
+        <div class="task-row ${todayObj.mDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'mDone')">
+          <div class="check-circle">${todayObj.mDone ? '✓' : ''}</div>
+          <div class="task-text">
+            <strong>الجلسة ١ — الأساسية (٤٠ دقيقة)</strong>
+            <small>${escapeHtml(todayObj.main)}</small>
+          </div>
+        </div>
+        <div class="task-row ${todayObj.eDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'eDone')">
+          <div class="check-circle">${todayObj.eDone ? '✓' : ''}</div>
+          <div class="task-text">
+            <strong>${todayObj.maqraa ? 'الجلسة ٢ — تسميع المقرأة' : 'الجلسة ٢ — التسميع والربط (١٠ دقائق)'}</strong>
+            <small>${escapeHtml(todayObj.second)}</small>
+          </div>
+        </div>
+        <div class="task-row ${todayObj.sDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'sDone')">
+          <div class="check-circle">${todayObj.sDone ? '✓' : ''}</div>
+          <div class="task-text">
+            <strong>صندوق التثبيت — قديم وجديد (١٠ دقائق)</strong>
+            <small>${escapeHtml(todayObj.solid)}</small>
+          </div>
+        </div>
+      `;
+
+      const j30 = state.juzList.find(j => j.num === 30);
+      const j30Card = document.getElementById('juz30FastCard');
+      if (j30 && j30.donePages < j30.totalPages - 0.01 && j30.surahs) {
+        j30Card.style.display = 'block';
+        document.getElementById('juz30QuickSurahs').innerHTML = j30.surahs.map((s, idx) => `
+          <div class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(30, ${idx})">
+            <span>${s.done ? '✓' : '○'} ${s.name}</span>
+            <small>${s.pages} وجه</small>
+          </div>
+        `).join('');
+      } else {
+        j30Card.style.display = 'none';
+      }
+    }
+
+    function renderHomeNewWorkflow() {
+      const container = document.getElementById('homeNewWorkflowCard');
+      const newJuzOptions = state.juzList
+        .filter(j => j.track === 'new')
+        .map(j => `<option value="${j.num}">${j.title} — ${j.range}</option>`)
+        .join('');
+
+      if (!state.activeWird) {
+        const lastSurah = state.maqraaLogs.length > 0 ? state.maqraaLogs[0].surahName : 'سورة يونس';
+        container.innerHTML = `
+          <div class="card">
+            <div class="card-title">
+              <h2>📖 الحفظ الجديد — تسجيل الورد القادم</h2>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('solid'); setSolidTab('new');">تثبيت الجديد ↗</button>
+            </div>
+            <p style="margin:0 0 11px; font-size:0.8rem; color:var(--text-muted);">
+              سجّل الورد الجديد هنا، ولما تسمّعه اضغط <strong>"تم التسميع + التقييم"</strong> فينتقل تلقائياً إلى <strong>صندوق التثبيت (تثبيت جديد)</strong> وتقدر تسجل اللي بعده فوراً.
+            </p>
+            <form onsubmit="registerNewWird(event)">
+              <div class="form-grid form-grid-2">
+                <div>
+                  <label class="field-label">اسم السورة</label>
+                  <input type="text" id="nwSurahName" value="${escapeAttr(lastSurah)}" placeholder="مثلاً: سورة يونس" required />
+                </div>
+                <div>
+                  <label class="field-label">المقطع / الآيات</label>
+                  <input type="text" id="nwPassage" placeholder="مثلاً: آية ١ – ١٥" required />
+                </div>
+                <div>
+                  <label class="field-label">عدد الأوجه</label>
+                  <input type="number" id="nwPages" step="0.25" min="0.25" max="10" value="1" required />
+                </div>
+                <div>
+                  <label class="field-label">الجزء (١١ ← ١)</label>
+                  <select id="nwJuz">${newJuzOptions}</select>
+                </div>
+              </div>
+              <div style="margin-top:9px;">
+                <input type="text" id="nwNote" placeholder="ملاحظة قبل الحفظ (اختياري — مثلاً: الوقف عند تمام المعنى)" />
+              </div>
+              <div style="margin-top:11px;">
+                <button type="submit" class="btn btn-gold btn-block">تسجيل الورد الجديد</button>
+              </div>
+            </form>
+          </div>
+        `;
+      } else {
+        const w = state.activeWird;
+        container.innerHTML = `
+          <div class="card card-active-wird">
+            <div class="card-title">
+              <h2>📖 الورد الجديد المسجّل (بانتظار التسميع)</h2>
+              <span class="tag tag-info">الجزء ${w.juzNum} • ${w.pages} وجه</span>
+            </div>
+            <div style="padding:11px 12px; border-radius:12px; background:rgba(0,17,43,0.55); border:1px solid rgba(239,200,121,0.32); margin-bottom:11px;">
+              <div style="font-size:1.05rem; font-weight:800; color:var(--gold-hi);">
+                ${escapeHtml(w.surahName)} — ${escapeHtml(w.passage)}
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+                سُجّل في ${w.createdAt} ${w.note ? `• 📝 ${escapeHtml(w.note)}` : ''}
+              </div>
+            </div>
+
+            <div style="margin-bottom:11px;">
+              <div class="task-row ${w.prepRead ? 'done' : ''}" onclick="toggleWirdPrep('prepRead')">
+                <div class="check-circle">${w.prepRead ? '✓' : ''}</div>
+                <div class="task-text"><strong>قراءة نظرية وفهم تمام المعنى</strong></div>
+              </div>
+              <div class="task-row ${w.prepMem ? 'done' : ''}" onclick="toggleWirdPrep('prepMem')">
+                <div class="check-circle">${w.prepMem ? '✓' : ''}</div>
+                <div class="task-text"><strong>الحفظ والتسميع الذاتي غيباً</strong></div>
+              </div>
+              <div class="task-row ${w.prepLink ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleWirdPrep('prepLink')">
+                <div class="check-circle">${w.prepLink ? '✓' : ''}</div>
+                <div class="task-text"><strong>ربط الورد بالمقطع السابق في السورة</strong></div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-gold" style="flex:1;" onclick="openReciteModal()">✅ تم التسميع + التقييم</button>
+              <button class="btn btn-danger btn-sm" onclick="cancelActiveWird()">تعديل / إلغاء</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function registerNewWird(e) {
+      e.preventDefault();
+      const surahName = document.getElementById('nwSurahName').value.trim();
+      const passage = document.getElementById('nwPassage').value.trim();
+      const pages = parseFloat(document.getElementById('nwPages').value) || 1;
+      const juzNum = parseInt(document.getElementById('nwJuz').value, 10) || 11;
+      const note = document.getElementById('nwNote').value.trim();
+
+      state.activeWird = {
+        id: 'w_' + Date.now(),
+        surahName,
+        passage,
+        pages,
+        juzNum,
+        note,
+        createdAt: new Date().toISOString().slice(0, 10),
+        prepRead: false,
+        prepMem: false,
+        prepLink: false
+      };
+      saveState();
+      renderAll();
+      showToast(`تم تسجيل الورد الجديد: ${surahName} — ${passage}`);
+    }
+
+    function toggleWirdPrep(field) {
+      if (!state.activeWird) return;
+      state.activeWird[field] = !state.activeWird[field];
+      if (state.activeWird[field]) touchStreak();
+      saveState();
+      renderHomeNewWorkflow();
+    }
+
+    function cancelActiveWird() {
+      if (!confirm('هل تريد إلغاء الورد المسجّل حالياً لتسجيل ورد آخر؟')) return;
+      state.activeWird = null;
+      saveState();
+      renderAll();
+      showToast('تم إلغاء الورد — يمكنك تسجيل ورد جديد الآن');
+    }
+
+    function openReciteModal() {
+      if (!state.activeWird) return;
+      const w = state.activeWird;
+      document.getElementById('reciteModalSummary').innerHTML = `
+        <strong style="color:var(--gold-hi);">${escapeHtml(w.surahName)} — ${escapeHtml(w.passage)}</strong>
+        <div style="color:var(--text-muted); font-size:0.78rem; margin-top:2px;">المقدار: ${w.pages} وجه • الجزء ${w.juzNum}</div>
+      `;
+      selectRating('ممتاز');
+      document.getElementById('reciteSheikhNote').value = w.note || '';
+      document.getElementById('reciteAutoMap').checked = true;
+      document.getElementById('reciteAddToLink').checked = true;
+      document.getElementById('reciteModal').classList.add('open');
+    }
+
+    function selectRating(rate) {
+      selectedRating = rate;
+      document.querySelectorAll('#ratingGrid .rating-choice').forEach(btn => {
+        btn.classList.remove('selected-excellent', 'selected-vgood', 'selected-good', 'selected-repeat');
+        const r = btn.getAttribute('data-rate');
+        if (r === rate) {
+          if (r === 'ممتاز') btn.classList.add('selected-excellent');
+          else if (r === 'جيد جداً') btn.classList.add('selected-vgood');
+          else if (r === 'جيد') btn.classList.add('selected-good');
+          else btn.classList.add('selected-repeat');
+        }
+      });
+      document.getElementById('reciteAutoMap').checked = (rate !== 'يحتاج إعادة');
+    }
+
+    function confirmRecitation() {
+      if (!state.activeWird) return;
+      const w = state.activeWird;
+      const note = document.getElementById('reciteSheikhNote').value.trim();
+      const autoMap = document.getElementById('reciteAutoMap').checked;
+      const addToLink = document.getElementById('reciteAddToLink').checked;
+      const today = new Date().toISOString().slice(0, 10);
+
+      state.maqraaLogs.unshift({
+        id: 'mq_' + Date.now(),
+        surahName: w.surahName,
+        passage: w.passage,
+        pages: w.pages,
+        juzNum: w.juzNum,
+        date: today,
+        rating: selectedRating,
+        note
+      });
+
+      if (autoMap) {
+        const targetJuz = state.juzList.find(j => j.num === w.juzNum);
+        if (targetJuz) {
+          targetJuz.donePages = Math.min(targetJuz.totalPages, Number((targetJuz.donePages + w.pages).toFixed(2)));
+          syncSolidBoxMembership(targetJuz);
+        }
+      }
+
+      if (addToLink) {
+        addPassageToLinkingGroup(w.surahName, w.passage, w.pages, selectedRating, today);
+      }
+
+      state.activeWird = null;
+      touchStreak();
+      saveState();
+      closeModal('reciteModal');
+      renderAll();
+      showToast(`تم التسميع (${selectedRating}) ونُقل إلى صندوق التثبيت ← تثبيت جديد ✓`);
+    }
+
+    // ================= TAB 2: WEEKLY SCHEDULE (CLASSIC ORGANIZED LAYOUT, FLEXIBLE TIME) =================
+    function renderSchedule() {
+      const jsToday = new Date().getDay();
+      document.getElementById('scheduleList').innerHTML = state.schedule.map(d => {
+        const isToday = d.jsDay === jsToday;
+        const doneCount = (d.mDone ? 1 : 0) + (d.eDone ? 1 : 0) + (d.sDone ? 1 : 0);
+        return `
+          <div class="week-day-row ${isToday ? 'today' : ''} ${d.maqraa ? 'maqraa-day' : ''}">
+            <div class="week-day-head">
+              <div class="day-name">
+                <span>${d.name}</span>
+                ${isToday ? '<span class="tag tag-gold">اليوم</span>' : ''}
+                ${d.maqraa ? '<span class="tag tag-info">يوم المقرأة</span>' : '<span class="tag tag-gold">وقت مرن</span>'}
+                ${doneCount === 3 ? '<span class="tag tag-success">✓ مكتمل</span>' : `<span style="font-size:0.74rem; color:var(--text-muted);">${doneCount}/3</span>`}
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="openEditDay('${d.id}')">تعديل</button>
+            </div>
+
+            <div class="week-sessions-grid">
+              <div class="session-col">
+                <div class="session-col-title">
+                  <span>الجلسة ١ (٤٠ دقيقة)</span>
+                  <span style="color:var(--text-dim); font-weight:600;">في أي وقت</span>
+                </div>
+                <div class="task-row ${d.mDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${d.id}', 'mDone')">
+                  <div class="check-circle">${d.mDone ? '✓' : ''}</div>
+                  <div class="task-text"><strong>${escapeHtml(d.main)}</strong></div>
+                </div>
+              </div>
+
+              <div class="session-col">
+                <div class="session-col-title">
+                  <span>الجلسة ٢ (٢٠ دقيقة)</span>
+                  <span style="color:var(--text-dim); font-weight:600;">${d.maqraa ? 'المقرأة + تثبيت' : 'تسميع + تثبيت'}</span>
+                </div>
+                <div class="task-row ${d.eDone ? 'done' : ''}" onclick="toggleDayTask('${d.id}', 'eDone')">
+                  <div class="check-circle">${d.eDone ? '✓' : ''}</div>
+                  <div class="task-text"><strong style="font-size:0.82rem;">${escapeHtml(d.second)}</strong></div>
+                </div>
+                <div class="task-row ${d.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${d.id}', 'sDone')">
+                  <div class="check-circle">${d.sDone ? '✓' : ''}</div>
+                  <div class="task-text"><strong style="font-size:0.82rem;">${escapeHtml(d.solid)}</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('archiveCountTag').textContent = `${state.weekArchives.length} أسابيع`;
+      const archEl = document.getElementById('weekArchiveList');
+      if (state.weekArchives.length === 0) {
+        archEl.innerHTML = '<div class="empty-state">عندما تنهي أسبوعك، اضغط "إغلاق الأسبوع وأرشفته" للاحتفاظ بتاريخ التزامك هنا.</div>';
+      } else {
+        archEl.innerHTML = state.weekArchives.map(a => `
+          <div class="log-item">
+            <div>
+              <strong style="font-size:0.88rem;">أسبوع منتهٍ في ${a.date}</strong>
+              <div style="font-size:0.76rem; color:var(--text-muted);">أنجزت ${a.doneTasks} من 21 مهمة • إجمالي الختمة وقتها: ${a.khatmaPct}%</div>
+            </div>
+            <span class="tag tag-success">${Math.round(a.doneTasks/21*100)}%</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function toggleDayTask(dayId, field) {
+      const d = state.schedule.find(x => x.id === dayId);
+      if (!d) return;
+      d[field] = !d[field];
+      if (d[field]) touchStreak();
+      saveState();
+      renderAll();
+    }
+
+    function openEditDay(dayId) {
+      const d = state.schedule.find(x => x.id === dayId);
+      if (!d) return;
+      editingDayId = dayId;
+      document.getElementById('editDayName').textContent = d.name;
+      document.getElementById('editMainText').value = d.main;
+      document.getElementById('editSecondText').value = d.second;
+      document.getElementById('editSolidText').value = d.solid;
+      document.getElementById('editDayModal').classList.add('open');
+    }
+
+    function saveDayEdit() {
+      const d = state.schedule.find(x => x.id === editingDayId);
+      if (d) {
+        d.main = document.getElementById('editMainText').value.trim() || d.main;
+        d.second = document.getElementById('editSecondText').value.trim() || d.second;
+        d.solid = document.getElementById('editSolidText').value.trim() || d.solid;
+        saveState();
+        renderAll();
+        showToast('تم تحديث مهام اليوم بنجاح');
+      }
+      closeModal('editDayModal');
+    }
+
+    function archiveWeek() {
+      let doneT = 0;
+      state.schedule.forEach(d => {
+        if (d.mDone) doneT++;
+        if (d.eDone) doneT++;
+        if (d.sDone) doneT++;
+      });
+      const totalPages = state.juzList.reduce((s, j) => s + j.totalPages, 0);
+      const donePages = state.juzList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+      const khatmaPct = Math.round(donePages / totalPages * 100);
+
+      state.weekArchives.unshift({
+        date: new Date().toISOString().slice(0, 10),
+        doneTasks: doneT,
+        khatmaPct
+      });
+      state.schedule.forEach(d => { d.mDone = false; d.eDone = false; d.sDone = false; });
+      saveState();
+      renderAll();
+      showToast('تم أرشفة الأسبوع وبدء أسبوع جديد ✓');
+    }
+
+    // ================= TAB 3: SOLID BOX (NEW + OLD + LOGS) =================
+    function setSolidTab(sub) {
+      state.solidSubTab = sub;
+      saveState();
+      renderSolidTab();
+    }
+
+    function renderSolidTab() {
+      const sub = state.solidSubTab || 'new';
+      document.getElementById('solidTabNew').classList.toggle('active', sub === 'new');
+      document.getElementById('solidTabOld').classList.toggle('active', sub === 'old');
+      document.getElementById('solidTabLogs').classList.toggle('active', sub === 'logs');
+
+      document.getElementById('solidPanelNew').style.display = sub === 'new' ? 'block' : 'none';
+      document.getElementById('solidPanelOld').style.display = sub === 'old' ? 'block' : 'none';
+      document.getElementById('solidPanelLogs').style.display = sub === 'logs' ? 'block' : 'none';
+
+      // Top summary counts
+      const completedList = state.juzList.filter(j => j.donePages >= j.totalPages - 0.01);
+      const activeGroups = state.newLinkingGroups.filter(g => !g.archived);
+      const archivedGroups = state.newLinkingGroups.filter(g => g.archived);
+      const totalNewPassages = activeGroups.reduce((s, g) => s + g.passages.length, 0);
+
+      document.getElementById('solidBoxOldSummary').textContent = `${completedList.length} أجزاء`;
+      document.getElementById('solidBoxNewSummary').textContent = `${totalNewPassages} مقاطع (${activeGroups.length} سورة)`;
+
+      // 1. Render تثبيت جديد (Linking Groups)
+      const linkContainer = document.getElementById('linkingGroupsContainer');
+      const linkAlert = document.getElementById('linkingAlertBanner');
+      const dueGroup = activeGroups.find(g => g.passages.length >= 3 && g.linkCount < Math.floor(g.passages.length / 2));
+
+      if (dueGroup) {
+        const sumP = dueGroup.passages.reduce((s, p) => s + p.pages, 0);
+        linkAlert.innerHTML = `
+          <div class="alert-banner">
+            <span style="font-size:1.25rem;">🔗</span>
+            <div>
+              <strong>حان وقت جلسة تثبيت وربط لـ ${escapeHtml(dueGroup.surahName)}!</strong>
+              تجمّع فيها ${dueGroup.passages.length} مقاطع (${formatNum(sumP)} وجه). اسردها متصلة الآن لتتلاحم السورة ولا يتفلت أولها.
+            </div>
+          </div>`;
+      } else {
+        linkAlert.innerHTML = '';
+      }
+
+      if (activeGroups.length === 0 && archivedGroups.length === 0) {
+        linkContainer.innerHTML = `
+          <div class="empty-state">
+            قسم <strong>تثبيت الجديد</strong> فارغ حالياً.<br/>
+            بمجرد تسجيل وردك الجديد في <strong>الرئيسية</strong> والضغط على <strong>"تم التسميع + التقييم"</strong> سيدخل هنا تلقائياً مجمّعاً حسب السورة.
+          </div>`;
+      } else {
+        let html = '';
+        activeGroups.forEach(g => {
+          const sumPages = g.passages.reduce((s, p) => s + p.pages, 0);
+          const hasWeak = g.passages.some(p => p.rating === 'جيد' || p.rating === 'يحتاج إعادة');
+          html += `
+            <div class="link-group-card ${hasWeak ? 'priority' : ''}">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+                <div>
+                  <strong style="font-size:0.98rem; color:var(--gold-hi);">${escapeHtml(g.surahName)}</strong>
+                  <div style="font-size:0.76rem; color:var(--text-muted);">
+                    ${g.passages.length} مقاطع (${formatNum(sumPages)} وجه) • لفات التثبيت والربط: <strong style="color:var(--text-main);">${g.linkCount}</strong>
+                    ${g.lastLinked ? ` • آخر تثبيت: ${g.lastLinked}` : ''}
+                  </div>
+                </div>
+                ${hasWeak ? '<span class="tag tag-warn">أولوية تثبيت وربط</span>' : '<span class="tag tag-info">تثبيت جديد نشط</span>'}
+              </div>
+
+              <div class="passage-chain">
+                ${g.passages.map((p, idx) => {
+                  const weak = p.rating === 'جيد' || p.rating === 'يحتاج إعادة';
+                  return `
+                    <span class="passage-pill ${weak ? 'needs-work' : ''}">
+                      <span>${idx + 1}. ${escapeHtml(p.passage)} (${formatNum(p.pages)} وجه)</span>
+                      <span style="opacity:0.82;">• ${escapeHtml(p.rating)}</span>
+                      <button type="button" onclick="removeLinkPassage('${g.id}','${p.id}')" style="background:none;border:none;color:inherit;cursor:pointer;padding:0 2px;font-weight:900;">×</button>
+                    </span>`;
+                }).join('')}
+              </div>
+
+              <div style="display:flex; gap:7px; flex-wrap:wrap; margin-top:8px;">
+                <button class="btn btn-gold btn-sm" onclick="recordSurahLink('${g.id}')">+ لفة تثبيت وربط للسورة</button>
+                <button class="btn btn-outline btn-sm" onclick="startLinkTimer()">مؤقت الربط (٦ د)</button>
+                <button class="btn btn-success btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">تم إتقان السورة ✓</button>
+              </div>
+            </div>`;
+        });
+
+        if (archivedGroups.length > 0) {
+          html += `<div style="margin-top:14px; font-size:0.82rem; font-weight:800; color:var(--success); margin-bottom:8px;">✓ سور كبيرة تم تثبيتها وإتقانها (${archivedGroups.length})</div>`;
+          archivedGroups.forEach(g => {
+            const sumPages = g.passages.reduce((s, p) => s + p.pages, 0);
+            html += `
+              <div class="log-item">
+                <div>
+                  <strong style="font-size:0.9rem; color:var(--success);">${escapeHtml(g.surahName)}</strong>
+                  <div style="font-size:0.76rem; color:var(--text-muted);">${g.passages.length} مقاطع (${formatNum(sumPages)} وجه) • ثُبّتت ${g.linkCount} مرات</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">إعادة للتثبيت</button>
+              </div>`;
+          });
+        }
+        linkContainer.innerHTML = html;
+      }
+
+      // 2. Render تثبيت قديم (Completed Juz)
+      document.getElementById('solidCountBadge').textContent = `${completedList.length} أجزاء`;
+      const solidEl = document.getElementById('solidBoxList');
+      if (completedList.length === 0) {
+        solidEl.innerHTML = `
+          <div class="empty-state">
+            قسم <strong>تثبيت القديم</strong> بانتظار أول جزء مكتمل.<br/>
+            بمجرد الانتهاء من آخر ٤ سور في <strong>الجزء ٣٠ (عمّ)</strong>، سيدخل هنا تلقائياً!
+          </div>`;
+      } else {
+        solidEl.innerHTML = completedList.map(j => {
+          const meta = state.solidMeta[j.num] || { reviews: 0, lastReviewed: '' };
+          return `
+            <div class="log-item">
+              <div>
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <strong style="font-size:0.92rem;">${j.title}</strong>
+                  <span class="tag ${j.track === 'new' ? 'tag-info' : 'tag-gold'}">${j.track === 'new' ? 'مكتمل من الجديد' : 'مكتمل من الترميم'}</span>
+                </div>
+                <div style="font-size:0.76rem; color:var(--text-muted); margin-top:3px;">
+                  لفات التثبيت: <strong style="color:var(--gold-hi);">${meta.reviews}</strong>
+                  ${meta.lastReviewed ? ` • آخر مراجعة: ${meta.lastReviewed}` : ' • لم يُراجع بعد'}
+                </div>
+              </div>
+              <button class="btn btn-gold btn-sm" onclick="addSolidReview(${j.num})">+ لفة تثبيت</button>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('ammaCycleList').innerHTML = state.ammaCycle.map(c => `
+        <div class="task-row ${c.done ? 'done' : ''}" onclick="toggleAmmaCycle('${c.id}')">
+          <div class="check-circle">${c.done ? '✓' : ''}</div>
+          <div class="task-text"><strong>${c.label}</strong></div>
+        </div>
+      `).join('');
+
+      // 3. Render سجل التسميع (History)
+      document.getElementById('maqraaCountTag').textContent = `${state.maqraaLogs.length} حصص`;
+      const logEl = document.getElementById('maqraaLogList');
+      if (state.maqraaLogs.length === 0) {
+        logEl.innerHTML = '<div class="empty-state">سجّل وردك الجديد من الصفحة الرئيسية، وعند تأكيد تسميعه سيُحفظ هنا بتقييمه الكامل.</div>';
+      } else {
+        logEl.innerHTML = state.maqraaLogs.map(item => `
+          <div class="log-item">
+            <div>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <strong style="font-size:0.9rem; color:var(--gold-hi);">${escapeHtml(item.surahName)} — ${escapeHtml(item.passage)}</strong>
+                ${ratingBadgeHtml(item.rating)}
+              </div>
+              <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">
+                ${formatNum(item.pages)} وجه • الجزء ${item.juzNum} • ${item.date}
+              </div>
+              ${item.note ? `<div style="font-size:0.77rem; color:var(--text-main); margin-top:3px;">📝 ${escapeHtml(item.note)}</div>` : ''}
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteMaqraaLog('${item.id}')">حذف</button>
+          </div>
+        `).join('');
+      }
+    }
+
+    function ratingBadgeHtml(r) {
+      if (r === 'ممتاز') return '<span class="tag tag-success">تقييم: ممتاز</span>';
+      if (r === 'جيد جداً') return '<span class="tag tag-gold">تقييم: جيد جداً</span>';
+      if (r === 'جيد') return '<span class="tag tag-warn">تقييم: جيد (تثبيت)</span>';
+      return '<span class="tag tag-danger">يحتاج إعادة</span>';
+    }
+
+    function addPassageToLinkingGroup(surahName, passage, pages, rating, date) {
+      const cleanName = surahName.trim();
+      let group = state.newLinkingGroups.find(g => g.surahName === cleanName && !g.archived);
+      if (!group) {
+        group = {
+          id: 'lg_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          surahName: cleanName,
+          archived: false,
+          linkCount: 0,
+          lastLinked: '',
+          passages: []
+        };
+        state.newLinkingGroups.unshift(group);
+      }
+      group.passages.push({
+        id: 'p_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        passage: passage.trim(),
+        pages: Number(pages) || 1,
+        rating,
+        date
+      });
+    }
+
+    function openManualLinkModal() {
+      document.getElementById('manualLinkModal').classList.add('open');
+    }
+
+    function saveManualLinkPassage(e) {
+      e.preventDefault();
+      const surahName = document.getElementById('mlSurah').value.trim();
+      const passage = document.getElementById('mlPassage').value.trim();
+      const pages = parseFloat(document.getElementById('mlPages').value) || 1;
+      const rating = document.getElementById('mlRating').value;
+      const today = new Date().toISOString().slice(0, 10);
+
+      addPassageToLinkingGroup(surahName, passage, pages, rating, today);
+      saveState();
+      closeModal('manualLinkModal');
+      document.getElementById('mlPassage').value = '';
+      renderAll();
+      showToast(`أُضيف المقطع لـ ${surahName} في تثبيت الجديد`);
+    }
+
+    function recordSurahLink(groupId) {
+      const g = state.newLinkingGroups.find(x => x.id === groupId);
+      if (!g) return;
+      g.linkCount += 1;
+      g.lastLinked = new Date().toISOString().slice(0, 10);
+      touchStreak();
+      saveState();
+      renderAll();
+      showToast(`تم تسجيل لفة تثبيت وربط لـ ${g.surahName} (المرة ${g.linkCount})`);
+    }
+
+    function removeLinkPassage(groupId, passageId) {
+      const g = state.newLinkingGroups.find(x => x.id === groupId);
+      if (!g) return;
+      g.passages = g.passages.filter(p => p.id !== passageId);
+      if (g.passages.length === 0) {
+        state.newLinkingGroups = state.newLinkingGroups.filter(x => x.id !== groupId);
+      }
+      saveState();
+      renderAll();
+    }
+
+    function toggleArchiveLinkGroup(groupId) {
+      const g = state.newLinkingGroups.find(x => x.id === groupId);
+      if (!g) return;
+      g.archived = !g.archived;
+      saveState();
+      renderAll();
+      showToast(g.archived ? `تم توثيق إتقان ${g.surahName} ✓` : `تمت إعادة ${g.surahName} للتثبيت النشط`);
+    }
+
+    function startLinkTimer() {
+      switchTab('tools');
+      setTimerMode('link');
+    }
+
+    function deleteMaqraaLog(id) {
+      state.maqraaLogs = state.maqraaLogs.filter(x => x.id !== id);
+      saveState();
+      renderAll();
+    }
+
+    function addSolidReview(juzNum) {
+      if (!state.solidMeta[juzNum]) state.solidMeta[juzNum] = { reviews: 0, lastReviewed: '' };
+      state.solidMeta[juzNum].reviews += 1;
+      state.solidMeta[juzNum].lastReviewed = new Date().toISOString().slice(0, 10);
+      touchStreak();
+      saveState();
+      renderAll();
+      showToast(`تم تسجيل لفة تثبيت للجزء ${juzNum} ✓`);
+    }
+
+    function toggleAmmaCycle(id) {
+      const item = state.ammaCycle.find(c => c.id === id);
+      if (!item) return;
+      item.done = !item.done;
+      if (item.done) touchStreak();
+      if (state.ammaCycle.every(c => c.done)) {
+        if (state.solidMeta[30]) {
+          state.solidMeta[30].reviews += 1;
+          state.solidMeta[30].lastReviewed = new Date().toISOString().slice(0, 10);
+        }
+        showToast('مبارك! أتممت لفة كاملة لجزء عمّ في ٥ أيام 🎉');
+      }
+      saveState();
+      renderAll();
+    }
+
+    function resetAmmaCycle() {
+      state.ammaCycle.forEach(c => c.done = false);
+      saveState();
+      renderSolidTab();
+      showToast('بدأت لفة جديدة لجزء عمّ');
+    }
+
+    // ================= TAB 4: 30-JUZ MAP =================
+    function setMapFilter(filter) {
+      state.mapFilter = filter;
+      saveState();
+      renderMap();
+    }
+
+    function renderMap() {
+      ['Rev', 'New', 'All'].forEach(k => document.getElementById('filter' + k).classList.remove('active'));
+      if (state.mapFilter === 'revision') document.getElementById('filterRev').classList.add('active');
+      if (state.mapFilter === 'new') document.getElementById('filterNew').classList.add('active');
+      if (state.mapFilter === 'all') document.getElementById('filterAll').classList.add('active');
+
+      const filtered = state.juzList.filter(j => state.mapFilter === 'all' || j.track === state.mapFilter);
+      const phases = [];
+      filtered.forEach(j => {
+        let group = phases.find(p => p.name === j.phase);
+        if (!group) {
+          group = { name: j.phase, items: [] };
+          phases.push(group);
+        }
+        group.items.push(j);
+      });
+
+      const curRev = state.juzList.find(j => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
+      const curNew = state.juzList.find(j => j.track === 'new' && j.donePages < j.totalPages - 0.01);
+
+      let html = '';
+      phases.forEach(ph => {
+        const phDone = ph.items.filter(j => j.donePages >= j.totalPages - 0.01).length;
+        html += `<div class="phase-header"><h3>${ph.name}</h3><span>${phDone} / ${ph.items.length} مكتمل</span></div>`;
+
+        ph.items.forEach(j => {
+          const pct = Math.min(100, Math.round((j.donePages / j.totalPages) * 100));
+          const completed = j.donePages >= j.totalPages - 0.01;
+          const isActive = (curRev && curRev.num === j.num) || (curNew && curNew.num === j.num);
+          const expanded = !!state.expandedJuz[j.num];
+          const fillClass = completed ? 'bar-fill-success' : (j.track === 'new' ? 'bar-fill-info' : 'bar-fill-gold');
+
+          html += `
+            <div class="juz-card ${completed ? 'completed' : ''} ${isActive && !completed ? 'active-juz' : ''}">
+              <div class="juz-top">
+                <div>
+                  <div class="juz-title">
+                    <span>${j.title}</span>
+                    <span class="tag ${j.track === 'new' ? 'tag-info' : 'tag-gold'}">${j.track === 'new' ? 'حفظ جديد' : 'ترميم'}</span>
+                    ${completed ? '<span class="tag tag-success">✓ في صندوق التثبيت</span>' : (isActive ? '<span class="tag tag-gold">النشط حالياً</span>' : '')}
+                  </div>
+                  <div class="juz-sub">${j.range}</div>
+                </div>
+                <div style="text-align:left; flex-shrink:0;">
+                  <strong style="color:${completed ? 'var(--success)' : 'var(--gold-hi)'}; font-size:0.95rem;">${formatNum(j.donePages)} / ${j.totalPages}</strong>
+                  <div style="font-size:0.7rem; color:var(--text-muted);">${pct}%</div>
+                </div>
+              </div>
+
+              <div class="bar-track"><div class="${fillClass}" style="width:${pct}%"></div></div>
+
+              <div class="juz-controls">
+                <button class="btn btn-ghost btn-sm" onclick="adjustJuzPages(${j.num}, -1)">-١</button>
+                <button class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 0.5)">+٠.٥</button>
+                <button class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 1)">+١ وجه</button>
+                <button class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 3)">+٣ أوجه</button>
+                ${!completed
+                  ? `<button class="btn btn-success btn-sm" onclick="completeJuz(${j.num})">إتمام الجزء ✓</button>`
+                  : `<button class="btn btn-ghost btn-sm" onclick="resetJuz(${j.num})">إعادة فتح</button>`
+                }
+                ${j.surahs ? `<button class="btn btn-ghost btn-sm" onclick="toggleExpandJuz(${j.num})">${expanded ? 'إخفاء السور ▲' : 'تفاصيل السور ▼'}</button>` : ''}
+              </div>
+
+              ${j.surahs && expanded ? `
+                <div class="surah-list">
+                  ${j.surahs.map((s, idx) => `
+                    <div class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(${j.num}, ${idx})">
+                      <span>${s.done ? '✓' : '○'} ${s.name}</span>
+                      <small>${s.pages}</small>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <div style="margin-top:9px;">
+                <input type="text" value="${escapeAttr(j.note || '')}" placeholder="ملاحظة أو متشابهات هذا الجزء..."
+                  onchange="updateJuzNote(${j.num}, this.value)"
+                  style="padding:7px 10px; font-size:0.78rem; background:rgba(0,0,0,0.22); border-color:rgba(255,255,255,0.08);" />
+              </div>
+            </div>
+          `;
+        });
+      });
+
+      document.getElementById('juzMapContainer').innerHTML = html;
+    }
+
+    function adjustJuzPages(juzNum, delta) {
+      const j = state.juzList.find(x => x.num === juzNum);
+      if (!j) return;
+      j.donePages = Math.max(0, Math.min(j.totalPages, Number((j.donePages + delta).toFixed(2))));
+      if (delta > 0) touchStreak();
+      syncSolidBoxMembership(j);
+      saveState();
+      renderAll();
+    }
+
+    function completeJuz(juzNum) {
+      const j = state.juzList.find(x => x.num === juzNum);
+      if (!j) return;
+      j.donePages = j.totalPages;
+      if (j.surahs) j.surahs.forEach(s => s.done = true);
+      touchStreak();
+      syncSolidBoxMembership(j);
+      saveState();
+      renderAll();
+    }
+
+    function resetJuz(juzNum) {
+      const j = state.juzList.find(x => x.num === juzNum);
+      if (!j) return;
+      j.donePages = j.basePages || 0;
+      if (j.surahs) j.surahs.forEach(s => s.done = false);
+      syncSolidBoxMembership(j);
+      saveState();
+      renderAll();
+      showToast(`تم إعادة فتح ${j.title}`);
+    }
+
+    function toggleSurah(juzNum, idx) {
+      const j = state.juzList.find(x => x.num === juzNum);
+      if (!j || !j.surahs || !j.surahs[idx]) return;
+      j.surahs[idx].done = !j.surahs[idx].done;
+      const surahSum = j.surahs.reduce((sum, s) => sum + (s.done ? s.pages : 0), 0);
+      j.donePages = Math.min(j.totalPages, Number(((j.basePages || 0) + surahSum).toFixed(2)));
+      if (j.surahs[idx].done) touchStreak();
+      syncSolidBoxMembership(j);
+      saveState();
+      renderAll();
+    }
+
+    function toggleExpandJuz(juzNum) {
+      state.expandedJuz[juzNum] = !state.expandedJuz[juzNum];
+      saveState();
+      renderMap();
+    }
+
+    function updateJuzNote(juzNum, val) {
+      const j = state.juzList.find(x => x.num === juzNum);
+      if (j) {
+        j.note = val;
+        saveState();
+      }
+    }
+
+    function quickAddRevPage() {
+      const curRev = state.juzList.find(j => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
+      if (!curRev) {
+        showToast('ما شاء الله! أتممت مسار الترميم بالكامل');
+        return;
+      }
+      adjustJuzPages(curRev.num, 1);
+      showToast(`+١ وجه في ${curRev.title} (${formatNum(curRev.donePages)}/${curRev.totalPages})`);
+    }
+
+    // ================= TAB 5: TIMER & CALCULATOR =================
+    const TIMER_MODES = {
+      doctor: {
+        total: 12 * 60,
+        phases: [
+          { start: 0, end: 120, name: 'المرحلة ١: الكشف بالقلم الرصاص', hint: 'اقرأ الوجه نظر بصوت مسموع وعلّم على الآيات المتفلتة فقط (دقيقتان)' },
+          { start: 120, end: 420, name: 'المرحلة ٢: ترميم الآيات الواقعة فقط', hint: 'كرر كل آية معلّم عليها ٥ مرات واربطها بما قبلها وما بعدها (٥ دقائق)' },
+          { start: 420, end: 600, name: 'المرحلة ٣: الاختبار الغيبي والتصحيح السريع', hint: 'سمّع الوجه غيباً ولا ترجع للبداية لو وقفت — صحّح وكمل (٣ دقائق)' },
+          { start: 600, end: 720, name: 'المرحلة ٤: القفلة النظيفة', hint: 'تسميعة أخيرة متصلة من أول الوجه لآخره ثم انتقل للوجه التالي (دقيقتان)' }
+        ]
+      },
+      link: {
+        total: 6 * 60,
+        phases: [
+          { start: 0, end: 360, name: 'تثبيت الجديد — ربط مقاطع السورة الكبيرة', hint: 'اسرد مقاطعك الجديدة متصلة مع التركيز على نهايات وبدايات الأوجه' }
+        ]
+      },
+      solid: {
+        total: 10 * 60,
+        phases: [
+          { start: 0, end: 600, name: 'تثبيت القديم — سرد سريع للأجزاء المكتملة', hint: 'اقرأ ٤ إلى ٥ أوجه غيباً بسرعة متوازنة لتنشيط الذاكرة طويلة المدى' }
+        ]
+      }
+    };
+
+    let timerMode = 'doctor';
+    let timerRemaining = TIMER_MODES.doctor.total;
+    let timerInterval = null;
+    let lastPhaseIdx = 0;
+
+    function playChime() {
+      if (!document.getElementById('timerSoundToggle').checked) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(528, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(792, ctx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.65);
+      } catch (e) {}
+    }
+
+    function setTimerMode(mode) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerMode = mode;
+      timerRemaining = TIMER_MODES[mode].total;
+      lastPhaseIdx = 0;
+      document.getElementById('modeDoctor').classList.toggle('active', mode === 'doctor');
+      document.getElementById('modeLink').classList.toggle('active', mode === 'link');
+      document.getElementById('modeSolid').classList.toggle('active', mode === 'solid');
+      document.getElementById('doctorPhasePills').style.display = mode === 'doctor' ? 'grid' : 'none';
+      document.getElementById('timerStartBtn').textContent = 'ابدأ الجلسة';
+      renderTimer();
+    }
+
+    function toggleTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        document.getElementById('timerStartBtn').textContent = 'استكمال';
+      } else {
+        if (timerRemaining <= 0) timerRemaining = TIMER_MODES[timerMode].total;
+        document.getElementById('timerStartBtn').textContent = 'إيقاف مؤقت';
+        timerInterval = setInterval(() => {
+          timerRemaining--;
+          if (timerRemaining <= 0) {
+            timerRemaining = 0;
+            clearInterval(timerInterval);
+            timerInterval = null;
+            document.getElementById('timerStartBtn').textContent = 'ابدأ من جديد';
+            playChime();
+            showToast('انتهت الجلسة بنجاح! بارك الله في وقتك ✓');
+          }
+          renderTimer();
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerRemaining = TIMER_MODES[timerMode].total;
+      lastPhaseIdx = 0;
+      document.getElementById('timerStartBtn').textContent = 'ابدأ الجلسة';
+      renderTimer();
+    }
+
+    function renderTimer() {
+      const mins = String(Math.floor(timerRemaining / 60)).padStart(2, '0');
+      const secs = String(timerRemaining % 60).padStart(2, '0');
+      document.getElementById('timerClock').textContent = `${mins}:${secs}`;
+
+      const cfg = TIMER_MODES[timerMode];
+      const elapsed = cfg.total - timerRemaining;
+      let pIdx = cfg.phases.findIndex(p => elapsed >= p.start && elapsed < p.end);
+      if (pIdx === -1) pIdx = cfg.phases.length - 1;
+
+      if (timerInterval && pIdx !== lastPhaseIdx) {
+        lastPhaseIdx = pIdx;
+        playChime();
+      }
+      const phase = cfg.phases[pIdx];
+      document.getElementById('timerPhaseName').textContent = phase.name;
+      document.getElementById('timerPhaseHint').textContent = phase.hint;
+
+      if (timerMode === 'doctor') {
+        document.querySelectorAll('#doctorPhasePills .phase-pill').forEach((el, i) => {
+          el.classList.remove('current', 'passed');
+          if (i < pIdx) el.classList.add('passed');
+          else if (i === pIdx) el.classList.add('current');
+        });
+      }
+    }
+
+    function setCalcMin(m) {
+      document.getElementById('calcDailyMin').value = m;
+      updateCalculator();
+    }
+
+    function updateCalculator() {
+      const daily = parseInt(document.getElementById('calcDailyMin').value, 10) || 60;
+      const newPerSession = parseFloat(document.getElementById('calcNewPages').value) || 1.25;
+      state.calcDailyMin = daily;
+      state.calcNewPages = newPerSession;
+
+      document.getElementById('calcMinVal').textContent = `${daily} دقيقة يومياً (${daily * 7} د/أسبوع)`;
+      document.getElementById('calcNewPagesVal').textContent = `${newPerSession} وجه/حصة (${newPerSession * 2} وجهاً/أسبوع)`;
+
+      const weeklyTotal = daily * 7;
+      const newMin = newPerSession * 2 * 45;
+      const revPool = Math.max(0, weeklyTotal - newMin);
+      const restoreMin = revPool * 0.75;
+      const solidMin = revPool * 0.25;
+      const netRevPages = restoreMin / 15;
+
+      const remRevPages = state.juzList.filter(j => j.track === 'revision').reduce((s, j) => s + Math.max(0, j.totalPages - j.donePages), 0);
+      const remNewPages = state.juzList.filter(j => j.track === 'new').reduce((s, j) => s + Math.max(0, j.totalPages - j.donePages), 0);
+
+      document.getElementById('calcRevWeek').textContent = netRevPages > 0 ? `${netRevPages.toFixed(1)} وجه` : '0 وجه';
+      document.getElementById('calcWeeksJuz').textContent = netRevPages >= 0.5 ? `${(20 / netRevPages).toFixed(1)} أسبوع` : 'متوقف';
+      document.getElementById('calcOldMonths').textContent = remRevPages <= 0 ? 'مكتمل ✓' : (netRevPages >= 0.5 ? `${(remRevPages / (netRevPages * 4.33)).toFixed(1)} شهر` : '—');
+      document.getElementById('calcNewMonths').textContent = remNewPages <= 0 ? 'مكتمل ✓' : `${(remNewPages / (newPerSession * 2 * 4.33)).toFixed(1)} شهر`;
+
+      const denom = Math.max(weeklyTotal, newMin);
+      const pNew = (Math.min(newMin, weeklyTotal) / denom) * 100;
+      const pRes = (restoreMin / denom) * 100;
+      const pSol = (solidMin / denom) * 100;
+      const pDef = newMin > weeklyTotal ? ((newMin - weeklyTotal) / denom) * 100 : 0;
+
+      document.getElementById('calcDistBar').innerHTML = `
+        <div style="width:${pNew}%; background:#5AA9FF;"></div>
+        <div style="width:${pRes}%; background:linear-gradient(90deg,#EFC879,#D0A151);"></div>
+        <div style="width:${pSol}%; background:#38C98F;"></div>
+        ${pDef > 0 ? `<div style="width:${pDef}%; background:#FF6B7A;"></div>` : ''}
+      `;
+
+      document.getElementById('calcDistLegend').innerHTML = `
+        <span><i class="dot" style="background:#5AA9FF"></i>الجديد: ${Math.round(newMin)} د</span>
+        <span><i class="dot" style="background:#EFC879"></i>الترميم: ${Math.round(restoreMin)} د</span>
+        <span><i class="dot" style="background:#38C98F"></i>صندوق التثبيت: ${Math.round(solidMin)} د</span>
+      `;
+
+      const badge = document.getElementById('calcModeBadge');
+      const advice = document.getElementById('calcAdviceBox');
+      if (weeklyTotal < newMin) {
+        badge.textContent = 'عجز وقت';
+        advice.innerHTML = '⚠️ <strong>تنبيه:</strong> وقتك اليومي أقل من المطلوب لحصتي المقرأة. قلّل مقدار الجديد إلى <strong>وجه واحد</strong> أو ارفع وقتك اليومي.';
+      } else if (netRevPages < 3) {
+        badge.textContent = 'وضع الطوارئ';
+        advice.innerHTML = '🛡️ <strong>وضع الحماية:</strong> أوقف فتح أجزاء ترميم جديدة مؤقتاً، واحمِ تثبيت الجديد والقديم فقط حتى يتسع وقتك.';
+      } else if (netRevPages < 8) {
+        badge.textContent = 'متوازن ومستقر';
+        advice.innerHTML = '⚖️ <strong>إيقاع متوازن:</strong> تسير بثبات بين المقرأة والترميم، وتنهي الجزء القديم في حوالي ٣ أسابيع دون إرهاق.';
+      } else {
+        badge.textContent = 'إنجاز سريع';
+        advice.innerHTML = '🚀 <strong>إيقاع ممتاز:</strong> تنجز الجديد بأريحية وتلمّ الأجزاء القديمة بسرعة عالية مع تثبيت متوازن للقديم والجديد.';
+      }
+    }
+
+    // ================= BACKUP & UTILS =================
+    function exportBackup() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rafiq_altathbit_v4_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('تم تحميل النسخة الاحتياطية بنجاح ✓');
+    }
+
+    function importBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!data.juzList || data.juzList.length !== 30) throw new Error('invalid');
+          const init = getInitialState();
+          let sched = init.schedule;
+          if (data.schedule && data.schedule.length === 7) {
+            sched = data.schedule.map((d, i) => ({
+              ...init.schedule[i],
+              ...d,
+              main: d.main || d.morning || init.schedule[i].main,
+              second: d.second || d.evening || init.schedule[i].second
+            }));
+          }
+          state = { ...init, ...data, schedule: sched };
+          saveState();
+          renderAll();
+          showToast('تم استعادة بياناتك بالكامل بنجاح ✓');
+        } catch (err) {
+          showToast('الملف غير صالح — تأكد من اختيار نسخة رفيق التثبيت');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    function resetAllData() {
+      if (!confirm('هل أنت متأكد من مسح كل التقدم وإعادة ضبط التطبيق للبداية؟')) return;
+      state = getInitialState();
+      saveState();
+      renderAll();
+      showToast('تمت إعادة ضبط التطبيق');
+    }
+
+    function openAndroidModal() {
+      document.getElementById('androidModal').classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function formatNum(n) {
+      return Number.isInteger(n) ? String(n) : Number(n).toFixed(1).replace(/\.0$/, '');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str);
+    }
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('installPwaBtn').style.display = 'inline-flex';
+    });
+
+    function promptInstall() {
+      if (!deferredPrompt) { openAndroidModal(); return; }
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        document.getElementById('installPwaBtn').style.display = 'none';
+      });
+    }
+
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    document.getElementById('calcDailyMin').value = state.calcDailyMin || 60;
+    document.getElementById('calcNewPages').value = state.calcNewPages || 1.25;
+    renderAll();
+    renderTimer();
+  </script>
+</body>
+</html>
