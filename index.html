@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl" data-theme="royal">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" id="metaThemeColor" content="#00112B" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -19,12 +19,38 @@
 </head>
 <body>
 
+  <!-- Offline & Update Status Strips -->
+  <div id="offlineBanner" class="status-strip offline-banner" role="status" aria-live="polite">
+    <span>أنت تعمل الآن دون اتصال بالإنترنت — جميع بياناتك محفوظة محلياً على جهازك.</span>
+  </div>
+  <div id="swUpdateBanner" class="status-strip update-banner" role="status" aria-live="polite">
+    <span>يتوفر تحديث جديد للتطبيق.</span>
+    <button type="button" class="btn btn-gold btn-sm" onclick="location.reload()">تحديث الآن</button>
+  </div>
+
+  <!-- Graceful Fatal Error Fallback -->
+  <div id="fatalErrorFallback" style="display:none; max-width:520px; margin:40px auto; padding:20px;">
+    <div class="card alert-danger">
+      <h2>حدث خطأ غير متوقع في التطبيق</h2>
+      <p class="muted-note" id="fatalErrorMsg">يمكنك إعادة تحميل الصفحة أو تصدير نسخة احتياطية من بياناتك المحفوظة الآن.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-gold" onclick="location.reload()">إعادة تحميل</button>
+        <button type="button" class="btn btn-outline" onclick="emergencyExportRaw()">تصدير بياناتي الآن</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= SMART BRANCHING DIAGNOSTIC WIZARD ================= -->
-  <div class="onboarding-overlay" id="onboardingOverlay">
+  <div class="onboarding-overlay" id="onboardingOverlay" role="dialog" aria-modal="true" aria-labelledby="obMainHeading">
     <div class="ob-wrap">
+      <div class="ob-topbar">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openThemeModal()" aria-label="اختيار مظهر التطبيق">🎨 المظهر</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="obCloseBtn" onclick="closeOnboardingSafely()" aria-label="إغلاق نافذة الإعداد">إغلاق ✕</button>
+      </div>
+
       <div style="text-align:center; margin-bottom:10px;">
-        <div class="brand-icon" style="width:58px; height:58px; margin:0 auto 10px; border-radius:16px;">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <div class="brand-icon" style="width:58px; height:58px; margin:0 auto 10px; border-radius:16px;" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H10a2.5 2.5 0 0 1 2 1 2.5 2.5 0 0 1 2-1h5.5A2.5 2.5 0 0 1 22 5.5v12a2.5 2.5 0 0 1-2.5 2.5H14a2.5 2.5 0 0 0-2 1 2.5 2.5 0 0 0-2-1H4.5A2.5 2.5 0 0 1 2 17.5v-12z" stroke="var(--accent-hi)" stroke-width="1.8" fill="var(--accent-soft)"/>
             <line x1="12" y1="4" x2="12" y2="21" stroke="var(--accent-mid)" stroke-width="1.8"/>
             <line x1="5.5" y1="8.5" x2="9" y2="8.5" stroke="var(--text-main)" stroke-width="1.5"/>
@@ -33,13 +59,13 @@
             <line x1="15" y1="12" x2="18.5" y2="12" stroke="var(--accent-mid)" stroke-width="1.5"/>
           </svg>
         </div>
-        <h1 style="margin:0; font-size:1.35rem; color:var(--accent-hi);">أهلاً بك في رفيق التثبيت</h1>
-        <p style="margin:4px 0 0; font-size:0.84rem; color:var(--text-muted);">اختبار تشخيصي مرن يبني خطتك وجدولك الحي بأسماء سورك وأجزائك كما تختارها أنت</p>
+        <h1 id="obMainHeading" style="margin:0; font-size:1.35rem; color:var(--accent-hi);">أهلاً بك في رفيق التثبيت</h1>
+        <p class="muted-note" style="margin:4px 0 0;">إعداد سريع يبني خطتك وجدولك الحي بأسماء سورك وأجزائك الفعلية</p>
       </div>
 
       <div id="obMigrationBanner"></div>
 
-      <div class="ob-progress" id="obProgressDots">
+      <div class="ob-progress" id="obProgressDots" aria-hidden="true">
         <div class="ob-dot done"></div>
         <div class="ob-dot"></div>
         <div class="ob-dot"></div>
@@ -47,36 +73,27 @@
         <div class="ob-dot"></div>
       </div>
 
-      <!-- STEP 1: Quick Entry + Theme & Custom Colors -->
+      <!-- STEP 1: Name + Quick Skip -->
       <div class="card ob-step active" id="obStep1">
         <div class="card-title">
-          <h2>١. الدخول السريع ومظهر التطبيق</h2>
+          <h2>١. لنبدأ باسمك الكريم</h2>
           <span class="tag tag-gold">١ من ٥</span>
         </div>
-        <div class="form-grid form-grid-2" style="margin-bottom:14px;">
-          <div>
-            <label class="field-label">الاسم الأول</label>
-            <input type="text" id="obName" placeholder="اكتب اسمك الأول" value="" />
-          </div>
-          <div>
-            <label class="field-label">اسم مستخدم بسيط (اختياري)</label>
-            <input type="text" id="obUsername" placeholder="مثلاً: @username" value="" />
-          </div>
+        <div style="margin-bottom:14px;">
+          <label class="field-label" for="obName">الاسم الأول (ليخاطبك به التطبيق)</label>
+          <input type="text" id="obName" placeholder="اكتب اسمك الأول" value="" oninput="saveObDraft()" />
         </div>
-
-        <label class="field-label">اختر باليت الألوان المريح لعينك (يتغير فوراً):</label>
-        <div class="theme-grid" id="obThemeGrid"></div>
-        <div id="obCustomThemeContainer"></div>
-
-        <div style="display:flex; gap:8px; margin-top:16px;">
-          <button type="button" class="btn btn-gold btn-block" onclick="obNext(2)">التالي: وضعك الحالي مع القرآن ←</button>
+        <p class="muted-note">يمكنك تعديل الألوان والمظهر في أي وقت من زر «🎨 المظهر» بالأعلى أو من الإعدادات.</p>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px;">
+          <button type="button" class="btn btn-gold btn-block" onclick="obNext(2)">التالي: تحديد وضعك مع القرآن ←</button>
+          <button type="button" class="btn btn-outline btn-block" onclick="skipOnboardingQuick()">تخطي بخطة سريعة (قابلة للتعديل لاحقاً)</button>
         </div>
       </div>
 
       <!-- STEP 2: Branching Path Selection -->
       <div class="card ob-step" id="obStep2">
         <div class="card-title">
-          <h2>٢. إيه وضعك الحالي مع القرآن؟</h2>
+          <h2>٢. ما وضعك الحالي مع حفظ القرآن؟</h2>
           <span class="tag tag-gold">٢ من ٥</span>
         </div>
         <div id="obModeOptions"></div>
@@ -89,13 +106,13 @@
       <!-- STEP 3: Dynamic Branching Details -->
       <div class="card ob-step" id="obStep3">
         <div class="card-title">
-          <h2 id="obStep3Title">٣. تحديد موضعك الفعلي وبداية المراجعة</h2>
+          <h2 id="obStep3Title">٣. تحديد موضعك الفعلي ومستوى الثبات</h2>
           <span class="tag tag-gold">٣ من ٥</span>
         </div>
         <div id="obStep3Dynamic"></div>
-        <div id="obRevStartSection" style="margin-top:14px;"></div>
+        <div id="obRevStartSection" style="margin-top:12px;"></div>
         <div id="obStabilitySection" style="margin-top:14px;">
-          <label class="field-label">مستوى تثبيت ما حفظته سابقاً:</label>
+          <label class="field-label">مستوى ثبات محفوظك السابق:</label>
           <div id="obStabilityOptions"></div>
         </div>
         <div style="display:flex; gap:8px; margin-top:14px;">
@@ -110,13 +127,11 @@
           <h2>٤. وقتك اليومي المرن وأيام التسميع</h2>
           <span class="tag tag-gold">٤ من ٥</span>
         </div>
-        <p style="margin:0 0 12px; font-size:0.8rem; color:var(--text-muted);">
-          بدون فرض أي أوقات ثابتة خلال اليوم — أنت من يحدد وقت تنفيذ الجلسات بحرية تامة.
-        </p>
+        <p class="muted-note">دون فرض أي أوقات يومية ثابتة — نفّذ جلساتك في الوقت الذي يناسب يومك.</p>
 
         <div style="margin-bottom:14px;">
           <div class="progress-block-head">
-            <strong>الوقت اليومي المرن المتاح لك</strong>
+            <label for="obDailyMin"><strong>الوقت اليومي المرن المتاح لك</strong></label>
             <span id="obTimeVal">45 دقيقة</span>
           </div>
           <input type="range" id="obDailyMin" min="15" max="120" step="5" value="45" oninput="setObMin(Number(this.value))" />
@@ -133,46 +148,50 @@
         <div id="obStudyStyleOptions"></div>
 
         <div id="obMaqraaDaysWrap" style="margin-top:10px;">
-          <label class="field-label">اختر أيام التسميع / المقرأة الأسبوعية:</label>
+          <label class="field-label">اختر أيام التسميع الأسبوعية:</label>
           <div class="day-chip-grid" id="obMaqraaDayChips"></div>
         </div>
 
         <div id="obPagesPerSessionWrap" style="margin-top:12px;">
-          <label class="field-label">مقدار الحفظ الجديد المستهدف في الجلسة الواحدة (بالأوجه)</label>
-          <input type="number" id="obPagesPerSession" step="0.25" min="0.25" max="5" value="1" />
+          <label class="field-label">مقدار الحفظ الجديد في الجلسة (بالأوجه)</label>
+          <div class="stepper-wrap">
+            <button type="button" class="stepper-btn" onclick="stepObPages(-0.25)" aria-label="إنقاص ربع وجه">−</button>
+            <span class="stepper-val" id="obPagesStepVal">1 وجه</span>
+            <button type="button" class="stepper-btn" onclick="stepObPages(0.25)" aria-label="زيادة ربع وجه">+</button>
+          </div>
         </div>
 
         <div style="display:flex; gap:8px; margin-top:14px;">
           <button type="button" class="btn btn-ghost" onclick="obNext(3)">السابق</button>
-          <button type="button" class="btn btn-gold" style="flex:1;" onclick="obNext(5)">التالي: معاينة خطتك والتذكيرات ←</button>
+          <button type="button" class="btn btn-gold" style="flex:1;" onclick="obNext(5)">التالي: معاينة خطتك ←</button>
         </div>
       </div>
 
       <!-- STEP 5: Live Plan Preview + Optional Smart Reminders -->
       <div class="card ob-step" id="obStep5">
         <div class="card-title">
-          <h2>٥. معاينة خطتك الفعلية والتذكيرات</h2>
+          <h2>٥. معاينة خطتك الفعلية</h2>
           <span class="tag tag-gold">٥ من ٥</span>
         </div>
 
         <div id="obPlanPreviewBox" class="calc-preview-card" style="margin-top:0; margin-bottom:14px;"></div>
 
-        <div class="task-row" id="obRemToggleRow" onclick="toggleObReminders()">
-          <div class="check-circle" id="obRemCheck"></div>
-          <div class="task-text">
-            <strong>تفعيل تذكيرات ذكية بمواعيد أختارها (اختياري)</strong>
-            <small>يمكنك تعديلها أو إيقافها في أي وقت من الإعدادات</small>
-          </div>
-        </div>
+        <button type="button" class="task-row" id="obRemToggleRow" onclick="toggleObReminders()">
+          <span class="check-circle" id="obRemCheck"></span>
+          <span class="task-text">
+            <strong>تفعيل تذكير يومي داخل التطبيق (اختياري)</strong>
+            <small>يمكنك إضافة التذكير لتقويم جهازك أيضاً من الإعدادات</small>
+          </span>
+        </button>
 
         <div id="obRemTimesWrap" style="display:none; margin-top:10px;">
           <div class="form-grid form-grid-2">
             <div>
-              <label class="field-label">تذكير المراجعة / الترميم</label>
+              <label class="field-label" for="obRemRevTime">تذكير المراجعة</label>
               <input type="time" id="obRemRevTime" value="09:00" />
             </div>
             <div>
-              <label class="field-label">تذكير صندوق التثبيت</label>
+              <label class="field-label" for="obRemSolidTime">تذكير صندوق التثبيت</label>
               <input type="time" id="obRemSolidTime" value="20:00" />
             </div>
           </div>
@@ -180,7 +199,7 @@
 
         <div style="display:flex; gap:8px; margin-top:16px;">
           <button type="button" class="btn btn-ghost" onclick="obNext(4)">السابق</button>
-          <button type="button" class="btn btn-gold" style="flex:1;" onclick="finishOnboarding()">اعتماد الخطة والبدء الآن ✓</button>
+          <button type="button" class="btn btn-gold" style="flex:1;" onclick="handleFinishOnboardingClick()">اعتماد الخطة والبدء الآن ✓</button>
         </div>
       </div>
     </div>
@@ -202,136 +221,145 @@
         </div>
         <div class="brand-text">
           <h1 id="headerUserTitle">رفيق التثبيت</h1>
-          <span id="headerUserSub">الختمة المرنة • ٣٠ جزءاً</span>
+          <span id="headerUserSub">خطتك القرآنية المرنة</span>
         </div>
       </div>
       <div class="header-badges">
-        <button id="installPwaBtn" class="install-btn" onclick="promptInstall()">تثبيت</button>
-        <div class="pill-badge" id="streakBadge">🔥 0 أيام</div>
+        <button type="button" id="installPwaBtn" class="install-btn" onclick="promptInstall()">تثبيت</button>
+        <button type="button" class="icon-btn" onclick="openGlossaryModal()" aria-label="شرح المصطلحات">؟</button>
+        <div class="pill-badge" id="streakBadge" title="سلسلة الالتزام">🔥 0 أيام</div>
       </div>
     </div>
   </header>
 
   <!-- Desktop Navigation -->
-  <nav class="desktop-nav" aria-label="التنقل الرئيسي">
-    <button class="active" data-tab="dashboard" onclick="switchTab('dashboard')">الرئيسية</button>
-    <button data-tab="schedule" onclick="switchTab('schedule')">الجدول المرن</button>
-    <button data-tab="solid" onclick="switchTab('solid')">صندوق التثبيت</button>
-    <button data-tab="map" onclick="switchTab('map')">خريطة ٣٠ جزء</button>
-    <button data-tab="tools" onclick="switchTab('tools')">الأدوات والإعدادات</button>
+  <nav class="desktop-nav" role="tablist" aria-label="التنقل الرئيسي">
+    <button type="button" role="tab" aria-selected="true" class="active" data-tab="dashboard" onclick="switchTab('dashboard')">الرئيسية</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="schedule" onclick="switchTab('schedule')">الجدول المرن</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="solid" onclick="switchTab('solid')">صندوق التثبيت</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="map" onclick="switchTab('map')">خريطة ٣٠ جزء</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="tools" onclick="switchTab('tools')">الأدوات والإعدادات</button>
   </nav>
 
   <main class="main-wrap">
 
-    <!-- ================= TAB 1: HOME ================= -->
+    <!-- ================= TAB 1: HOME (ACTION-FIRST) ================= -->
     <section id="tab-dashboard" class="tab-panel active">
+      <div id="storageAlertBanner"></div>
       <div id="inAppReminderBanner"></div>
       <div id="firstTimeGuideBanner"></div>
       <div id="stabilizationAlert"></div>
 
-      <!-- 1. Overall Khatma Progress -->
-      <div class="card hero-card">
-        <div class="hero-layout">
-          <div class="ring-wrap">
-            <svg width="132" height="132" viewBox="0 0 132 132">
-              <circle cx="66" cy="66" r="54" fill="none" stroke="var(--ring-track)" stroke-width="10"/>
-              <circle id="khatmaRingCircle" cx="66" cy="66" r="54" fill="none" stroke="var(--accent-hi)" stroke-width="10"
-                stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="339" transform="rotate(-90 66 66)"/>
-            </svg>
-            <div class="ring-center">
-              <div class="ring-pct" id="khatmaPct">0%</div>
-              <div class="ring-sub" id="khatmaPagesText">0 / 604 وجهاً</div>
-            </div>
-          </div>
-
-          <div class="hero-bars">
-            <div id="heroRevBlock">
-              <div class="progress-block-head">
-                <strong id="heroRevTitle">الترميم والمراجعة (القديم)</strong>
-                <span id="revProgressLabel">0 / 0 جزء</span>
-              </div>
-              <div class="bar-track"><div class="bar-fill-gold" id="revProgressBar" style="width:0%"></div></div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="revPagesDetail"></div>
-            </div>
-
-            <div id="heroNewBlock">
-              <div class="progress-block-head">
-                <strong id="heroNewTitle">الحفظ الجديد</strong>
-                <span id="newProgressLabel" style="color:var(--info);">0 / 0 جزء</span>
-              </div>
-              <div class="bar-track"><div class="bar-fill-info" id="newProgressBar" style="width:0%"></div></div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="newPagesDetail"></div>
-            </div>
-
-            <div>
-              <div class="progress-block-head">
-                <strong>صندوق التثبيت (قديم + جديد)</strong>
-                <span id="solidProgressLabel" style="color:var(--success);">0 أجزاء • 0 مقاطع</span>
-              </div>
-              <div class="bar-track"><div class="bar-fill-success" id="solidProgressBar" style="width:0%"></div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. LIVE CONTROL BAR: Quick Switch Active Revision Juz & Active New Surah -->
-      <div class="grid-4" style="margin-bottom:14px;">
-        <div class="stat-box" onclick="openQuickFocusModal('rev')" style="cursor:pointer;">
-          <div class="stat-label" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>الجزء النشط (مراجعة)</span>
-            <span style="color:var(--accent-hi); font-size:0.68rem;">تغيير ✎</span>
-          </div>
-          <div class="stat-value" id="statCurrentRev">—</div>
-          <div class="stat-sub" id="statCurrentRevSub">—</div>
-        </div>
-        <div class="stat-box" onclick="openQuickFocusModal('new')" style="cursor:pointer;">
-          <div class="stat-label" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>السورة النشطة (جديد)</span>
-            <span style="color:var(--info); font-size:0.68rem;" id="statNewEditHint">تغيير ✎</span>
-          </div>
-          <div class="stat-value" style="color:var(--info);" id="statCurrentNew">—</div>
-          <div class="stat-sub" id="statCurrentNewSub">—</div>
-        </div>
-        <div class="stat-box" onclick="switchTab('solid'); setSolidTab('new');" style="cursor:pointer;">
-          <div class="stat-label">تثبيت الجديد</div>
-          <div class="stat-value" style="font-size:0.96rem;" id="statSolidNewCount">0 مقاطع</div>
-          <div class="stat-sub" id="statSolidNewSub">في صندوق التثبيت</div>
-        </div>
-        <div class="stat-box" onclick="switchTab('schedule')" style="cursor:pointer;">
-          <div class="stat-label">إنجاز الأسبوع</div>
-          <div class="stat-value" style="color:var(--success);" id="statWeekPct">0%</div>
-          <div class="stat-sub" id="statWeekSub">0 من 21 مهمة</div>
-        </div>
-      </div>
-
-      <!-- 3. TODAY'S FLEXIBLE TASKS + BUSY DAY MODE (Action-First) -->
-      <div class="card" id="todayCardWrapper">
+      <!-- 1. TODAY'S TASKS + MERGED SPACED REPETITION DUE ITEMS (TOP PRIORITY) -->
+      <div class="card hero-card" id="todayCardWrapper">
         <div class="card-title">
           <h2>⚡ مهام اليوم (<span class="accent-text" id="todayDayTitle">اليوم</span>)</h2>
-          <button type="button" class="btn btn-warn btn-sm" id="busyDayToggleBtn" onclick="toggleBusyDay()">وقتي مضغوط النهارده</button>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-warn btn-sm" id="busyDayToggleBtn" onclick="toggleBusyDay()">وقتي مضغوط اليوم</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="openTimerModal('doctor')">▶ ابدأ الجلسة</button>
+          </div>
         </div>
         <div id="todayTasksContainer"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+
+        <!-- Merged Spaced Repetition Due Items inside Today's focus -->
+        <div id="dueTodayMergedWrap" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--accent-border);">
+          <div class="card-title" style="margin-bottom:8px;">
+            <h2 style="font-size:0.93rem;">
+              <span>🧠 مستحق للمراجعة اليوم</span>
+              <button type="button" class="info-btn" onclick="openGlossaryModal()" aria-label="ما معنى صندوق التثبيت؟">؟</button>
+            </h2>
+            <span class="tag tag-gold" id="dueCountBadge">0 عناصر</span>
+          </div>
+          <div id="dueTodayList"></div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:11px;">
           <button type="button" class="btn btn-gold btn-sm" id="quickRevBtn" onclick="quickAddRevPage()">+١ وجه مراجعة</button>
           <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تبديل جزء المراجعة</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('tools')">المؤقت</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSimpleMode()" id="homeSimpleModeBtn">وضع بسيط</button>
         </div>
       </div>
 
-      <!-- 4. SMART SPACED REPETITION: DUE TODAY -->
-      <div class="card" id="dueTodayCard">
-        <div class="card-title">
-          <h2>🧠 مستحق للمراجعة اليوم (التكرار المتباعد)</h2>
-          <span class="tag tag-gold" id="dueCountBadge">0 عناصر</span>
-        </div>
-        <div id="dueTodayList"></div>
-      </div>
-
-      <!-- 5. NEW MEMORIZATION RIGHT ON HOME (Compact toggleable card, hidden if Khatim) -->
+      <!-- 2. NEW MEMORIZATION RIGHT ON HOME (hidden if Khatim) -->
       <div id="homeNewWorkflowCard"></div>
 
-      <!-- 6. Active Juz Surahs Quick Widget (Dynamic to user's ACTUAL active Juz) -->
-      <div class="card card-subtle" id="activeJuzSurahsCard" style="display:none;">
+      <!-- 3. COLLAPSIBLE OVERALL KHATMA PROGRESS RING & BARS -->
+      <div class="card" id="progressCollapsibleCard">
+        <div class="card-title" style="margin-bottom:0;">
+          <h2>📊 ملخص التقدم العام (<span class="accent-text" id="khatmaPctInline">0%</span>)</h2>
+          <button type="button" class="btn btn-ghost btn-sm" id="toggleProgressBtn" onclick="toggleProgressCard()">عرض التفاصيل ▼</button>
+        </div>
+        <div id="progressDetailsBody" style="display:none; margin-top:14px;">
+          <div class="hero-layout">
+            <div class="ring-wrap">
+              <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+                <circle cx="66" cy="66" r="54" fill="none" stroke="var(--ring-track)" stroke-width="10"/>
+                <circle id="khatmaRingCircle" cx="66" cy="66" r="54" fill="none" stroke="var(--accent-hi)" stroke-width="10"
+                  stroke-linecap="round" stroke-dasharray="339" stroke-dashoffset="339" transform="rotate(-90 66 66)"/>
+              </svg>
+              <div class="ring-center">
+                <div class="ring-pct" id="khatmaPct">0%</div>
+                <div class="ring-sub" id="khatmaPagesText">0 / 604 وجهاً</div>
+              </div>
+            </div>
+
+            <div class="hero-bars">
+              <div id="heroRevBlock">
+                <div class="progress-block-head">
+                  <strong>المراجعة (الترميم) <button type="button" class="info-btn" onclick="openGlossaryModal()" aria-label="شرح المراجعة">؟</button></strong>
+                  <span id="revProgressLabel">0 / 0 جزء</span>
+                </div>
+                <div class="bar-track"><div class="bar-fill-gold" id="revProgressBar" style="width:0%"></div></div>
+                <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;" id="revPagesDetail"></div>
+              </div>
+
+              <div id="heroNewBlock">
+                <div class="progress-block-head">
+                  <strong>الحفظ الجديد</strong>
+                  <span id="newProgressLabel" style="color:var(--info);">0 / 0 جزء</span>
+                </div>
+                <div class="bar-track"><div class="bar-fill-info" id="newProgressBar" style="width:0%"></div></div>
+                <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;" id="newPagesDetail"></div>
+              </div>
+
+              <div>
+                <div class="progress-block-head">
+                  <strong>صندوق التثبيت <button type="button" class="info-btn" onclick="openGlossaryModal()" aria-label="شرح صندوق التثبيت">؟</button></strong>
+                  <span id="solidProgressLabel" style="color:var(--success);">0 أجزاء • 0 مقاطع</span>
+                </div>
+                <div class="bar-track"><div class="bar-fill-success" id="solidProgressBar" style="width:0%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. QUICK OVERVIEW STATS (Accessible Buttons, hidden in Simple Mode) -->
+      <div class="grid-4 adv-only" style="margin-bottom:14px;">
+        <button type="button" class="stat-box" onclick="openQuickFocusModal('rev')">
+          <span class="stat-label"><span>الجزء النشط (مراجعة)</span><span style="color:var(--accent-hi);">تغيير ✎</span></span>
+          <span class="stat-value" id="statCurrentRev">—</span>
+          <span class="stat-sub" id="statCurrentRevSub">—</span>
+        </button>
+        <button type="button" class="stat-box" onclick="openQuickFocusModal('new')">
+          <span class="stat-label"><span>السورة النشطة (جديد)</span><span style="color:var(--info);" id="statNewEditHint">تغيير ✎</span></span>
+          <span class="stat-value" style="color:var(--info);" id="statCurrentNew">—</span>
+          <span class="stat-sub" id="statCurrentNewSub">—</span>
+        </button>
+        <button type="button" class="stat-box" onclick="switchTab('solid'); setSolidTab('new');">
+          <span class="stat-label"><span>صندوق التثبيت</span></span>
+          <span class="stat-value" style="font-size:0.96rem;" id="statSolidNewCount">0 مقاطع</span>
+          <span class="stat-sub" id="statSolidNewSub">مقاطع الربط والأجزاء</span>
+        </button>
+        <button type="button" class="stat-box" onclick="switchTab('schedule')">
+          <span class="stat-label"><span>إنجاز الأسبوع</span></span>
+          <span class="stat-value" style="color:var(--success);" id="statWeekPct">0%</span>
+          <span class="stat-sub" id="statWeekSub">ابدأ أول مهمة اليوم</span>
+        </button>
+      </div>
+
+      <!-- 5. Active Juz Surahs Quick Widget (hidden in Simple Mode) -->
+      <div class="card card-subtle adv-only" id="activeJuzSurahsCard" style="display:none;">
         <div class="card-title">
           <h2 id="activeJuzSurahsTitle">🎯 سور الجزء النشط</h2>
           <button type="button" class="btn btn-ghost btn-sm" onclick="openQuickFocusModal('rev')">تغيير الجزء</button>
@@ -346,13 +374,11 @@
         <div class="card-title">
           <h2>📅 الجدول الأسبوعي الحي والمرن</h2>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تغيير جزء المراجعة</button>
-            <button type="button" class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع وأرشفته</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تبديل جزء المراجعة</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع وعرض الملخص</button>
           </div>
         </div>
-        <p style="margin:0 0 12px; font-size:0.81rem; color:var(--text-muted);" id="scheduleIntroText">
-          يتحدّث تلقائياً فور إتمام أي جزء أو تغيير سورتك النشطة — أي جزء تنهيه ينتقل لصندوق التثبيت ويحلّ الجزء التالي مكانه فوراً.
-        </p>
+        <p class="muted-note">يتحدّث تلقائياً فور إتمام أي جزء أو تغيير سورتك النشطة؛ أي جزء تنجزه ينتقل لصندوق التثبيت ويحل الجزء التالي مكانه فوراً.</p>
         <div id="scheduleList"></div>
       </div>
 
@@ -365,26 +391,27 @@
       </div>
     </section>
 
-    <!-- ================= TAB 3: SOLID BOX (NEW + OLD + LOGS) ================= -->
+    <!-- ================= TAB 3: SOLID BOX (NEW + OLD + MUTASHABIHAT + LOGS) ================= -->
     <section id="tab-solid" class="tab-panel">
       <div class="grid-2" style="margin-bottom:12px;">
-        <div class="stat-box" style="cursor:pointer;" onclick="setSolidTab('new')">
-          <div class="stat-label">🛡️ تثبيت جديد (ربط السور)</div>
-          <div class="stat-value" style="color:var(--info);" id="solidBoxNewSummary">0 مقاطع</div>
-          <div class="stat-sub">تجميع مقاطع السور الطويلة</div>
-        </div>
-        <div class="stat-box" style="cursor:pointer;" onclick="setSolidTab('old')">
-          <div class="stat-label">🛡️ تثبيت قديم (أجزاء مكتملة)</div>
-          <div class="stat-value" style="color:var(--success);" id="solidBoxOldSummary">0 أجزاء</div>
-          <div class="stat-sub">بجدول تكرار متباعد ذكي</div>
-        </div>
+        <button type="button" class="stat-box" onclick="setSolidTab('new')">
+          <span class="stat-label">🛡️ تثبيت جديد (مقاطع الربط)</span>
+          <span class="stat-value" style="color:var(--info);" id="solidBoxNewSummary">0 مقاطع</span>
+          <span class="stat-sub">تجميع مقاطع السور الطويلة</span>
+        </button>
+        <button type="button" class="stat-box" onclick="setSolidTab('old')">
+          <span class="stat-label">🛡️ تثبيت قديم (الأجزاء المكتملة)</span>
+          <span class="stat-value" style="color:var(--success);" id="solidBoxOldSummary">0 أجزاء</span>
+          <span class="stat-sub">بجدول تكرار متباعد ذكي</span>
+        </button>
       </div>
 
-      <div class="card" style="padding:12px;">
-        <div class="seg-control" style="margin-bottom:0;">
-          <button type="button" class="seg-btn active" id="solidTabNew" onclick="setSolidTab('new')">تثبيت جديد (الربط)</button>
-          <button type="button" class="seg-btn" id="solidTabOld" onclick="setSolidTab('old')">تثبيت قديم (الأجزاء)</button>
-          <button type="button" class="seg-btn" id="solidTabLogs" onclick="setSolidTab('logs')">سجل التسميع</button>
+      <div class="card" style="padding:10px;">
+        <div class="seg-control" style="margin-bottom:0;" role="tablist">
+          <button type="button" role="tab" class="seg-btn active" id="solidTabNew" onclick="setSolidTab('new')">تثبيت جديد</button>
+          <button type="button" role="tab" class="seg-btn" id="solidTabOld" onclick="setSolidTab('old')">تثبيت قديم</button>
+          <button type="button" role="tab" class="seg-btn" id="solidTabMut" onclick="setSolidTab('mutashabihat')">بنك المتشابهات</button>
+          <button type="button" role="tab" class="seg-btn" id="solidTabLogs" onclick="setSolidTab('logs')">سجل التسميع</button>
         </div>
       </div>
 
@@ -395,9 +422,7 @@
             <h2>🔗 تثبيت الجديد (ربط السور الطويلة)</h2>
             <button type="button" class="btn btn-outline btn-sm" onclick="openManualLinkModal()">+ إضافة مقطع سابق</button>
           </div>
-          <p style="margin:0 0 12px; font-size:0.81rem; color:var(--text-muted);">
-            كل ورد جديد تؤكد تسميعه ينتقل هنا مجمّعاً تحت سورته، ويحسب المحرك موعد المراجعة القادم تلقائياً حسب تقييمك (إعادة ١–٢ يوم • جيد ٤ أيام • جيد جداً ٨ أيام • ممتاز ١٤–٢٥ يوماً).
-          </p>
+          <p class="muted-note">كل ورد جديد تؤكد تسميعه يدخل هنا مجمّعاً تحت سورته، ويُجدول تلقائياً بخوارزمية التكرار المتباعد الذكي (SM-2).</p>
           <div id="linkingAlertBanner"></div>
           <div id="linkingGroupsContainer"></div>
         </div>
@@ -410,14 +435,24 @@
             <h2>🛡️ تثبيت القديم (الأجزاء المكتملة)</h2>
             <span class="tag tag-success" id="solidCountBadge">0 أجزاء</span>
           </div>
-          <p style="margin:0 0 12px; font-size:0.81rem; color:var(--text-muted);">
-            كل جزء يكتمل حفظه أو ترميمه يدخل هنا تلقائياً مع تاريخ المراجعة القادمة حسب مستوى ثباتك.
-          </p>
+          <p class="muted-note">كل جزء يكتمل يدخل هنا تلقائياً بأول مراجعة بعد يومين، ثم تتباعد الفترة حسب تقييمك الفعلي ومعامل الثبات.</p>
           <div id="solidBoxList"></div>
         </div>
       </div>
 
-      <!-- SUB-PANEL C: سجل التسميع -->
+      <!-- SUB-PANEL C: بنك المتشابهات -->
+      <div id="solidPanelMut" style="display:none;">
+        <div class="card hero-card">
+          <div class="card-title">
+            <h2>📌 بنك المتشابهات والمواضع الحساسة</h2>
+            <span class="tag tag-gold" id="mutCountBadge">0 مواضع</span>
+          </div>
+          <p class="muted-note">يجمع تلقائياً كل الأجزاء والمقاطع الموسومة بـ «متشابهات» أو التي تحتوي على أوجه متفلتة مسجّلة أثناء المراجعة.</p>
+          <div id="mutashabihatList"></div>
+        </div>
+      </div>
+
+      <!-- SUB-PANEL D: سجل التسميع -->
       <div id="solidPanelLogs" style="display:none;">
         <div class="card card-subtle">
           <div class="card-title">
@@ -431,14 +466,15 @@
 
     <!-- ================= TAB 4: 30-JUZ MAP ================= -->
     <section id="tab-map" class="tab-panel">
-      <div class="card" style="padding:12px;">
-        <div class="seg-control" style="margin-bottom:8px;">
-          <button type="button" class="seg-btn active" id="filterRev" onclick="setMapFilter('revision')">الترميم</button>
-          <button type="button" class="seg-btn" id="filterNew" onclick="setMapFilter('new')">الجديد</button>
-          <button type="button" class="seg-btn" id="filterAll" onclick="setMapFilter('all')">الختمة (٣٠)</button>
+      <div class="card" style="padding:10px;">
+        <div class="seg-control" style="margin-bottom:8px;" role="tablist">
+          <button type="button" role="tab" class="seg-btn active" id="filterRev" onclick="setMapFilter('revision')">المراجعة</button>
+          <button type="button" role="tab" class="seg-btn" id="filterNew" onclick="setMapFilter('new')">الجديد</button>
+          <button type="button" role="tab" class="seg-btn" id="filterMut" onclick="setMapFilter('mutashabihat')">بنك المتشابهات</button>
+          <button type="button" role="tab" class="seg-btn" id="filterAll" onclick="setMapFilter('all')">الختمة (٣٠)</button>
         </div>
-        <div style="font-size:0.78rem; color:var(--text-muted); text-align:center;" id="mapDirectionHint">
-          اضغط «ابدأ به الآن» على أي جزء لتجعله الجزء النشط في خطتك وجدولك فوراً، أو اضغط «السور» لعرض سوره الكاملة.
+        <div style="font-size:0.8rem; color:var(--text-muted); text-align:center;" id="mapDirectionHint">
+          اضغط «ابدأ به الآن» على أي جزء لتجعله الجزء النشط في خطتك وجدولك فوراً، أو «السور» لعرض سوره الكاملة.
         </div>
       </div>
       <div id="juzMapContainer"></div>
@@ -450,61 +486,45 @@
       <div class="card hero-card">
         <div class="card-title">
           <h2>⏱️ مؤقت «دكتور الصفحة» والتثبيت</h2>
-          <label style="display:flex; align-items:center; gap:5px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;">
-            <input type="checkbox" id="timerSoundToggle" checked style="accent-color:var(--accent-mid);" />
-            تنبيه صوتي
-          </label>
+          <button type="button" class="btn btn-gold btn-sm" onclick="openTimerModal('doctor')">فتح كنافذة منبثقة ↗</button>
         </div>
-        <div class="seg-control" style="margin-bottom:8px;">
-          <button type="button" class="seg-btn active" id="modeDoctor" onclick="setTimerMode('doctor')">ترميم (١٢ د)</button>
-          <button type="button" class="seg-btn" id="modeLink" onclick="setTimerMode('link')">ربط جديد (٦ د)</button>
-          <button type="button" class="seg-btn" id="modeSolid" onclick="setTimerMode('solid')">تثبيت قديم (١٠ د)</button>
-        </div>
-        <div class="timer-display">
-          <div class="timer-clock" id="timerClock">12:00</div>
-          <div class="timer-phase-name" id="timerPhaseName">المرحلة ١: الكشف بالقلم الرصاص</div>
-          <div class="timer-phase-hint" id="timerPhaseHint">اقرأ الوجه نظراً بصوت مسموع وعلّم على الآيات المتفلتة فقط (دقيقتان)</div>
-          <div class="phase-pills" id="doctorPhasePills">
-            <div class="phase-pill current" data-p="0">١. كشف (٢د)</div>
-            <div class="phase-pill" data-p="1">٢. ترميم (٥د)</div>
-            <div class="phase-pill" data-p="2">٣. اختبار (٣د)</div>
-            <div class="phase-pill" data-p="3">٤. قفلة (٢د)</div>
-          </div>
-        </div>
-        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-          <button type="button" class="btn btn-gold" id="timerStartBtn" onclick="toggleTimer()">ابدأ الجلسة</button>
-          <button type="button" class="btn btn-outline" onclick="resetTimer()">إعادة ضبط</button>
+        <p class="muted-note">يحسب الوقت الحقيقي بدقة حتى عند قفل الشاشة، مع منع إطفاء الشاشة (Wake Lock) وتنبيه صوتي واهتزاز عند تغيّر المرحلة.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" onclick="openTimerModal('doctor')">مراجعة وجه (١٢ د)</button>
+          <button type="button" class="btn btn-outline" onclick="openTimerModal('link')">ربط جديد (٦ د)</button>
+          <button type="button" class="btn btn-outline" onclick="openTimerModal('solid')">تثبيت قديم (١٠ د)</button>
         </div>
       </div>
 
-      <!-- 2. Smart Reminders Manager -->
+      <!-- 2. Smart Reminders Manager + .ics Calendar Export -->
       <div class="card">
         <div class="card-title">
-          <h2>🔔 الإشعارات والتذكيرات الذكية (اختياري)</h2>
+          <h2>🔔 التذكيرات الذكية والتقويم</h2>
           <button type="button" class="btn btn-outline btn-sm" onclick="requestNotifPermission()">تفعيل إشعارات الجهاز</button>
         </div>
-        <p style="margin:0 0 11px; font-size:0.8rem; color:var(--text-muted);">
-          اضبط مواعيد اختيارية وسيرسل التطبيق رسالة ذكية باسمك وبأسماء سورك وأجزائك الفعلية.
+        <p class="muted-note">
+          تعمل التذكيرات داخل التطبيق دائماً؛ ولأن التطبيق يعمل محلياً دون خادم إشعارات خارجي، ننصح بتصدير التذكير إلى تقويم جهازك (<code>.ics</code>) لضمان التنبيه حتى عند إغلاق التطبيق (وعلى iOS يلزم تثبيت التطبيق على الشاشة الرئيسية).
         </p>
 
         <form onsubmit="addReminder(event)" style="margin-bottom:12px;">
           <div class="form-grid form-grid-2">
             <div>
-              <label class="field-label">الوقت</label>
+              <label class="field-label" for="remTimeInput">الوقت</label>
               <input type="time" id="remTimeInput" value="09:00" required />
             </div>
             <div>
-              <label class="field-label">نوع التذكير</label>
+              <label class="field-label" for="remTypeInput">نوع التذكير</label>
               <select id="remTypeInput">
-                <option value="revision">مراجعة وترميم القديم</option>
+                <option value="revision">مراجعة المحفوظ</option>
                 <option value="new">الحفظ الجديد / التسميع</option>
-                <option value="solid">صندوق التثبيت (قديم وجديد)</option>
+                <option value="solid">صندوق التثبيت</option>
               </select>
             </div>
           </div>
           <div style="display:flex; gap:8px; margin-top:9px; flex-wrap:wrap;">
-            <button type="submit" class="btn btn-gold btn-sm">+ إضافة موعد تذكير</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="testSmartNotification()">تجربة إشعار ذكي الآن</button>
+            <button type="submit" class="btn btn-gold btn-sm">+ إضافة موعد</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="exportRemindersIcs()">📅 إضافة للتقويم (.ics)</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="testSmartNotification()">تجربة إشعار الآن</button>
           </div>
         </form>
 
@@ -520,7 +540,7 @@
         <div id="settingsCustomThemeContainer"></div>
       </div>
 
-      <!-- 4. Flexible Time Calculator -->
+      <!-- 4. Flexible Time Calculator (linked dynamically to maqraaDays) -->
       <div class="card">
         <div class="card-title">
           <h2>🧮 حاسبة الوقت المرنة</h2>
@@ -528,14 +548,14 @@
         </div>
         <div style="margin-bottom:12px;">
           <div class="progress-block-head">
-            <strong>الوقت اليومي المتاح</strong>
+            <label for="calcDailyMin"><strong>الوقت اليومي المتاح</strong></label>
             <span id="calcMinVal">45 دقيقة</span>
           </div>
           <input type="range" id="calcDailyMin" min="15" max="120" step="5" value="45" oninput="updateCalculator()" />
         </div>
         <div style="margin-bottom:12px;" id="calcNewPagesBlock">
           <div class="progress-block-head">
-            <strong>مقدار الجديد في الجلسة (مرتان/أسبوع)</strong>
+            <label for="calcNewPages"><strong id="calcSessionsLabel">مقدار الجديد في الجلسة</strong></label>
             <span id="calcNewPagesVal">1 وجه/جلسة</span>
           </div>
           <input type="range" id="calcNewPages" min="0" max="3" step="0.25" value="1" oninput="updateCalculator()" />
@@ -543,29 +563,34 @@
         <div class="dist-bar" id="calcDistBar"></div>
         <div class="dist-legend" id="calcDistLegend"></div>
         <div class="grid-4" style="margin-top:11px;">
-          <div class="stat-box"><div class="stat-label">صافي الترميم/أسبوع</div><div class="stat-value" id="calcRevWeek">0 وجه</div></div>
-          <div class="stat-box"><div class="stat-label">مدة الجزء</div><div class="stat-value" id="calcWeeksJuz">—</div></div>
-          <div class="stat-box"><div class="stat-label">لمّ باقي القديم</div><div class="stat-value" id="calcOldMonths">—</div></div>
-          <div class="stat-box"><div class="stat-label">إنهاء الجديد</div><div class="stat-value" style="color:var(--info);" id="calcNewMonths">—</div></div>
+          <div class="stat-box" style="cursor:default;"><div class="stat-label">صافي المراجعة/أسبوع</div><div class="stat-value" id="calcRevWeek">0 وجه</div></div>
+          <div class="stat-box" style="cursor:default;"><div class="stat-label">مدة الجزء</div><div class="stat-value" id="calcWeeksJuz">—</div></div>
+          <div class="stat-box" style="cursor:default;"><div class="stat-label">إنهاء المراجعة</div><div class="stat-value" id="calcOldMonths">—</div></div>
+          <div class="stat-box" style="cursor:default;"><div class="stat-label">إنهاء الجديد</div><div class="stat-value" style="color:var(--info);" id="calcNewMonths">—</div></div>
         </div>
-        <div id="calcAdviceBox" style="margin-top:11px; padding:10px 12px; border-radius:10px; background:var(--accent-soft); border:1px solid var(--accent-border); font-size:0.81rem;"></div>
+        <div id="calcAdviceBox" style="margin-top:11px; padding:10px 12px; border-radius:10px; background:var(--accent-soft); border:1px solid var(--accent-border); font-size:0.83rem;"></div>
       </div>
 
-      <!-- 5. Profile, Re-diagnose, Legacy Import & JSON Backup -->
+      <!-- 5. Profile, Snapshots & JSON Backup -->
       <div class="card card-subtle">
         <div class="card-title">
           <h2>👤 ملفي الشخصي والنسخ الاحتياطي</h2>
         </div>
-        <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:11px;" id="profileSummaryLine"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <div style="font-size:0.84rem; color:var(--text-muted); margin-bottom:11px;" id="profileSummaryLine"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
           <button type="button" class="btn btn-outline btn-sm" onclick="openOnboarding(true)">تعديل ملفي / إعادة التشخيص</button>
           <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة احتياطية (JSON)</button>
           <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
-            استيراد نسخة احتياطية (v4/v5/v6)
+            استيراد نسخة احتياطية (v4/v5/v6/v7)
             <input type="file" accept=".json" onchange="importBackup(event)" style="display:none;" />
           </label>
           <button type="button" class="btn btn-info btn-sm" id="settingsLegacyImportBtn" style="display:none;" onclick="importLegacyFromStorage()">استيراد من النسخة السابقة على الجهاز</button>
-          <button type="button" class="btn btn-danger btn-sm" onclick="resetAllData()">بدء مستخدم جديد / مسح</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="restoreSnapshotBtn" style="display:none;" onclick="restoreLastAutoSnapshot()">استعادة آخر لقطة تلقائية</button>
+        </div>
+
+        <div style="padding-top:12px; border-top:1px dashed var(--border-subtle); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <span style="font-size:0.8rem; color:var(--text-muted);">منطقة الخطر (تتطلب تأكيداً مزدوجاً)</span>
+          <button type="button" class="btn btn-danger btn-sm" onclick="openResetConfirmModal()">مسح البيانات والبدء من جديد</button>
         </div>
       </div>
     </section>
@@ -573,31 +598,96 @@
   </main>
 
   <!-- Android Bottom Navigation -->
-  <nav class="bottom-nav" aria-label="شريط التنقل السفلي">
-    <button class="active" data-tab="dashboard" onclick="switchTab('dashboard')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+  <nav class="bottom-nav" role="tablist" aria-label="شريط التنقل السفلي">
+    <button type="button" role="tab" aria-selected="true" class="active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
       <span>الرئيسية</span>
     </button>
-    <button data-tab="schedule" onclick="switchTab('schedule')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    <button type="button" role="tab" aria-selected="false" data-tab="schedule" onclick="switchTab('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       <span>الجدول</span>
     </button>
-    <button data-tab="solid" onclick="switchTab('solid')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <button type="button" role="tab" aria-selected="false" data-tab="solid" onclick="switchTab('solid')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span>التثبيت</span>
     </button>
-    <button data-tab="map" onclick="switchTab('map')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <button type="button" role="tab" aria-selected="false" data-tab="map" onclick="switchTab('map')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       <span>٣٠ جزء</span>
     </button>
-    <button data-tab="tools" onclick="switchTab('tools')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <button type="button" role="tab" aria-selected="false" data-tab="tools" onclick="switchTab('tools')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       <span>الأدوات</span>
     </button>
   </nav>
 
+  <!-- ================= ACCESSIBLE MODALS ================= -->
+
+  <!-- Modal: Doctor of Page Timer (Overlay over Home) -->
+  <div class="modal-backdrop" id="timerModal" role="dialog" aria-modal="true" aria-labelledby="timerModalTitle" onclick="if(event.target===this) closeModal('timerModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="timerModalTitle">⏱️ مؤقت دكتور الصفحة</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('timerModal')">إغلاق</button>
+      </div>
+      <div class="seg-control" style="margin-bottom:8px;">
+        <button type="button" class="seg-btn active" id="modeDoctor" onclick="setTimerMode('doctor')">مراجعة (١٢ د)</button>
+        <button type="button" class="seg-btn" id="modeLink" onclick="setTimerMode('link')">ربط (٦ د)</button>
+        <button type="button" class="seg-btn" id="modeSolid" onclick="setTimerMode('solid')">تثبيت (١٠ د)</button>
+      </div>
+      <div class="timer-display">
+        <div class="timer-clock" id="timerClock">12:00</div>
+        <div class="timer-phase-name" id="timerPhaseName">المرحلة ١: الكشف بالقلم الرصاص</div>
+        <div class="timer-phase-hint" id="timerPhaseHint">اقرأ الوجه نظراً بصوت مسموع وعلّم على الآيات المتفلتة فقط (دقيقتان)</div>
+        <div class="phase-pills" id="doctorPhasePills">
+          <div class="phase-pill current" data-p="0">١. كشف (٢د)</div>
+          <div class="phase-pill" data-p="1">٢. تقوية (٥د)</div>
+          <div class="phase-pill" data-p="2">٣. اختبار (٣د)</div>
+          <div class="phase-pill" data-p="3">٤. قفلة (٢د)</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px; flex-wrap:wrap;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--text-muted); cursor:pointer;">
+          <input type="checkbox" id="timerSoundToggle" checked style="width:18px; height:18px; accent-color:var(--accent-mid);" />
+          تنبيه صوتي واهتزاز
+        </label>
+        <span id="wakeLockStatus" style="font-size:0.76rem; color:var(--text-dim);"></span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-gold" style="flex:1;" id="timerStartBtn" onclick="toggleTimer()">ابدأ الجلسة</button>
+        <button type="button" class="btn btn-outline" onclick="resetTimer()">إعادة ضبط</button>
+      </div>
+      <div id="timerDoneActionWrap" style="display:none; margin-top:10px;">
+        <button type="button" class="btn btn-success btn-block" onclick="approveTimerPage()">اعتماد الوجه (+١ وجه مراجعة) ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Quick Glossary (؟) -->
+  <div class="modal-backdrop" id="glossaryModal" role="dialog" aria-modal="true" aria-labelledby="glossaryTitle" onclick="if(event.target===this) closeModal('glossaryModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="glossaryTitle">📖 دليل المصطلحات السريع</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('glossaryModal')">إغلاق</button>
+      </div>
+      <div id="glossaryList"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Theme Switcher (used from Onboarding side button) -->
+  <div class="modal-backdrop" id="themeModal" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle" onclick="if(event.target===this) closeModal('themeModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="themeModalTitle">🎨 اختر مظهر التطبيق</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('themeModal')">إغلاق</button>
+      </div>
+      <div class="theme-grid" id="modalThemeGrid"></div>
+      <div id="modalCustomThemeContainer"></div>
+    </div>
+  </div>
+
   <!-- Modal: Quick Switch Active Revision Juz OR Active New Surah -->
-  <div class="modal-backdrop" id="quickFocusModal" onclick="if(event.target===this) closeModal('quickFocusModal')">
+  <div class="modal-backdrop" id="quickFocusModal" role="dialog" aria-modal="true" aria-labelledby="quickFocusTitle" onclick="if(event.target===this) closeModal('quickFocusModal')">
     <div class="modal-box">
       <div class="card-title">
         <h2 id="quickFocusTitle">تغيير الموضع النشط</h2>
@@ -607,107 +697,149 @@
     </div>
   </div>
 
-  <!-- Modal: Recitation Completion & Rating -->
-  <div class="modal-backdrop" id="reciteModal" onclick="if(event.target===this) closeModal('reciteModal')">
+  <!-- Modal: Safe Profile Rebuild Choice (2 Explicit Choices) -->
+  <div class="modal-backdrop" id="rebuildChoiceModal" role="dialog" aria-modal="true" aria-labelledby="rebuildChoiceTitle" onclick="if(event.target===this) closeModal('rebuildChoiceModal')">
     <div class="modal-box">
       <div class="card-title">
-        <h2>✅ تم التسميع — اختر التقييم</h2>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('reciteModal')">إغلاق</button>
+        <h2 id="rebuildChoiceTitle">كيف تريد حفظ تعديلات ملفك؟</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('rebuildChoiceModal')">إلغاء</button>
       </div>
-      <div id="reciteModalSummary" style="padding:10px 12px; border-radius:10px; background:var(--info-soft); border:1px solid var(--info); margin-bottom:12px; font-size:0.84rem;"></div>
-      <label class="field-label">تقييم التسميع (يحدد موعد المراجعة الذكي تلقائياً):</label>
-      <div class="rating-grid" id="ratingGrid">
-        <button type="button" class="rating-choice selected-excellent" data-rate="ممتاز" onclick="selectRating('ممتاز')">ممتاز (متقن)<small>المراجعة القادمة بعد ١٤ يوماً</small></button>
-        <button type="button" class="rating-choice" data-rate="جيد جداً" onclick="selectRating('جيد جداً')">جيد جداً<small>المراجعة القادمة بعد ٨ أيام</small></button>
-        <button type="button" class="rating-choice" data-rate="جيد" onclick="selectRating('جيد')">جيد (تثبيت)<small>المراجعة القادمة بعد ٤ أيام</small></button>
-        <button type="button" class="rating-choice" data-rate="يحتاج إعادة" onclick="selectRating('يحتاج إعادة')">يحتاج إعادة<small>أولوية قصوى خلال ١–٢ يوم</small></button>
+      <p class="muted-note">سيأخذ التطبيق لقطة احتياطية تلقائية قبل أي تغيير لضمان سلامة بياناتك.</p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button type="button" class="btn btn-gold btn-block" onclick="completeOnboardingSave(false)">تحديث الاسم والوقت والجدول فقط (آمن — يحفظ كل تقدمك)</button>
+        <button type="button" class="btn btn-danger btn-block" onclick="completeOnboardingSave(true)">إعادة بناء خريطة ٣٠ جزءاً (يعيد حساب الأجزاء ويحتفظ بالمكتمل في التثبيت)</button>
       </div>
-      <div style="margin-bottom:10px;">
-        <label class="field-label">ملاحظات الشيخ أو المتشابهات (اختياري)</label>
-        <input type="text" id="reciteSheikhNote" placeholder="مثلاً: انتبه للربط مع الآية السابقة" />
-      </div>
-      <div style="margin-bottom:12px; display:flex; flex-direction:column; gap:7px;">
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.81rem; color:var(--accent-hi); cursor:pointer;">
-          <input type="checkbox" id="reciteAutoMap" checked style="width:17px; height:17px; accent-color:var(--accent-mid);" />
-          إضافة الأوجه تلقائياً لرصيد الجزء في الخريطة
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.81rem; color:var(--info); cursor:pointer;">
-          <input type="checkbox" id="reciteAddToLink" checked style="width:17px; height:17px; accent-color:var(--info);" />
-          نقل المقطع إلى «صندوق التثبيت ← تثبيت جديد»
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.81rem; color:var(--success); cursor:pointer;">
-          <input type="checkbox" id="reciteFinishSurah" style="width:17px; height:17px; accent-color:var(--success);" />
-          أتممت هذه السورة بالكامل (انتقل تلقائياً للسورة التالية)
-        </label>
-      </div>
-      <button type="button" class="btn btn-gold btn-block" onclick="confirmRecitation()">تأكيد التسميع وإتاحة تسجيل الورد التالي</button>
     </div>
   </div>
 
-  <!-- Modal: Spaced Repetition Review Rating -->
-  <div class="modal-backdrop" id="srReviewModal" onclick="if(event.target===this) closeModal('srReviewModal')">
+  <!-- Modal: Double-Confirm Reset -->
+  <div class="modal-backdrop" id="resetConfirmModal" role="dialog" aria-modal="true" aria-labelledby="resetConfirmTitle" onclick="if(event.target===this) closeModal('resetConfirmModal')">
     <div class="modal-box">
       <div class="card-title">
-        <h2>🧠 تقييم المراجعة (التكرار المتباعد)</h2>
+        <h2 id="resetConfirmTitle" style="color:var(--danger);">تأكيد مسح البيانات</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('resetConfirmModal')">إلغاء</button>
+      </div>
+      <p class="muted-note">ننصح بتصدير نسخة احتياطية أولاً قبل المسح. لمتابعة المسح اكتب كلمة <strong>مسح</strong> في الحقل أدناه:</p>
+      <div style="margin-bottom:10px;">
+        <button type="button" class="btn btn-gold btn-block" onclick="exportBackup()">تصدير نسخة احتياطية أولاً (JSON)</button>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label class="field-label" for="resetConfirmInput">اكتب كلمة «مسح» للتأكيد:</label>
+        <input type="text" id="resetConfirmInput" placeholder="مسح" oninput="document.getElementById('confirmResetBtn').disabled = (this.value.trim() !== 'مسح')" />
+      </div>
+      <button type="button" class="btn btn-danger btn-block" id="confirmResetBtn" disabled onclick="executeResetAllData()">مسح جميع البيانات والبدء من جديد</button>
+    </div>
+  </div>
+
+  <!-- Modal: Recitation Completion & Rating (NO pre-selected rating!) -->
+  <div class="modal-backdrop" id="reciteModal" role="dialog" aria-modal="true" aria-labelledby="reciteModalTitle" onclick="if(event.target===this) closeModal('reciteModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="reciteModalTitle">✅ تم التسميع — قيّم مستوى ثباتك</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('reciteModal')">إغلاق</button>
+      </div>
+      <div id="reciteModalSummary" style="padding:10px 12px; border-radius:10px; background:var(--info-soft); border:1px solid var(--info); margin-bottom:12px; font-size:0.84rem;"></div>
+      <label class="field-label">اختر تقييمك الفعلي (لا يوجد اختيار تلقائي لضمان دقة الجدولة):</label>
+      <div class="rating-grid" id="ratingGrid" role="radiogroup" aria-label="تقييم التسميع"></div>
+      <div id="reciteRepeatReason" style="display:none; font-size:0.8rem; color:var(--warn); margin-bottom:9px;">
+        ملاحظة: لأن التقييم «يحتاج إعادة»، أُلغي إضافة الأوجه لرصيد الجزء تلقائياً حتى يُعاد تسميعها بإتقان (يمكنك تفعيله يدوياً أدناه).
+      </div>
+      <div style="margin-bottom:10px;">
+        <label class="field-label" for="reciteSheikhNote">ملاحظات التسميع أو المتشابهات (اختياري)</label>
+        <input type="text" id="reciteSheikhNote" placeholder="مثلاً: انتبه للربط مع الآية السابقة" />
+      </div>
+      <div style="margin-bottom:12px; display:flex; flex-direction:column; gap:8px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--accent-hi); cursor:pointer;">
+          <input type="checkbox" id="reciteAutoMap" checked style="width:18px; height:18px; accent-color:var(--accent-mid);" />
+          إضافة الأوجه تلقائياً لرصيد الجزء في الخريطة
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--info); cursor:pointer;">
+          <input type="checkbox" id="reciteAddToLink" checked style="width:18px; height:18px; accent-color:var(--info);" />
+          نقل المقطع إلى «صندوق التثبيت ← تثبيت جديد»
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--warn); cursor:pointer;">
+          <input type="checkbox" id="reciteTagMut" style="width:18px; height:18px; accent-color:var(--warn);" />
+          وسم المقطع ضمن «بنك المتشابهات»
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--success); cursor:pointer;">
+          <input type="checkbox" id="reciteFinishSurah" style="width:18px; height:18px; accent-color:var(--success);" />
+          أتممت هذه السورة بالكامل (انتقل تلقائياً للسورة التالية)
+        </label>
+      </div>
+      <button type="button" class="btn btn-gold btn-block" id="confirmReciteBtn" disabled onclick="confirmRecitation()">اختر التقييم أولاً لتأكيد التسميع</button>
+    </div>
+  </div>
+
+  <!-- Modal: Spaced Repetition Review Rating (NO pre-selected rating + Weak Pages!) -->
+  <div class="modal-backdrop" id="srReviewModal" role="dialog" aria-modal="true" aria-labelledby="srModalTitle" onclick="if(event.target===this) closeModal('srReviewModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="srModalTitle">🧠 تقييم المراجعة (SM-2)</h2>
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('srReviewModal')">إغلاق</button>
       </div>
       <div id="srReviewTargetInfo" style="padding:10px 12px; border-radius:10px; background:var(--accent-soft); border:1px solid var(--accent-border); margin-bottom:12px; font-size:0.85rem;"></div>
       <label class="field-label">كيف كان مستوى ثباتك في هذه المراجعة؟</label>
-      <div class="rating-grid" id="srRatingGrid">
-        <button type="button" class="rating-choice selected-excellent" data-rate="ممتاز" onclick="selectSrRating('ممتاز')">ممتاز (ثابت)<small>تُجدول بعد ١٤–٢٥ يوماً</small></button>
-        <button type="button" class="rating-choice" data-rate="جيد جداً" onclick="selectSrRating('جيد جداً')">جيد جداً<small>تُجدول بعد ٨ أيام</small></button>
-        <button type="button" class="rating-choice" data-rate="جيد" onclick="selectSrRating('جيد')">جيد (متوسط)<small>تُجدول بعد ٤ أيام</small></button>
-        <button type="button" class="rating-choice" data-rate="يحتاج إعادة" onclick="selectSrRating('يحتاج إعادة')">متفلت (إعادة)<small>تُجدول خلال ١–٢ يوم</small></button>
+      <div class="rating-grid" id="srRatingGrid" role="radiogroup" aria-label="تقييم المراجعة"></div>
+
+      <!-- Optional Weak Pages Tracker for Juz Reviews -->
+      <div id="srWeakPagesWrap" style="display:none; margin-bottom:12px;">
+        <label class="field-label">هل توجد أوجه متفلتة تحتاج تركيزاً خاصاً؟ (اختياري)</label>
+        <div class="weak-pages-grid" id="srWeakPagesGrid"></div>
       </div>
-      <button type="button" class="btn btn-gold btn-block" onclick="confirmSrReview()">حفظ وجدولة المراجعة القادمة تلقائياً</button>
+
+      <button type="button" class="btn btn-gold btn-block" id="confirmSrBtn" disabled onclick="confirmSrReview()">اختر التقييم أولاً لحفظ المراجعة</button>
     </div>
   </div>
 
   <!-- Modal: Add Previous Passage to New Solid Box -->
-  <div class="modal-backdrop" id="manualLinkModal" onclick="if(event.target===this) closeModal('manualLinkModal')">
+  <div class="modal-backdrop" id="manualLinkModal" role="dialog" aria-modal="true" aria-labelledby="manualLinkTitle" onclick="if(event.target===this) closeModal('manualLinkModal')">
     <div class="modal-box">
       <div class="card-title">
-        <h2>🔗 إضافة مقطع سابق لتثبيت الجديد</h2>
+        <h2 id="manualLinkTitle">🔗 إضافة مقطع سابق لصندوق التثبيت</h2>
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('manualLinkModal')">إغلاق</button>
       </div>
       <form onsubmit="saveManualLinkPassage(event)" class="form-grid">
         <div>
-          <label class="field-label">اختر السورة (من ١١٤ سورة)</label>
+          <label class="field-label" for="mlSurah">اختر السورة (من ١١٤ سورة)</label>
           <select id="mlSurah" required></select>
         </div>
         <div>
-          <label class="field-label">المقطع / الآيات</label>
+          <label class="field-label" for="mlPassage">المقطع / الآيات</label>
           <input type="text" id="mlPassage" placeholder="مثلاً: آية ١ – ٢٠" required />
         </div>
         <div>
-          <label class="field-label">عدد الأوجه</label>
+          <label class="field-label" for="mlPages">عدد الأوجه</label>
           <input type="number" id="mlPages" step="0.25" min="0.25" max="48" value="2" required />
         </div>
         <div>
-          <label class="field-label">مستوى التثبيت الحالي</label>
+          <label class="field-label" for="mlRating">مستوى الثبات الحالي</label>
           <select id="mlRating">
             <option value="ممتاز">ممتاز</option>
             <option value="جيد جداً" selected>جيد جداً</option>
-            <option value="جيد">جيد (يحتاج تثبيت)</option>
+            <option value="جيد">جيد (يحتاج تثبيتاً)</option>
             <option value="يحتاج إعادة">يحتاج إعادة</option>
           </select>
         </div>
-        <button type="submit" class="btn btn-gold">إضافة إلى تثبيت الجديد</button>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--warn); cursor:pointer;">
+          <input type="checkbox" id="mlTagMut" style="width:18px; height:18px; accent-color:var(--warn);" />
+          وسم ضمن «بنك المتشابهات»
+        </label>
+        <button type="submit" class="btn btn-gold">إضافة إلى صندوق التثبيت</button>
       </form>
     </div>
   </div>
 
   <!-- Modal: Edit Flexible Day -->
-  <div class="modal-backdrop" id="editDayModal" onclick="if(event.target===this) closeModal('editDayModal')">
+  <div class="modal-backdrop" id="editDayModal" role="dialog" aria-modal="true" aria-labelledby="editDayTitle" onclick="if(event.target===this) closeModal('editDayModal')">
     <div class="modal-box">
       <div class="card-title">
-        <h2>تعديل يوم <span class="accent-text" id="editDayName"></span></h2>
+        <h2 id="editDayTitle">تعديل يوم <span class="accent-text" id="editDayName"></span></h2>
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('editDayModal')">إغلاق</button>
       </div>
       <div class="form-grid">
-        <div><label class="field-label">الجلسة الأساسية</label><input type="text" id="editMainText" /></div>
-        <div><label class="field-label">جلسة التسميع أو الربط</label><input type="text" id="editSecondText" /></div>
-        <div><label class="field-label">صندوق التثبيت (قديم وجديد)</label><input type="text" id="editSolidText" /></div>
+        <div><label class="field-label" for="editMainText">الجلسة الأساسية</label><input type="text" id="editMainText" /></div>
+        <div><label class="field-label" for="editSecondText">جلسة التسميع أو الربط</label><input type="text" id="editSecondText" /></div>
+        <div><label class="field-label" for="editSolidText">صندوق التثبيت</label><input type="text" id="editSolidText" /></div>
         <div style="display:flex; gap:8px;">
           <button type="button" class="btn btn-gold" style="flex:1;" onclick="saveDayEdit()">حفظ التعديل</button>
           <button type="button" class="btn btn-ghost" onclick="resetDayToAuto()">إرجاع للتلقائي</button>
@@ -716,7 +848,18 @@
     </div>
   </div>
 
-  <div class="toast" id="toastEl"></div>
+  <!-- Modal: Weekly Archive Summary -->
+  <div class="modal-backdrop" id="weekSummaryModal" role="dialog" aria-modal="true" aria-labelledby="weekSummaryTitle" onclick="if(event.target===this) closeModal('weekSummaryModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="weekSummaryTitle">📊 ملخص أسبوعك المنجز</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('weekSummaryModal')">حسناً</button>
+      </div>
+      <div id="weekSummaryBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastEl" role="status" aria-live="polite"></div>
 
   <script src="data.js"></script>
   <script src="app.js"></script>

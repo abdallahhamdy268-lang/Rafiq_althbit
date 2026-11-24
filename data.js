@@ -1,4 +1,6 @@
-// رفيق التثبيت v6 — قاعدة البيانات الكاملة (١١٤ سورة + ٣٠ جزءاً + باليتات الألوان)
+// ==========================================================================
+// رفيق التثبيت v7 — قاعدة البيانات الدقيقة (١١٤ سورة + ٣٠ جزءاً = ٦٠٤ وجهاً)
+// ==========================================================================
 
 const THEMES = [
   {
@@ -69,7 +71,74 @@ const DAYS_META = [
   { id: 'fri', jsDay: 5, name: 'الجمعة' }
 ];
 
-// قاعدة بيانات الأجزاء الـ ٣٠ حسب مصحف المدينة النبوية (٦٠٤ صفحات)
+// مصدر واحد لإعدادات التكرار المتباعد (SM-2-lite) والتقييمات
+const SR_CONFIG = {
+  defaultEase: 2.3,
+  minEase: 1.3,
+  maxEase: 3.0,
+  minIntervalDays: 1,
+  maxIntervalDays: 45,
+  firstAutoReviewDays: 2,
+  dailyDueLimit: 6,
+  backupReminderDays: 14,
+  streakGraceWindowDays: 7
+};
+
+const RATINGS = [
+  {
+    id: 'ممتاز',
+    label: 'ممتاز (متقن)',
+    shortHint: 'تتضاعف الفترة تلقائياً حتى ٤٥ يوماً',
+    btnClass: 'selected-excellent',
+    tagClass: 'tag-success'
+  },
+  {
+    id: 'جيد جداً',
+    label: 'جيد جداً',
+    shortHint: 'تتباعد الفترة حسب معامل الثبات',
+    btnClass: 'selected-vgood',
+    tagClass: 'tag-gold'
+  },
+  {
+    id: 'جيد',
+    label: 'جيد (يحتاج تثبيتاً)',
+    shortHint: 'تتباعد ببطء لتقوية الترابط',
+    btnClass: 'selected-good',
+    tagClass: 'tag-warn'
+  },
+  {
+    id: 'يحتاج إعادة',
+    label: 'يحتاج إعادة',
+    shortHint: 'أولوية قصوى للمراجعة غداً (١ يوم)',
+    btnClass: 'selected-repeat',
+    tagClass: 'tag-danger'
+  }
+];
+
+const GLOSSARY = [
+  {
+    term: 'الجديد',
+    desc: 'الورد الذي تحفظه لأول مرة. تسجّله من الرئيسية، وعند تأكيد تسميعه وتقييمه ينتقل تلقائياً إلى صندوق التثبيت.'
+  },
+  {
+    term: 'المراجعة (الترميم)',
+    desc: 'إحياء وتنشيط ما حفظته سابقاً وجعله متماسكاً؛ وعند إتمام أي جزء ينتقل فوراً إلى صندوق التثبيت ويحل الجزء التالي مكانه في جدولك.'
+  },
+  {
+    term: 'صندوق التثبيت',
+    desc: 'المكان الذي تُحفظ فيه الأجزاء المكتملة ومقاطع السور الطويلة بجدول تكرار متباعد ذكي (SM-2) يذكّرك بكل عنصر قبل أن تنساه.'
+  },
+  {
+    term: 'مؤقت دكتور الصفحة (١٢ دقيقة)',
+    desc: 'أسلوب عملي لإتقان الوجه الواحد: دقيقتان كشف بالنظر + ٥ دقائق تقوية للآيات المتفلتة + ٣ دقائق اختبار غيبي + دقيقتان قفلة متصلة.'
+  },
+  {
+    term: 'وضع اليوم المضغوط (٧ دقائق)',
+    desc: 'وضع حماية سريع لأيام الانشغال الشديد؛ يحفظ استمراريتك وسلسلة التزامك بدون إحباط أو تراكم مرهق.'
+  }
+];
+
+// قاعدة بيانات الأجزاء الـ ٣٠ حسب مصحف المدينة النبوية (٦٠٤ وجهاً بالضبط)
 const JUZ_DB = [
   { num: 1,  title: 'الجزء ١',  range: 'الفاتحة – البقرة (١٤١)',       startPage: 1,   endPage: 21,  totalPages: 21 },
   { num: 2,  title: 'الجزء ٢',  range: 'البقرة (١٤٢ – ٢٥٢)',           startPage: 22,  endPage: 41,  totalPages: 20 },
@@ -103,8 +172,7 @@ const JUZ_DB = [
   { num: 30, title: 'الجزء ٣٠ (عمّ)',    range: 'النبأ – الناس',       startPage: 582, endPage: 604, totalPages: 23 }
 ];
 
-// قاعدة بيانات الـ ١١٤ سورة كاملة حسب مصحف المدينة النبوية (٦٠٤ صفحات)
-// num: رقم السورة | name: اسم السورة | pages: عدد أوجهها | juz: الجزء التابع لها | startPage / endPage: نطاق الصفحات
+// قاعدة بيانات الـ ١١٤ سورة كاملة حسب مصحف المدينة النبوية (٦٠٤ وجهاً)
 const SURAHS_DB = [
   { num: 1,   name: 'الفاتحة',   pages: 1,    juz: 1,  startPage: 1,   endPage: 1 },
   { num: 2,   name: 'البقرة',    pages: 48,   juz: 1,  startPage: 2,   endPage: 49 },
@@ -241,15 +309,39 @@ function getJuzSurahs(juzNum) {
   );
 }
 
-// حساب عدد الصفحات المتقاطعة بين سورة وجزء محدد
+// خريطة معايرة دقيقة لنصيب كل سورة داخل كل جزء بحيث يساوي مجموع سور كل جزء totalPages بالضبط (بدون عدّ مزدوج للصفحات المشتركة)
+const _JUZ_SURAH_EXACT_PAGES = {};
+(function buildExactJuzPageMap() {
+  JUZ_DB.forEach((j) => {
+    const surahs = getJuzSurahs(j.num);
+    const rawWeights = surahs.map((s) => {
+      if (s.startPage >= j.startPage && s.endPage <= j.endPage) return s.pages;
+      const overlapStart = Math.max(s.startPage, j.startPage);
+      const overlapEnd = Math.min(s.endPage, j.endPage);
+      return Math.min(s.pages, overlapEnd - overlapStart + 1);
+    });
+    const rawSum = rawWeights.reduce((a, b) => a + b, 0) || 1;
+    const map = {};
+    let running = 0;
+    surahs.forEach((s, idx) => {
+      if (idx === surahs.length - 1) {
+        map[s.num] = Number(Math.max(0.05, j.totalPages - running).toFixed(2));
+      } else {
+        const scaled = Number(((rawWeights[idx] / rawSum) * j.totalPages).toFixed(2));
+        map[s.num] = scaled;
+        running = Number((running + scaled).toFixed(2));
+      }
+    });
+    _JUZ_SURAH_EXACT_PAGES[j.num] = map;
+  });
+})();
+
+// إرجاع عدد الأوجه الدقيق للسورة داخل جزء محدد بحيث يكتمل الجزء 100% عند تعليم جميع سوره
 function getSurahPagesInJuz(surah, juz) {
-  if (surah.endPage < juz.startPage || surah.startPage > juz.endPage) return 0;
-  // إذا كانت السورة بالكامل داخل الجزء، نُرجع عدد صفحاتها الدقيق
-  if (surah.startPage >= juz.startPage && surah.endPage <= juz.endPage) {
-    return surah.pages;
+  if (!surah || !juz) return 0;
+  const map = _JUZ_SURAH_EXACT_PAGES[juz.num];
+  if (map && typeof map[surah.num] === 'number') {
+    return map[surah.num];
   }
-  const overlapStart = Math.max(surah.startPage, juz.startPage);
-  const overlapEnd = Math.min(surah.endPage, juz.endPage);
-  const rawSpan = overlapEnd - overlapStart + 1;
-  return Math.min(surah.pages, rawSpan);
+  return 0;
 }

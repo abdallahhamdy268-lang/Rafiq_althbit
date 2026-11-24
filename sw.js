@@ -1,5 +1,6 @@
-// رفيق التثبيت v6.2 — Service Worker (Network-First + Cache-Fallback)
-const CACHE_NAME = 'rafiq-altathbit-v6.2.0';
+// رفيق التثبيت v7.0 — Service Worker (Network-First + Cache-Fallback + كاش الخطوط)
+const CACHE_NAME = 'rafiq-altathbit-v7.0.1';
+const FONT_CACHE = 'rafiq-altathbit-fonts-v1';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -25,12 +26,24 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== CACHE_NAME)
+            .filter((key) => key !== CACHE_NAME && key !== FONT_CACHE)
             .map((key) => caches.delete(key))
         )
       )
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then((clients) => {
+        clients.forEach((client) => {
+          try { client.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME }); } catch (e) {}
+        });
+      })
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -43,9 +56,29 @@ self.addEventListener('fetch', (event) => {
     url.origin === 'https://fonts.googleapis.com' ||
     url.origin === 'https://fonts.gstatic.com';
 
-  if (!isSameOrigin && !isGoogleFonts) return;
+  // Stale-While-Revalidate لخط Cairo لضمان العمل بدون إنترنت بعد أول تحميل
+  if (isGoogleFonts) {
+    event.respondWith(
+      caches.open(FONT_CACHE).then((cache) =>
+        cache.match(req).then((cached) => {
+          const networkPromise = fetch(req)
+            .then((res) => {
+              if (res && (res.status === 200 || res.type === 'opaque')) {
+                cache.put(req, res.clone()).catch(() => {});
+              }
+              return res;
+            })
+            .catch(() => cached || new Response('', { status: 503 }));
+          return cached || networkPromise;
+        })
+      )
+    );
+    return;
+  }
 
-  // Network-First: يجلب النسخة الأحدث فوراً، ويحدّث الكاش، ويعمل أوفلاين عند انقطاع الإنترنت
+  if (!isSameOrigin) return;
+
+  // Network-First للملفات الأساسية حتى يظهر كل تحديث فوراً على التطبيق المثبّت
   event.respondWith(
     fetch(req)
       .then((networkRes) => {
