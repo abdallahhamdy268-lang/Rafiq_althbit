@@ -1,5 +1,5 @@
-/* رفيق التثبيت v6 — Service Worker (Network-First + Cache-Fallback) */
-const CACHE_NAME = 'rafiq-altathbit-v6-cache-1';
+// رفيق التثبيت v6 — Service Worker (Network-First + Cache-Fallback)
+const CACHE_NAME = 'rafiq-altathbit-v6.0.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -12,21 +12,24 @@ const CORE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+        )
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim())
   );
 });
 
@@ -35,36 +38,33 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
+  const isSameOrigin = url.origin === self.location.origin;
+  const isGoogleFonts =
+    url.origin === 'https://fonts.googleapis.com' ||
+    url.origin === 'https://fonts.gstatic.com';
 
-  // Network-First: fetch fresh copy from GitHub Pages when online, update cache immediately,
-  // and fall back cleanly to cache when offline.
+  if (!isSameOrigin && !isGoogleFonts) return;
+
+  // Network-First: fetch fresh version immediately, update cache, fallback to cache offline
   event.respondWith(
-    fetch(req, { cache: 'no-cache' })
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const clone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+    fetch(req)
+      .then((networkRes) => {
+        if (networkRes && networkRes.status === 200) {
+          const resClone = networkRes.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(req, resClone).catch(() => {});
+          });
         }
-        return networkResponse;
+        return networkRes;
       })
       .catch(() =>
-        caches.match(req).then((cached) => {
-          if (cached) return cached;
+        caches.match(req).then((cachedRes) => {
+          if (cachedRes) return cachedRes;
           if (req.mode === 'navigate') {
             return caches.match('./index.html');
           }
-          return new Response('وضع عدم الاتصال — تعذّر تحميل الملف.', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-          });
+          return new Response('', { status: 503, statusText: 'Offline' });
         })
       )
   );
-});
-
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });

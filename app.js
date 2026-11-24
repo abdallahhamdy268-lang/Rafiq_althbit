@@ -1,2156 +1,2737 @@
-/* ==========================================================================
-   رفيق التثبيت v6 — المنطق البرمجي الكامل
-   اختبار تشخيصي متفرع (114 سورة) + خطة وجدول حقيقيان + SRS + ألوان حرة + استيراد v4/v5
-   ========================================================================== */
+// ==========================================================================
+// رفيق التثبيت v6 — المنطق الذكي (التشخيص المتفرّع، التكرار المتباعد، الثيمات)
+// ==========================================================================
 
-(function () {
-  'use strict';
+const STORAGE_KEY = 'rafiq_altathbit_v6';
+const LEGACY_KEYS = ['rafiq_altathbit_smart_v5', 'rafiq_altathbit_khatma_v4'];
 
-  const DATA = window.RAFIQ_DATA;
-  const STORAGE_KEY = 'rafiq_altathbit_v6_state';
-  const LEGACY_KEYS = ['rafiq_altathbit_smart_v5', 'rafiq_altathbit_khatma_v4'];
+const CUSTOM_CSS_VARS = [
+  '--bg-deep', '--bg-grad-1', '--bg-grad-2', '--bg-card', '--bg-card-end',
+  '--bg-card-2', '--bg-hero-start', '--bg-hero-end', '--bg-header', '--bg-nav',
+  '--bg-input', '--bg-surface', '--bg-surface-strong', '--border-subtle',
+  '--accent-hi', '--accent-mid', '--accent-deep', '--accent-grad',
+  '--accent-soft', '--accent-border', '--accent-border-strong',
+  '--btn-primary-text', '--text-main', '--text-muted', '--text-dim',
+  '--ring-track', '--shadow-card'
+];
 
-  // ---------------- أدوات التاريخ والرياضيات والألوان ----------------
-  function todayISO() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+// ================= DATE & SPACED REPETITION HELPERS =================
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysStr(baseStr, days) {
+  const d = new Date(baseStr + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function diffDaysFromToday(targetDateStr) {
+  if (!targetDateStr) return 0;
+  const a = new Date(todayStr() + 'T00:00:00');
+  const b = new Date(targetDateStr + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
+function computeNextInterval(rating, prevRating, prevInterval) {
+  if (rating === 'يحتاج إعادة') return 1;
+  if (rating === 'جيد') return 4;
+  if (rating === 'جيد جداً') return 8;
+  // ممتاز: 14 يوماً أول مرة، وتمتد إلى 25 يوماً عند الاستمرار
+  if (prevRating === 'ممتاز' && (prevInterval || 0) >= 14) return 25;
+  return 14;
+}
+
+function formatNum(n) {
+  const v = Number(n) || 0;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, '');
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[m]));
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str);
+}
+
+// ================= COLOR & CONTRAST ENGINE (FOR CUSTOM THEME) =================
+function hexToRgb(hex) {
+  const clean = String(hex || '#00112B').replace('#', '');
+  const full = clean.length === 3
+    ? clean.split('').map((c) => c + c).join('')
+    : clean.padEnd(6, '0').slice(0, 6);
+  const num = parseInt(full, 16);
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+
+function rgbToHex(r, g, b) {
+  const clamp = (x) => Math.max(0, Math.min(255, Math.round(x)));
+  return '#' + [clamp(r), clamp(g), clamp(b)]
+    .map((x) => x.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function mixHex(hexA, hexB, weightA) {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  const w = Math.max(0, Math.min(1, weightA));
+  return rgbToHex(
+    a.r * w + b.r * (1 - w),
+    a.g * w + b.g * (1 - w),
+    a.b * w + b.b * (1 - w)
+  );
+}
+
+function rgbaStr(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getLuminance(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const toLin = (c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
+}
+
+function getContrastRatio(hex1, hex2) {
+  const l1 = getLuminance(hex1);
+  const l2 = getLuminance(hex2);
+  const hi = Math.max(l1, l2);
+  const lo = Math.min(l1, l2);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function clearCustomCssVars() {
+  const root = document.documentElement;
+  CUSTOM_CSS_VARS.forEach((v) => root.style.removeProperty(v));
+}
+
+function applyCustomPalette(bgHex, accentHex) {
+  const root = document.documentElement;
+  const bgLum = getLuminance(bgHex);
+  const isDark = bgLum < 0.36;
+
+  // ضمان تباين مريح للقراءة بين اللون الأساسي والخلفية
+  let safeAccent = accentHex;
+  const rawContrast = getContrastRatio(bgHex, accentHex);
+  if (rawContrast < 3.0) {
+    safeAccent = isDark ? mixHex('#FFFFFF', accentHex, 0.55) : mixHex('#000000', accentHex, 0.55);
   }
 
-  function addDaysISO(iso, days) {
-    const [y, m, d] = iso.split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    dt.setDate(dt.getDate() + days);
-    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-  }
+  const textMain = isDark ? '#F7F8FA' : '#141D26';
+  const textMuted = mixHex(textMain, bgHex, isDark ? 0.68 : 0.66);
+  const textDim = mixHex(textMain, bgHex, 0.48);
 
-  function diffDays(isoA, isoB) {
-    const [ya, ma, da] = isoA.split('-').map(Number);
-    const [yb, mb, db] = isoB.split('-').map(Number);
-    const a = Date.UTC(ya, ma - 1, da);
-    const b = Date.UTC(yb, mb - 1, db);
-    return Math.round((a - b) / 86400000);
-  }
+  const bgCard = isDark ? mixHex('#FFFFFF', bgHex, 0.065) : mixHex('#FFFFFF', bgHex, 0.78);
+  const bgCardEnd = isDark ? mixHex('#FFFFFF', bgHex, 0.035) : mixHex('#FFFFFF', bgHex, 0.52);
+  const bgCard2 = isDark ? mixHex('#FFFFFF', bgHex, 0.105) : mixHex('#000000', bgHex, 0.045);
+  const bgHeroStart = isDark ? mixHex(safeAccent, bgHex, 0.14) : mixHex('#FFFFFF', bgHex, 0.84);
+  const bgHeroEnd = isDark ? bgHex : mixHex(safeAccent, bgHex, 0.08);
+  const bgInput = isDark ? mixHex('#000000', bgHex, 0.26) : '#FFFFFF';
 
-  function uid(prefix) {
-    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-  }
+  const accentHi = isDark ? mixHex('#FFFFFF', safeAccent, 0.22) : safeAccent;
+  const accentMid = safeAccent;
+  const accentDeep = mixHex('#000000', safeAccent, 0.22);
+  const btnPrimaryText = getLuminance(safeAccent) > 0.34 ? '#0B1320' : '#FFFFFF';
 
-  function escapeHTML(str) {
-    return String(str == null ? '' : str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const vars = {
+    '--bg-deep': bgHex,
+    '--bg-grad-1': rgbaStr(safeAccent, isDark ? 0.13 : 0.09),
+    '--bg-grad-2': rgbaStr(isDark ? '#FFFFFF' : safeAccent, isDark ? 0.06 : 0.06),
+    '--bg-card': bgCard,
+    '--bg-card-end': bgCardEnd,
+    '--bg-card-2': bgCard2,
+    '--bg-hero-start': bgHeroStart,
+    '--bg-hero-end': bgHeroEnd,
+    '--bg-header': rgbaStr(bgHex, 0.93),
+    '--bg-nav': rgbaStr(isDark ? mixHex('#000000', bgHex, 0.15) : bgCard, 0.97),
+    '--bg-input': bgInput,
+    '--bg-surface': rgbaStr(textMain, isDark ? 0.045 : 0.045),
+    '--bg-surface-strong': rgbaStr(isDark ? '#000000' : textMain, isDark ? 0.44 : 0.07),
+    '--border-subtle': rgbaStr(textMain, 0.16),
+    '--accent-hi': accentHi,
+    '--accent-mid': accentMid,
+    '--accent-deep': accentDeep,
+    '--accent-grad': `linear-gradient(135deg, ${accentHi} 0%, ${accentMid} 55%, ${accentDeep} 100%)`,
+    '--accent-soft': rgbaStr(safeAccent, isDark ? 0.15 : 0.11),
+    '--accent-border': rgbaStr(safeAccent, isDark ? 0.30 : 0.24),
+    '--accent-border-strong': rgbaStr(accentHi, 0.56),
+    '--btn-primary-text': btnPrimaryText,
+    '--text-main': textMain,
+    '--text-muted': textMuted,
+    '--text-dim': textDim,
+    '--ring-track': rgbaStr(textMain, 0.11),
+    '--shadow-card': isDark ? '0 10px 28px rgba(0, 0, 0, 0.45)' : '0 8px 22px rgba(0, 0, 0, 0.08)'
+  };
 
-  function formatPages(num) {
-    const v = Math.round(Number(num || 0) * 10) / 10;
-    return Number.isInteger(v) ? String(v) : v.toFixed(1);
-  }
+  Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  const meta = document.getElementById('metaThemeColor');
+  if (meta) meta.setAttribute('content', bgHex);
+}
 
-  function hexToRgb(hex) {
-    const clean = (hex || '#00112B').replace('#', '');
-    const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
-    const n = parseInt(full, 16);
-    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+function applyTheme(themeId, customColors) {
+  if (themeId === 'custom') {
+    const cc = customColors || state.profile.customColors || { bg: '#00112B', accent: '#D0A151' };
+    document.documentElement.setAttribute('data-theme', 'custom');
+    applyCustomPalette(cc.bg, cc.accent);
+    return;
   }
+  clearCustomCssVars();
+  const t = THEMES.find((x) => x.id === themeId) || THEMES[0];
+  document.documentElement.setAttribute('data-theme', t.id);
+  const meta = document.getElementById('metaThemeColor');
+  if (meta) meta.setAttribute('content', t.meta);
+}
 
-  function rgbToHex(r, g, b) {
-    const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
-    return '#' + [clamp(r), clamp(g), clamp(b)].map((v) => v.toString(16).padStart(2, '0')).join('');
+// ================= STATE MANAGEMENT =================
+function getEmptyState() {
+  return {
+    version: 6,
+    onboarded: false,
+    profile: {
+      name: '',
+      username: '',
+      theme: 'royal',
+      customColors: { bg: '#00112B', accent: '#D0A151' },
+      mode: 'from_nas',             // from_nas | from_baqarah | beginner | khatim | scattered
+      stopSurahNum: 78,             // للسور المتسلسلة: السورة التي وقف عندها
+      stopSurahCompleted: true,     // أتمها أم ما زال فيها
+      beginnerDir: 'from_nas',      // from_nas | from_baqarah
+      khatimStart: 'from_baqarah',  // from_baqarah | from_nas | specific_juz
+      khatimSpecificJuz: [1, 2, 3], // أجزاء محددة للخاتم
+      scatteredSurahs: [],          // أرقام السور المحفوظة فعلياً
+      scatteredContinue: 'org_nas', // keep_scattered | org_nas | org_baqarah
+      stability: 'weak',            // weak | medium | solid
+      dailyMin: 45,
+      studyStyle: 'solo',           // solo | maqraa
+      maqraaDays: ['mon', 'thu'],
+      pagesPerSession: 1
+    },
+    juzList: [],
+    schedule: [],
+    weekArchives: [],
+    solidMeta: {},
+    activeWird: null,
+    maqraaLogs: [],
+    newLinkingGroups: [],
+    reminders: [],
+    busyDayDate: '',
+    busyTasksDone: { t1: false, t2: false },
+    streak: { count: 0, lastDate: '' },
+    mapFilter: 'revision',
+    solidSubTab: 'new',
+    expandedJuz: {},
+    calcDailyMin: 45,
+    calcNewPages: 1
+  };
+}
+
+let state = loadState();
+let editingDayId = null;
+let selectedRating = 'ممتاز';
+let selectedSrRating = 'ممتاز';
+let srTarget = null;
+let surahSearchQuery = '';
+
+let obDraft = {
+  step: 1,
+  isEditing: false,
+  theme: 'royal',
+  customColors: { bg: '#00112B', accent: '#D0A151' },
+  mode: 'from_nas',
+  stopSurahNum: 78,
+  stopSurahCompleted: true,
+  beginnerDir: 'from_nas',
+  khatimStart: 'from_baqarah',
+  khatimSpecificJuz: [1, 2, 3],
+  scatteredSurahs: [],
+  scatteredContinue: 'org_nas',
+  stability: 'weak',
+  dailyMin: 45,
+  studyStyle: 'solo',
+  maqraaDays: ['mon', 'thu'],
+  pagesPerSession: 1,
+  remEnabled: false
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const empty = getEmptyState();
+      return {
+        ...empty,
+        ...parsed,
+        profile: {
+          ...empty.profile,
+          ...(parsed.profile || {}),
+          customColors: {
+            ...empty.profile.customColors,
+            ...((parsed.profile && parsed.profile.customColors) || {})
+          }
+        },
+        reminders: parsed.reminders || [],
+        busyTasksDone: parsed.busyTasksDone || { t1: false, t2: false }
+      };
+    }
+  } catch (e) {}
+  return getEmptyState();
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {}
+}
+
+// ================= DIAGNOSTIC CALCULATION ENGINE =================
+function getEffectiveDirection(profile) {
+  if (profile.mode === 'from_nas') return 'from_nas';
+  if (profile.mode === 'from_baqarah') return 'from_baqarah';
+  if (profile.mode === 'beginner') return profile.beginnerDir || 'from_nas';
+  if (profile.mode === 'khatim') return profile.khatimStart === 'from_nas' ? 'from_nas' : 'from_baqarah';
+  if (profile.mode === 'scattered') {
+    return profile.scatteredContinue === 'org_baqarah' ? 'from_baqarah' : 'from_nas';
   }
+  return 'from_nas';
+}
 
-  function relativeLuminance(hex) {
-    const { r, g, b } = hexToRgb(hex);
-    const conv = [r, g, b].map((v) => {
-      const s = v / 255;
-      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+// تحديد مجموعة أرقام السور المحفوظة فعلياً بناءً على التشخيص
+function getDiagnosedMemorizedSet(profile) {
+  const set = new Set();
+  if (profile.mode === 'khatim') {
+    SURAHS_DB.forEach((s) => set.add(s.num));
+    return set;
+  }
+  if (profile.mode === 'beginner') {
+    return set;
+  }
+  if (profile.mode === 'scattered') {
+    (profile.scatteredSurahs || []).forEach((n) => set.add(Number(n)));
+    return set;
+  }
+  const stop = Number(profile.stopSurahNum) || (profile.mode === 'from_nas' ? 114 : 1);
+  const includeStop = profile.stopSurahCompleted !== false;
+  if (profile.mode === 'from_nas') {
+    SURAHS_DB.forEach((s) => {
+      if (s.num > stop || (includeStop && s.num === stop)) set.add(s.num);
     });
-    return 0.2126 * conv[0] + 0.7152 * conv[1] + 0.0722 * conv[2];
+  } else if (profile.mode === 'from_baqarah') {
+    SURAHS_DB.forEach((s) => {
+      if (s.num < stop || (includeStop && s.num === stop)) set.add(s.num);
+    });
   }
+  return set;
+}
 
-  function mixHex(hex1, hex2, weight) {
-    const a = hexToRgb(hex1);
-    const b = hexToRgb(hex2);
-    return rgbToHex(
-      a.r * (1 - weight) + b.r * weight,
-      a.g * (1 - weight) + b.g * weight,
-      a.b * (1 - weight) + b.b * weight
-    );
-  }
+// إيجاد السورة التالية الفعلية للحفظ الجديد (بدون أي افتراض لسور ثابتة)
+function getNextNewSurah(profile, juzList) {
+  if (profile.mode === 'khatim') return null;
 
-  function buildCustomThemeTokens(bgHex, accentHex) {
-    const bgLum = relativeLuminance(bgHex);
-    const isLight = bgLum > 0.42;
-    const accentLum = relativeLuminance(accentHex);
-
-    const surface = isLight ? mixHex(bgHex, '#FFFFFF', 0.65) : mixHex(bgHex, '#FFFFFF', 0.07);
-    const surface2 = isLight ? mixHex(bgHex, '#000000', 0.05) : mixHex(bgHex, '#FFFFFF', 0.13);
-    const text = isLight ? '#141D2B' : '#F7F8FA';
-    const textMuted = isLight ? '#4E5D70' : '#B7C4D6';
-    const accentLight = isLight ? mixHex(accentHex, '#000000', 0.1) : mixHex(accentHex, '#FFFFFF', 0.28);
-    const accentDark = mixHex(accentHex, '#000000', 0.18);
-    const accentContrast = accentLum > 0.36 ? '#00112B' : '#F7F8FA';
-
-    return {
-      mode: isLight ? 'light' : 'dark',
-      bg: bgHex,
-      surface,
-      surface2,
-      accent: accentHex,
-      accentLight,
-      accentDark,
-      accentContrast,
-      text,
-      textMuted
-    };
-  }
-
-  // ---------------- الحالة الافتراضية ----------------
-  function createDefaultState() {
-    return {
-      version: 6,
-      onboarded: false,
-      profile: {
-        firstName: '',
-        username: '',
-        path: 'from_nas', // from_nas | from_baqarah | fresh | khatim | scattered
-        stopSurah: 114,
-        freshStartMode: 'from_nas', // from_nas | from_baqarah | custom_surah
-        freshStartSurah: 114,
-        khatimReviewMode: 'from_baqarah', // from_baqarah | from_nas | specific_juz
-        khatimJuzList: [],
-        scatteredSurahs: [],
-        scatteredContinueMode: 'from_nas', // scattered | from_nas | from_baqarah
-        stability: 'medium', // weak | medium | strong
-        dailyMinutes: 60,
-        maqraaDays: [1, 4] // الاثنين والخميس افتراضياً (قابل للتعديل)
-      },
-      memorizedSurahs: [], // أرقام السور المحفوظة بالكامل (1..114)
-      activeWird: null, // { id, surahNumber, surahName, segmentLabel, pages, notes, createdAt }
-      newBox: [], // [{ id, surahNumber, surahName, segmentLabel, pages, rating, nextDue, intervalDays, reps, updatedAt }]
-      oldBox: [], // [{ id, title, kind, juz, surahNumbers, pages, rating, nextDue, intervalDays, reps, updatedAt }]
-      recitationLog: [], // [{ id, date, type, title, pages, rating, notes }]
-      weeklySchedule: [], // [{ dayId, dayName, isMaqraa, primarySession, secondarySession, donePrimary, doneSecondary }]
-      streak: { count: 0, lastActiveDate: null },
-      settings: {
-        themeId: 'royal-navy',
-        customColors: { bg: '#00112B', accent: '#D0A151' },
-        smartReminders: true
+  // إن كان المستخدم عنده خريطة مبنية، نبحث عن أول سورة غير مكتملة في مسار الجديد
+  if (juzList && juzList.length === 30) {
+    const newJuzs = juzList.filter((j) => j.track === 'new');
+    const dir = getEffectiveDirection(profile);
+    for (const j of newJuzs) {
+      if (j.surahs && j.surahs.length > 0) {
+        const list = dir === 'from_nas' ? [...j.surahs].reverse() : j.surahs;
+        const undone = list.find((s) => !s.done);
+        if (undone) {
+          return getSurahByNum(undone.num) || getSurahByName(undone.name) || { num: undone.num || 1, name: undone.name, pages: undone.pages, juz: j.num };
+        }
       }
-    };
-  }
-
-  let state = loadState();
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        return mergeWithDefaults(parsed);
-      }
-    } catch (e) {
-      console.warn('تعذر قراءة الحالة المحفوظة:', e);
-    }
-    return createDefaultState();
-  }
-
-  function mergeWithDefaults(parsed) {
-    const def = createDefaultState();
-    return {
-      ...def,
-      ...parsed,
-      profile: { ...def.profile, ...(parsed.profile || {}) },
-      streak: { ...def.streak, ...(parsed.streak || {}) },
-      settings: {
-        ...def.settings,
-        ...(parsed.settings || {}),
-        customColors: { ...def.settings.customColors, ...((parsed.settings && parsed.settings.customColors) || {}) }
-      },
-      memorizedSurahs: Array.isArray(parsed.memorizedSurahs) ? parsed.memorizedSurahs : [],
-      newBox: Array.isArray(parsed.newBox) ? parsed.newBox : [],
-      oldBox: Array.isArray(parsed.oldBox) ? parsed.oldBox : [],
-      recitationLog: Array.isArray(parsed.recitationLog) ? parsed.recitationLog : [],
-      weeklySchedule: Array.isArray(parsed.weeklySchedule) ? parsed.weeklySchedule : []
-    };
-  }
-
-  function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      showToast('تعذر الحفظ المحلي — تأكد من مساحة المتصفح.');
     }
   }
 
-  function touchStreak() {
-    const today = todayISO();
-    const last = state.streak.lastActiveDate;
-    if (last === today) return;
-    if (last && diffDays(today, last) === 1) {
-      state.streak.count += 1;
+  // حساب مباشر من التشخيص
+  const memSet = getDiagnosedMemorizedSet(profile);
+  const dir = getEffectiveDirection(profile);
+  const ordered = dir === 'from_nas' ? [...SURAHS_DB].reverse() : [...SURAHS_DB];
+  const next = ordered.find((s) => !memSet.has(s.num));
+  return next || null;
+}
+
+function summarizeDiagnostic(profile) {
+  const memSet = getDiagnosedMemorizedSet(profile);
+  const memSurahs = SURAHS_DB.filter((s) => memSet.has(s.num));
+  const memPages = Math.min(604, Number(memSurahs.reduce((sum, s) => sum + s.pages, 0).toFixed(1)));
+
+  let completedJuzCount = 0;
+  JUZ_DB.forEach((j) => {
+    const jSurahs = getJuzSurahs(j.num);
+    if (jSurahs.length > 0 && jSurahs.every((s) => memSet.has(s.num))) {
+      completedJuzCount++;
+    }
+  });
+
+  const nextSurah = getNextNewSurah(profile, null);
+  return {
+    memCount: memSurahs.length,
+    memPages,
+    completedJuzCount,
+    remPages: Math.max(0, Number((604 - memPages).toFixed(1))),
+    nextSurah
+  };
+}
+
+// بناء خريطة الـ ٣٠ جزءاً الحقيقية بكل سورها (١١٤ سورة) بناءً على التشخيص
+function buildPersonalizedPlan(profile) {
+  const memSet = getDiagnosedMemorizedSet(profile);
+  const dir = getEffectiveDirection(profile);
+  const stability = profile.mode === 'beginner' ? 'weak' : (profile.stability || 'weak');
+  const today = todayStr();
+
+  // ترتيب الأجزاء الـ ٣٠ حسب المسار الفعلي
+  let orderedJuz = dir === 'from_baqarah'
+    ? [...JUZ_DB].sort((a, b) => a.num - b.num)
+    : [...JUZ_DB].sort((a, b) => b.num - a.num);
+
+  // للخاتم الذي اختار أجزاء محددة: نضع أجزاءه المختارة أولاً في الدورة
+  if (profile.mode === 'khatim' && profile.khatimStart === 'specific_juz') {
+    const priorityNums = (profile.khatimSpecificJuz || []).map(Number);
+    const prioritySet = new Set(priorityNums);
+    const first = priorityNums
+      .map((n) => JUZ_DB.find((x) => x.num === n))
+      .filter(Boolean);
+    const rest = JUZ_DB.filter((x) => !prioritySet.has(x.num));
+    orderedJuz = [...first, ...rest];
+  }
+
+  const solidMeta = {};
+  let revIdx = 0;
+
+  const juzList = orderedJuz.map((jRaw) => {
+    const jSurahsRaw = getJuzSurahs(jRaw.num);
+    // ترتيب السور داخل الجزء حسب اتجاه المستخدم
+    const jSurahsOrdered = dir === 'from_nas' ? [...jSurahsRaw].reverse() : [...jSurahsRaw];
+
+    const memInJuz = jSurahsOrdered.filter((s) => memSet.has(s.num));
+    const hasMemorized = profile.mode === 'khatim' || memInJuz.length > 0;
+    const allMemorized = profile.mode === 'khatim' || (jSurahsOrdered.length > 0 && memInJuz.length === jSurahsOrdered.length);
+
+    const track = hasMemorized ? 'revision' : 'new';
+
+    const surahs = jSurahsOrdered.map((s) => {
+      const pInJuz = Number(getSurahPagesInJuz(s, jRaw).toFixed(2));
+      const wasMem = memSet.has(s.num);
+      // إن كان المحفوظ القديم ثابتاً تُعلّم سوره كمنجزة، وإلا تدخل ورشة الترميم ليعلّمها عند المراجعة
+      const done = wasMem && stability === 'solid';
+      return {
+        num: s.num,
+        name: s.name,
+        pages: pInJuz,
+        wasMemorized: wasMem,
+        done
+      };
+    });
+
+    let donePages = 0;
+    if (track === 'revision') {
+      const memPagesInJuz = Math.min(
+        jRaw.totalPages,
+        surahs.reduce((sum, s) => sum + (s.wasMemorized ? s.pages : 0), 0)
+      );
+      if (stability === 'solid') {
+        donePages = allMemorized ? jRaw.totalPages : Number(memPagesInJuz.toFixed(1));
+        if (donePages >= jRaw.totalPages - 0.01) {
+          solidMeta[jRaw.num] = {
+            reviews: 1,
+            lastReviewed: today,
+            rating: 'ممتاز',
+            intervalDays: 14,
+            nextReviewDate: addDaysStr(today, (revIdx % 14) + 1),
+            addedAt: today
+          };
+        }
+      } else if (stability === 'medium') {
+        donePages = Number((memPagesInJuz * 0.5).toFixed(1));
+      } else {
+        donePages = 0;
+      }
+      revIdx++;
+    }
+
+    let phase = '';
+    if (profile.mode === 'khatim') {
+      if (profile.khatimStart === 'specific_juz' && (profile.khatimSpecificJuz || []).includes(jRaw.num)) {
+        phase = 'الدورة الأولى: الأجزاء المختارة';
+      } else {
+        phase = revIdx <= 10 ? 'المرحلة ١: الثلث الأول من الدورة' : (revIdx <= 20 ? 'المرحلة ٢: الثلث الثاني' : 'المرحلة ٣: تمام الختمة');
+      }
+    } else if (track === 'revision') {
+      phase = profile.mode === 'scattered'
+        ? 'مسار مراجعة وترميم السور المحفوظة'
+        : (revIdx <= 5 ? 'المرحلة ١: البداية السريعة في الترميم' : (revIdx <= 14 ? 'المرحلة ٢: التدرّج المتوازن' : 'المرحلة ٣: استكمال الترميم'));
     } else {
-      state.streak.count = 1;
+      phase = dir === 'from_baqarah'
+        ? 'مسار الحفظ الجديد (من البقرة نحو الناس)'
+        : 'مسار الحفظ الجديد (من الناس نحو البقرة)';
     }
-    state.streak.lastActiveDate = today;
+
+    return {
+      num: jRaw.num,
+      title: jRaw.title,
+      range: jRaw.range,
+      totalPages: jRaw.totalPages,
+      track,
+      phase,
+      donePages,
+      basePages: 0,
+      surahs,
+      note: ''
+    };
+  });
+
+  // للسور المتفرقة: وضع الأجزاء التي تحتوي على سور محفوظة أولاً في الترتيب
+  if (profile.mode === 'scattered') {
+    juzList.sort((a, b) => {
+      if (a.track !== b.track) return a.track === 'revision' ? -1 : 1;
+      return dir === 'from_baqarah' ? a.num - b.num : b.num - a.num;
+    });
   }
 
-  // ---------------- محرك التكرار المتباعد (SRS) ----------------
-  function computeNextSRS(ratingId, prevReps) {
-    const reps = Number(prevReps || 0);
-    if (ratingId === 'repeat') {
-      return { days: reps === 0 ? 1 : 2, nextReps: 0 };
-    }
-    if (ratingId === 'good') {
-      return { days: 4, nextReps: Math.max(1, reps) };
-    }
-    if (ratingId === 'very_good') {
-      return { days: 8, nextReps: reps + 1 };
-    }
-    // excellent: 14 -> 18 -> 22 -> 25 يوماً
-    const scale = [14, 18, 22, 25];
-    const idx = Math.min(scale.length - 1, reps);
-    return { days: scale[idx], nextReps: reps + 1 };
-  }
+  return { juzList, solidMeta };
+}
 
-  // ---------------- محرك الخطة الحقيقية والجدول الأسبوعي ----------------
-  function getMemorizedSurahsFromWizard(p) {
-    if (p.path === 'khatim') {
-      return DATA.SURAHS.map((s) => s.number);
-    }
-    if (p.path === 'fresh') {
-      return [];
-    }
-    if (p.path === 'from_nas') {
-      const stop = Number(p.stopSurah || 114);
-      const list = [];
-      for (let n = stop; n <= 114; n++) list.push(n);
-      return list;
-    }
-    if (p.path === 'from_baqarah') {
-      const stop = Number(p.stopSurah || 1);
-      const list = [];
-      for (let n = 1; n <= stop; n++) list.push(n);
-      return list;
-    }
-    if (p.path === 'scattered') {
-      return Array.from(new Set((p.scatteredSurahs || []).map(Number))).sort((a, b) => a - b);
-    }
-    return [];
-  }
+// توليد جدول أسبوعي حقيقي ومرن بأسماء السور والأجزاء والأوجه الفعلية (بدون أي أوقات ثابتة)
+function buildPersonalizedSchedule(profile, juzList) {
+  const daily = parseInt(profile.dailyMin, 10) || 45;
+  const mainMin = Math.round(daily * 0.65);
+  const secMin = Math.max(5, Math.round(daily * 0.17));
+  const solMin = Math.max(5, daily - mainMin - secMin);
+  const isKhatim = profile.mode === 'khatim';
+  const isBeginner = profile.mode === 'beginner';
+  const hasMaqraa = profile.studyStyle === 'maqraa';
+  const maqraaDays = hasMaqraa ? (profile.maqraaDays || ['mon', 'thu']) : [];
+  const pagesPerSess = parseFloat(profile.pagesPerSession) || 1;
+  const revPagesPerDay = Math.max(1, Math.round(mainMin / 13));
 
-  function getOrderedUnmemorizedSurahs(profile, memorizedSet) {
-    const mem = new Set(memorizedSet);
-    const unmem = DATA.SURAHS.filter((s) => !mem.has(s.number));
-    if (profile.path === 'khatim') return [];
+  const revJuzs = (juzList || []).filter((j) => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
+  const allRevJuzs = (juzList || []).filter((j) => j.track === 'revision');
+  const activeRevList = revJuzs.length > 0 ? revJuzs : allRevJuzs;
+  const nextSurah = getNextNewSurah(profile, juzList);
+  const nextSurahLabel = nextSurah ? `سورة ${nextSurah.name} (الجزء ${nextSurah.juz})` : 'الورد الجديد التالي';
 
-    let direction = 'from_nas';
-    if (profile.path === 'from_baqarah') direction = 'from_baqarah';
-    else if (profile.path === 'fresh') direction = profile.freshStartMode;
-    else if (profile.path === 'scattered') direction = profile.scatteredContinueMode;
+  const getRevLabelForDay = (dayIdx) => {
+    if (activeRevList.length === 0) return null;
+    const targetJuz = isKhatim
+      ? activeRevList[dayIdx % activeRevList.length]
+      : activeRevList[0];
+    const undoneSurahs = (targetJuz.surahs || []).filter((s) => !s.done && (isKhatim || s.wasMemorized));
+    const names = (undoneSurahs.length > 0 ? undoneSurahs : (targetJuz.surahs || []))
+      .slice(0, 3)
+      .map((s) => s.name)
+      .join('، ');
+    return `${targetJuz.title}${names ? ` (${names})` : ''}`;
+  };
 
-    if (direction === 'custom_surah') {
-      const start = Number(profile.freshStartSurah || 114);
-      const before = unmem.filter((s) => s.number >= start).sort((a, b) => a.number - b.number);
-      const after = unmem.filter((s) => s.number < start).sort((a, b) => a.number - b.number);
-      return [...before, ...after];
-    }
-    if (direction === 'from_baqarah') {
-      return unmem.sort((a, b) => a.number - b.number);
-    }
-    // from_nas أو scattered: نرتب من الناس للبقرة كترتيب اقتراحي واضح
-    return unmem.sort((a, b) => b.number - a.number);
-  }
+  const completedJuz = (juzList || []).filter((j) => j.donePages >= j.totalPages - 0.01);
+  const solidSample = completedJuz.length > 0
+    ? completedJuz.slice(0, 2).map((j) => j.title).join(' و')
+    : (nextSurah ? `ربط مقاطع سورة ${nextSurah.name}` : 'المستحق في صندوق التثبيت');
 
-  function calculateDailyPace(profile, memorizedSurahs) {
-    const mins = Number(profile.dailyMinutes || 60);
-    const stats = DATA.calculateSurahSetStats(memorizedSurahs);
-    const isKhatim = profile.path === 'khatim';
-    const isFresh = stats.surahCount === 0;
+  return DAYS_META.map((dm, idx) => {
+    const isMq = maqraaDays.includes(dm.id);
+    const nextDay = DAYS_META[(idx + 1) % 7];
+    const isPrepDay = !isKhatim && hasMaqraa && maqraaDays.includes(nextDay.id);
+    const revLabel = getRevLabelForDay(idx);
 
-    // تقسيم الوقت بمرونة لجلستين (أساسية ~67% + تسميع وتثبيت ~33%)
-    const primaryMin = Math.max(10, Math.round((mins * 2) / 3 / 5) * 5);
-    const secondaryMin = Math.max(5, mins - primaryMin);
-
-    let reviewPagesPerDay = 0;
-    let newPagesPerDay = 0;
+    let mainText = '';
+    let secondText = '';
+    let solidText = '';
 
     if (isKhatim) {
-      // للخاتم: كل الوقت للمراجعة والتثبيت (~10 دقائق لكل وجه مراجعة متقنة أو 5 دقائق للمستقر)
-      const minsPerReviewPage = profile.stability === 'weak' ? 8 : profile.stability === 'medium' ? 5 : 3.5;
-      reviewPagesPerDay = Math.max(2, Math.round((mins / minsPerReviewPage) * 2) / 2);
-      newPagesPerDay = 0;
-    } else if (isFresh) {
-      // بداية جديدة: 75% حفظ جديد و25% ربط وتثبيت القريب
-      newPagesPerDay = Math.max(0.5, Math.round(((mins * 0.75) / 22) * 2) / 2);
-      reviewPagesPerDay = Math.max(0.5, Math.round((newPagesPerDay * 2) * 2) / 2);
+      const kPages = Math.max(2, Math.round(mainMin / 6));
+      mainText = dm.id === 'fri'
+        ? `تجميع ومراجعة شاملة لأوراد الأسبوع في ${revLabel || 'دورتك الحالية'} (${mainMin} د)`
+        : `مراجعة ${kPages} أوجه من ${revLabel || 'دورة المراجعة'} (${mainMin} د)`;
+      secondText = isMq
+        ? `تسميع ورد ${revLabel || 'المراجعة'} في المقرأة + تسجيل التقييم`
+        : `اختبار غيبي سريع وربط المتشابهات في ${revLabel || 'الجزء النشط'} (${secMin} د)`;
+      solidText = `صندوق التثبيت: سرد سريع لـ ${solidSample} (${solMin} د)`;
+    } else if (isBeginner || !revLabel) {
+      // مبتدئ أو لا يوجد قديم بعد: تركيز على الحفظ الجديد والربط
+      if (isMq) {
+        mainText = `مراجعة وتثبيت ${pagesPerSess} وجه من ${nextSurahLabel} قبل التسميع (${mainMin} د)`;
+        secondText = `تسميع ورد ${nextSurahLabel} + تسجيل التقييم في التطبيق`;
+      } else if (dm.id === 'fri') {
+        mainText = `تجميع ومراجعة كل ما حُفظ خلال الأسبوع من ${nextSurahLabel} (${mainMin} د)`;
+        secondText = `تسميع ذاتي متصل لما حُفظ (${secMin} د)`;
+      } else {
+        mainText = `حفظ ${pagesPerSess} وجه جديد من ${nextSurahLabel} (${mainMin} د)`;
+        secondText = `تسميع غيبي وربط الورد بما قبله في ${nextSurahLabel} (${secMin} د)`;
+      }
+      solidText = `صندوق التثبيت: ربط السور والمقاطع المنجزة (${solMin} د)`;
+    } else if (isMq) {
+      mainText = `مراجعة ${pagesPerSess} وجه من ${nextSurahLabel} + ترميم وجهين من ${revLabel} (${mainMin} د)`;
+      secondText = `تسميع ورد ${nextSurahLabel} (${pagesPerSess} وجه) + تسجيل التقييم`;
+      solidText = `صندوق التثبيت: ${solidSample} (${solMin} د)`;
+    } else if (isPrepDay) {
+      mainText = `حفظ ${pagesPerSess} وجه جديد من ${nextSurahLabel} بتركيز (${mainMin} د)`;
+      secondText = `ربط الورد الجديد بالمقاطع السابقة في ${nextSurahLabel} (${secMin} د)`;
+      solidText = `صندوق التثبيت: سرد سريع لـ ${solidSample} (${solMin} د)`;
+    } else if (dm.id === 'fri') {
+      mainText = `ترميم ${revPagesPerDay} أوجه من ${revLabel} أو تعويض ما فات (${mainMin} د)`;
+      secondText = `تجميع ومراجعة مقاطع ${nextSurahLabel} خلال الأسبوع (${secMin} د)`;
+      solidText = `صندوق التثبيت: مراجعة المستحق اليوم من ${solidSample} (${solMin} د)`;
     } else {
-      // مسار مزدوج: ترميم القديم + حفظ جديد حسب مستوى التثبيت
-      const reviewShare = profile.stability === 'weak' ? 0.7 : profile.stability === 'medium' ? 0.6 : 0.45;
-      const newShare = 1 - reviewShare;
-      const minsPerReviewPage = profile.stability === 'weak' ? 9 : profile.stability === 'medium' ? 6 : 4;
-      reviewPagesPerDay = Math.max(1, Math.round(((mins * reviewShare) / minsPerReviewPage) * 2) / 2);
-      newPagesPerDay = Math.max(0.5, Math.round(((mins * newShare) / 22) * 2) / 2);
+      const soloNewDay = !hasMaqraa && (dm.id === 'sun' || dm.id === 'wed');
+      mainText = soloNewDay
+        ? `حفظ ${pagesPerSess} وجه جديد من ${nextSurahLabel} (${mainMin} د)`
+        : `ترميم ${revPagesPerDay} أوجه من ${revLabel} (${mainMin} د)`;
+      secondText = soloNewDay
+        ? `تسميع ذاتي وربط ${nextSurahLabel} بالمقطع السابق (${secMin} د)`
+        : `اختبار غيبي سريع في ${revLabel} (${secMin} د)`;
+      solidText = `صندوق التثبيت: ${solidSample} (${solMin} د)`;
     }
-
-    const daysToFinishNew = newPagesPerDay > 0 ? Math.ceil(stats.remainingPages / newPagesPerDay) : 0;
-    const daysForReviewCycle = reviewPagesPerDay > 0 && stats.totalPages > 0
-      ? Math.ceil(stats.totalPages / reviewPagesPerDay)
-      : 0;
 
     return {
-      mins,
-      primaryMin,
-      secondaryMin,
-      reviewPagesPerDay,
-      newPagesPerDay,
-      daysToFinishNew,
-      daysForReviewCycle,
-      stats
+      id: dm.id,
+      jsDay: dm.jsDay,
+      name: dm.name,
+      maqraa: isMq,
+      main: mainText,
+      second: secondText,
+      solid: solidText,
+      mDone: false,
+      eDone: false,
+      sDone: false
     };
+  });
+}
+
+// ================= LEGACY DATA IMPORT (v4 & v5) =================
+function findLegacyStorageKey() {
+  for (const key of LEGACY_KEYS) {
+    if (localStorage.getItem(key)) return key;
   }
+  return null;
+}
 
-  function buildInitialOldBox(profile, memorizedSurahs) {
-    const today = todayISO();
-    const items = [];
-    const memSet = new Set(memorizedSurahs);
-    if (memSet.size === 0) return items;
+function migrateLegacyObject(old) {
+  const today = todayStr();
+  const base = getEmptyState();
+  const oldProfile = old.profile || {};
 
-    // للخاتم الذي اختار أجزاء محددة
-    if (profile.path === 'khatim' && profile.khatimReviewMode === 'specific_juz' && profile.khatimJuzList.length > 0) {
-      const chosen = [...profile.khatimJuzList].sort((a, b) => a - b);
-      chosen.forEach((j, idx) => {
-        const jInfo = DATA.getJuzSummary(j);
-        items.push({
-          id: uid('old'),
-          title: `${jInfo.name} (${jInfo.surahRangeLabel})`,
-          kind: 'juz',
-          juz: j,
-          surahNumbers: jInfo.surahs.map((s) => s.number),
-          pages: jInfo.pages,
-          rating: null,
-          nextDue: addDaysISO(today, idx),
-          intervalDays: 0,
-          reps: 0,
-          updatedAt: today
-        });
-      });
-      return items;
-    }
+  // بناء خريطة الـ ٣٠ جزءاً المحدثة بسورها الكاملة مع نقل الأوجه المنجزة من v4/v5
+  const oldJuzMap = {};
+  (old.juzList || []).forEach((j) => { oldJuzMap[j.num] = j; });
 
-    // تحديد الأجزاء المكتملة بالكامل أولاً
-    const stats = DATA.calculateSurahSetStats(memorizedSurahs);
-    let orderedJuz = [...stats.completedJuzNumbers];
-    if (profile.path === 'from_nas' || (profile.path === 'khatim' && profile.khatimReviewMode === 'from_nas')) {
-      orderedJuz.sort((a, b) => b - a);
-    } else {
-      orderedJuz.sort((a, b) => a - b);
-    }
+  const dir = oldProfile.mode === 'from_baqarah' ? 'from_baqarah' : 'from_nas';
+  const ordered = dir === 'from_baqarah'
+    ? [...JUZ_DB].sort((a, b) => a.num - b.num)
+    : [...JUZ_DB].sort((a, b) => b.num - a.num);
 
-    const coveredSurahs = new Set();
-    orderedJuz.forEach((j, idx) => {
-      const jInfo = DATA.getJuzSummary(j);
-      jInfo.surahs.forEach((s) => coveredSurahs.add(s.number));
-      items.push({
-        id: uid('old'),
-        title: `${jInfo.name} (${jInfo.surahRangeLabel})`,
-        kind: 'juz',
-        juz: j,
-        surahNumbers: jInfo.surahs.map((s) => s.number),
-        pages: jInfo.pages,
-        rating: null,
-        nextDue: addDaysISO(today, Math.floor(idx / 1)), // توزيع هادئ يومياً
-        intervalDays: 0,
-        reps: 0,
-        updatedAt: today
-      });
-    });
+  const juzList = ordered.map((jRaw) => {
+    const prev = oldJuzMap[jRaw.num];
+    const jSurahs = getJuzSurahs(jRaw.num);
+    const jSurahsOrd = dir === 'from_nas' ? [...jSurahs].reverse() : [...jSurahs];
+    const donePages = prev ? Math.min(jRaw.totalPages, Number(prev.donePages) || 0) : 0;
+    const isComplete = donePages >= jRaw.totalPages - 0.01;
+    const prevSurahDoneNames = new Set(
+      ((prev && prev.surahs) || []).filter((s) => s.done).map((s) => s.name)
+    );
 
-    // السور المحفوظة التي لا تشكّل جزءاً كاملاً بعد (تُضاف كعناصر حقيقية بأسمائها)
-    const leftover = memorizedSurahs
-      .filter((n) => !coveredSurahs.has(n))
-      .map(DATA.getSurahByNumber)
-      .filter(Boolean);
+    return {
+      num: jRaw.num,
+      title: jRaw.title,
+      range: jRaw.range,
+      totalPages: jRaw.totalPages,
+      track: prev ? (prev.track || 'revision') : 'revision',
+      phase: prev ? (prev.phase || 'مسار المراجعة') : 'مسار المراجعة',
+      donePages,
+      basePages: prev ? (prev.basePages || 0) : 0,
+      surahs: jSurahsOrd.map((s) => ({
+        num: s.num,
+        name: s.name,
+        pages: Number(getSurahPagesInJuz(s, jRaw).toFixed(2)),
+        wasMemorized: prev ? prev.track === 'revision' : true,
+        done: isComplete || prevSurahDoneNames.has(s.name)
+      })),
+      note: prev ? (prev.note || '') : ''
+    };
+  });
 
-    if (profile.path === 'from_nas') leftover.sort((a, b) => b.number - a.number);
-
-    leftover.forEach((s, idx) => {
-      items.push({
-        id: uid('old'),
-        title: `سورة ${s.name} (الجزء ${s.juz})`,
-        kind: 'surah',
-        juz: s.juz,
-        surahNumbers: [s.number],
-        pages: s.pages,
-        rating: null,
-        nextDue: addDaysISO(today, Math.min(7, idx)),
-        intervalDays: 0,
-        reps: 0,
-        updatedAt: today
-      });
-    });
-
-    return items;
-  }
-
-  function generateWeeklySchedule(profile, memorizedSurahs, oldBox) {
-    const pace = calculateDailyPace(profile, memorizedSurahs);
-    const unmemQueue = getOrderedUnmemorizedSurahs(profile, memorizedSurahs);
-    const maqraaSet = new Set((profile.maqraaDays || []).map(Number));
-    const isKhatim = profile.path === 'khatim';
-
-    // قائمة عناصر المراجعة الحقيقية للتوزيع الأسبوعي
-    const reviewPool = oldBox.length > 0
-      ? oldBox
-      : memorizedSurahs.map((n) => {
-          const s = DATA.getSurahByNumber(n);
-          return s ? { title: `سورة ${s.name}`, pages: s.pages, juz: s.juz } : null;
-        }).filter(Boolean);
-
-    let newCursorIdx = 0;
-    let newSurahOffsetPages = 0;
-    let revCursorIdx = 0;
-
-    return DATA.WEEKDAYS_AR.map((day, idx) => {
-      const isMaqraa = maqraaSet.has(day.id);
-      let primaryText = '';
-      let secondaryText = '';
-
-      // 1) الجلسة الأساسية (حفظ جديد أو مراجعة أساسية للخاتم)
-      if (isKhatim) {
-        const revItem = reviewPool.length > 0 ? reviewPool[revCursorIdx % reviewPool.length] : null;
-        revCursorIdx++;
-        if (revItem) {
-          primaryText = `مراجعة وتثبيت ${revItem.title} — بمعدل ${formatPages(pace.reviewPagesPerDay)} وجه`;
-        } else {
-          primaryText = `دورة مراجعة متصلة — ${formatPages(pace.reviewPagesPerDay)} وجه`;
-        }
-      } else if (unmemQueue.length > 0) {
-        // اختيار السورة الفعلية القادمة وحساب الأوجه
-        const targetSurah = unmemQueue[newCursorIdx % unmemQueue.length];
-        const remainingInSurah = Math.max(0.5, Math.round((targetSurah.pages - newSurahOffsetPages) * 10) / 10);
-        const takePages = Math.min(pace.newPagesPerDay, remainingInSurah);
-        const startP = Math.min(targetSurah.endPage, Math.floor(targetSurah.startPage + newSurahOffsetPages));
-        const endP = Math.min(targetSurah.endPage, Math.ceil(startP + takePages - 0.5));
-
-        primaryText = `حفظ جديد: سورة ${targetSurah.name} (الجزء ${targetSurah.juz}) — ${formatPages(takePages)} وجه (ص ${startP}${endP > startP ? '–' + endP : ''})`;
-
-        newSurahOffsetPages += takePages;
-        if (newSurahOffsetPages >= targetSurah.pages - 0.1) {
-          newCursorIdx++;
-          newSurahOffsetPages = 0;
-        }
-      } else {
-        primaryText = `تثبيت شامل للمحفوظ — ${formatPages(pace.reviewPagesPerDay)} وجه`;
-      }
-
-      // 2) جلسة التسميع والتثبيت
-      if (isMaqraa) {
-        if (isKhatim) {
-          const revItem2 = reviewPool.length > 0 ? reviewPool[(revCursorIdx) % reviewPool.length] : null;
-          secondaryText = revItem2
-            ? `يوم تسميع / مقرأة: عرض ${revItem2.title} وتقييم الأداء في صندوق التثبيت`
-            : `يوم تسميع / مقرأة: عرض ورد المراجعة الأسبوعي وتقييمه`;
-        } else {
-          secondaryText = `يوم تسميع / مقرأة: تسميع الورد الجديد + ربط مقاطع «تثبيت جديد» (${pace.secondaryMin} د)`;
-        }
-      } else if (reviewPool.length > 0) {
-        const revItem = reviewPool[revCursorIdx % reviewPool.length];
-        revCursorIdx++;
-        secondaryText = `ترميم وتثبيت: ${revItem.title} (${formatPages(Math.min(revItem.pages, pace.reviewPagesPerDay))} وجه) + تقييم SRS`;
-      } else {
-        secondaryText = `ربط وتسميع المحفوظ الجديد في صندوق التثبيت (${pace.secondaryMin} د)`;
-      }
-
-      // يوم الجمعة (أو اليوم الأخير) نضيف ملاحظة ربط أسبوعي هادئة
-      if (idx === 6 && !isMaqraa && !isKhatim) {
-        secondaryText = `جبر وربط أسبوعي: تجميع مقاطع السورة الحالية في «تثبيت جديد» + مراجعة المستحق`;
-      }
-
-      return {
-        dayId: day.id,
-        dayName: day.name,
-        isMaqraa,
-        primaryMin: pace.primaryMin,
-        secondaryMin: pace.secondaryMin,
-        primarySession: primaryText,
-        secondarySession: secondaryText,
-        donePrimary: false,
-        doneSecondary: false
+  const solidMeta = {};
+  if (old.solidMeta) {
+    Object.keys(old.solidMeta).forEach((k) => {
+      const m = old.solidMeta[k];
+      solidMeta[k] = {
+        reviews: m.reviews || 0,
+        lastReviewed: m.lastReviewed || today,
+        rating: m.rating || 'جيد جداً',
+        intervalDays: m.intervalDays || 8,
+        nextReviewDate: m.nextReviewDate || addDaysStr(m.lastReviewed || today, m.intervalDays || 8),
+        addedAt: m.addedAt || today
       };
     });
   }
 
-  // ---------------- تطبيق الثيمات والألوان الحرة ----------------
-  function applyTheme() {
-    const root = document.documentElement;
-    const themeId = state.settings.themeId || 'royal-navy';
-    let tokens;
+  const newLinkingGroups = (old.newLinkingGroups || []).map((g) => ({
+    ...g,
+    rating: g.rating || 'جيد جداً',
+    intervalDays: g.intervalDays || 4,
+    nextReviewDate: g.nextReviewDate || addDaysStr(g.lastLinked || today, g.intervalDays || 4)
+  }));
 
-    if (themeId === 'custom') {
-      const c = state.settings.customColors || { bg: '#00112B', accent: '#D0A151' };
-      tokens = buildCustomThemeTokens(c.bg, c.accent);
-    } else {
-      const preset = DATA.PRESET_THEMES.find((t) => t.id === themeId) || DATA.PRESET_THEMES[0];
-      const accentContrast = relativeLuminance(preset.accent) > 0.36 ? '#00112B' : '#F7F8FA';
-      tokens = { ...preset, accentContrast };
-    }
-
-    root.style.setProperty('--bg', tokens.bg);
-    root.style.setProperty('--surface', tokens.surface);
-    root.style.setProperty('--surface-2', tokens.surface2);
-    root.style.setProperty('--accent', tokens.accent);
-    root.style.setProperty('--accent-light', tokens.accentLight);
-    root.style.setProperty('--accent-dark', tokens.accentDark);
-    root.style.setProperty('--accent-contrast', tokens.accentContrast);
-    root.style.setProperty('--text', tokens.text);
-    root.style.setProperty('--text-muted', tokens.textMuted);
-
-    const isLight = tokens.mode === 'light';
-    document.body.classList.toggle('theme-light', isLight);
-    root.style.setProperty('--border', isLight ? 'rgba(0, 0, 0, 0.14)' : 'rgba(208, 161, 81, 0.24)');
-    root.style.setProperty('--border-soft', isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(247, 248, 250, 0.11)');
-
-    const meta = document.getElementById('metaThemeColor');
-    if (meta) meta.setAttribute('content', tokens.bg);
-  }
-
-  // ---------------- الإشعار السريع (Toast) ----------------
-  let toastTimer = null;
-  function showToast(msg) {
-    const el = document.getElementById('toast');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.remove('hidden');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
-  }
-
-  // ---------------- الاختبار التشخيصي الذكي المتفرع ----------------
-  const wizard = {
-    step: 1,
-    draft: null,
-    surahFilter: ''
+  const profile = {
+    ...base.profile,
+    ...oldProfile,
+    name: oldProfile.name || (document.getElementById('obName') && document.getElementById('obName').value.trim()) || 'حافظ القرآن',
+    theme: THEMES.some((t) => t.id === oldProfile.theme) || oldProfile.theme === 'custom' ? oldProfile.theme : 'royal',
+    mode: ['from_nas', 'from_baqarah', 'beginner', 'khatim', 'scattered'].includes(oldProfile.mode)
+      ? oldProfile.mode
+      : (oldProfile.mode === 'custom' ? 'scattered' : 'from_nas'),
+    dailyMin: oldProfile.dailyMin || old.calcDailyMin || 45,
+    pagesPerSession: oldProfile.pagesPerSession || old.calcNewPages || 1
   };
 
-  function openOnboarding(prefillFromState) {
-    wizard.step = 1;
-    wizard.surahFilter = '';
-    wizard.draft = JSON.parse(JSON.stringify(prefillFromState ? state.profile : createDefaultState().profile));
+  const schedule = (old.schedule && old.schedule.length === 7)
+    ? old.schedule
+    : buildPersonalizedSchedule(profile, juzList);
 
-    document.getElementById('onboardingView').classList.remove('hidden');
-    document.getElementById('appShell').classList.add('hidden');
+  return {
+    ...base,
+    onboarded: true,
+    profile,
+    juzList,
+    schedule,
+    weekArchives: old.weekArchives || [],
+    solidMeta,
+    activeWird: old.activeWird || null,
+    maqraaLogs: old.maqraaLogs || [],
+    newLinkingGroups,
+    reminders: old.reminders || [],
+    streak: old.streak || { count: 0, lastDate: '' },
+    calcDailyMin: old.calcDailyMin || profile.dailyMin,
+    calcNewPages: old.calcNewPages ?? profile.pagesPerSession
+  };
+}
 
-    document.getElementById('inpFirstName').value = wizard.draft.firstName || '';
-    document.getElementById('inpUsername').value = wizard.draft.username || '';
-    document.getElementById('rngDailyMinutes').value = wizard.draft.dailyMinutes || 60;
-    document.getElementById('lblDailyMinutes').textContent = `${wizard.draft.dailyMinutes || 60} دقيقة`;
+function importLegacyFromStorage() {
+  const key = findLegacyStorageKey();
+  if (!key) {
+    showToast('لا توجد بيانات محفوظة من النسخ السابقة على هذا الجهاز');
+    return;
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    const old = JSON.parse(raw);
+    state = migrateLegacyObject(old);
+    applyTheme(state.profile.theme, state.profile.customColors);
+    saveState();
+    document.getElementById('onboardingOverlay').classList.remove('active');
+    renderAll();
+    showToast(`تم استيراد بياناتك من (${key === 'rafiq_altathbit_smart_v5' ? 'v5' : 'v4'}) وترقيتها بنجاح ✓`);
+  } catch (e) {
+    showToast('تعذّر قراءة بيانات النسخة السابقة — يمكنك البدء بالتشخيص الذكي');
+  }
+}
 
-    checkLegacyLocalStorageBanner();
-    renderWizardMaqraaPills();
-    updateWizardUI();
+// ================= THEMES UI (7 PALETTES + CUSTOM) =================
+function setTheme(themeId) {
+  state.profile.theme = themeId;
+  obDraft.theme = themeId;
+  const cc = state.onboarded ? state.profile.customColors : obDraft.customColors;
+  applyTheme(themeId, cc);
+  if (state.onboarded) saveState();
+  renderThemeGrids();
+}
+
+function updateCustomColor(field, value) {
+  obDraft.customColors = { ...(obDraft.customColors || { bg: '#00112B', accent: '#D0A151' }), [field]: value };
+  state.profile.customColors = { ...obDraft.customColors };
+  state.profile.theme = 'custom';
+  obDraft.theme = 'custom';
+  applyTheme('custom', state.profile.customColors);
+  if (state.onboarded) saveState();
+  renderThemeGrids();
+}
+
+function renderThemeGrids() {
+  const current = state.onboarded ? state.profile.theme : obDraft.theme;
+  const cc = (state.onboarded ? state.profile.customColors : obDraft.customColors) || { bg: '#00112B', accent: '#D0A151' };
+
+  const tilesHtml = THEMES.map((t) => `
+    <button type="button" class="theme-tile ${current === t.id ? 'selected' : ''}" onclick="setTheme('${t.id}')">
+      <div class="theme-swatches">
+        ${t.swatches.map((c) => `<span class="swatch" style="background:${c};"></span>`).join('')}
+      </div>
+      <strong style="display:block; font-size:0.81rem; color:var(--text-main);">${t.name}</strong>
+      <small style="font-size:0.7rem; color:var(--text-muted);">${t.desc}</small>
+    </button>
+  `).join('') + `
+    <button type="button" class="theme-tile ${current === 'custom' ? 'selected' : ''}" onclick="setTheme('custom')">
+      <div class="theme-swatches">
+        <span class="swatch" style="background:${cc.bg};"></span>
+        <span class="swatch" style="background:${cc.accent};"></span>
+      </div>
+      <strong style="display:block; font-size:0.81rem; color:var(--text-main);">تخصيص حر</strong>
+      <small style="font-size:0.7rem; color:var(--text-muted);">اختر ألوانك بتباين تلقائي</small>
+    </button>
+  `;
+
+  const ratio = getContrastRatio(cc.bg, cc.accent);
+  const contrastMsg = ratio >= 4.5
+    ? `<span class="tag tag-success">تباين مريح للقراءة (${ratio.toFixed(1)}:1)</span>`
+    : `<span class="tag tag-gold">تم ضبط تباين النصوص تلقائياً لراحة العين</span>`;
+
+  const customBoxHtml = current === 'custom' ? `
+    <div class="custom-theme-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+        <strong style="font-size:0.84rem; color:var(--accent-hi);">إعدادات التخصيص الحر</strong>
+        ${contrastMsg}
+      </div>
+      <div class="color-picker-row">
+        <label class="color-input-wrap">
+          <input type="color" value="${cc.bg}" oninput="updateCustomColor('bg', this.value)" />
+          <div class="color-input-meta">
+            <strong>لون الخلفية</strong>
+            <span>${cc.bg.toUpperCase()}</span>
+          </div>
+        </label>
+        <label class="color-input-wrap">
+          <input type="color" value="${cc.accent}" oninput="updateCustomColor('accent', this.value)" />
+          <div class="color-input-meta">
+            <strong>اللون الأساسي</strong>
+            <span>${cc.accent.toUpperCase()}</span>
+          </div>
+        </label>
+      </div>
+    </div>` : '';
+
+  const g1 = document.getElementById('obThemeGrid');
+  const g2 = document.getElementById('settingsThemeGrid');
+  const c1 = document.getElementById('obCustomThemeContainer');
+  const c2 = document.getElementById('settingsCustomThemeContainer');
+  if (g1) g1.innerHTML = tilesHtml;
+  if (g2) g2.innerHTML = tilesHtml;
+  if (c1) c1.innerHTML = customBoxHtml;
+  if (c2) c2.innerHTML = customBoxHtml;
+}
+
+// ================= SMART BRANCHING ONBOARDING =================
+function openOnboarding(isEditing = false) {
+  obDraft.isEditing = isEditing;
+  obDraft.step = 1;
+  surahSearchQuery = '';
+
+  if (isEditing && state.profile) {
+    obDraft = {
+      ...obDraft,
+      ...JSON.parse(JSON.stringify(state.profile)),
+      step: 1,
+      isEditing: true,
+      remEnabled: state.reminders.length > 0
+    };
+    document.getElementById('obName').value = state.profile.name || '';
+    document.getElementById('obUsername').value = state.profile.username || '';
   }
 
-  function checkLegacyLocalStorageBanner() {
-    const banner = document.getElementById('legacyDetectBanner');
-    const txt = document.getElementById('legacyDetectText');
-    const found = findLegacyLocalStorage();
-    if (found) {
-      banner.classList.remove('hidden');
-      txt.textContent = `تم العثور على بيانات محفوظة (${found.key === 'rafiq_altathbit_smart_v5' ? 'الإصدار الخامس v5' : 'الإصدار الرابع v4'}). يمكنك استيرادها بنقرة واحدة.`;
-    } else {
-      banner.classList.add('hidden');
-    }
-  }
+  document.getElementById('obDailyMin').value = obDraft.dailyMin || 45;
+  document.getElementById('obTimeVal').textContent = (obDraft.dailyMin || 45) + ' دقيقة';
+  document.getElementById('obPagesPerSession').value = obDraft.pagesPerSession || 1;
 
-  function renderWizardMaqraaPills() {
-    const wrap = document.getElementById('maqraaDaysPills');
-    const selected = new Set(wizard.draft.maqraaDays || []);
-    wrap.innerHTML = DATA.WEEKDAYS_AR.map(
-      (d) => `<button type="button" class="pill ${selected.has(d.id) ? 'active' : ''}" data-day="${d.id}">${d.name}</button>`
-    ).join('');
-    wrap.querySelectorAll('.pill').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.day);
-        const set = new Set(wizard.draft.maqraaDays || []);
-        if (set.has(id)) set.delete(id);
-        else set.add(id);
-        wizard.draft.maqraaDays = Array.from(set);
-        btn.classList.toggle('active', set.has(id));
-      });
-    });
-  }
-
-  function updateWizardUI() {
-    const pct = (wizard.step / 5) * 100;
-    document.getElementById('wizardProgressBar').style.width = `${pct}%`;
-    document.getElementById('wizardStepLabel').textContent = `الخطوة ${wizard.step} من ٥`;
-
-    document.querySelectorAll('.wizard-step').forEach((el) => {
-      el.classList.toggle('hidden', Number(el.dataset.step) !== wizard.step);
-    });
-
-    const prevBtn = document.getElementById('btnWizardPrev');
-    const nextBtn = document.getElementById('btnWizardNext');
-    prevBtn.classList.toggle('hidden', wizard.step === 1);
-    nextBtn.textContent = wizard.step === 5 ? 'اعتماد خطتي وابدأ الآن' : 'التالي';
-
-    if (wizard.step === 2) {
-      document.querySelectorAll('#pathChoiceGrid .choice-card').forEach((card) => {
-        card.classList.toggle('selected', card.dataset.path === wizard.draft.path);
-      });
-    } else if (wizard.step === 3) {
-      renderBranchStep();
-    } else if (wizard.step === 4) {
-      const stabGroup = document.getElementById('stabilityGroup');
-      stabGroup.classList.toggle('hidden', wizard.draft.path === 'fresh');
-      document.querySelectorAll('#stabilityPills .pill').forEach((p) => {
-        p.classList.toggle('active', p.dataset.val === wizard.draft.stability);
-      });
-    } else if (wizard.step === 5) {
-      renderPlanPreview();
-    }
-  }
-
-  function renderBranchStep() {
-    const container = document.getElementById('branchStepContainer');
-    const path = wizard.draft.path;
-
-    // 1) بادئ من الناس للبقرة أو من البقرة للناس
-    if (path === 'from_nas' || path === 'from_baqarah') {
-      const isNas = path === 'from_nas';
-      const ordered = isNas ? [...DATA.SURAHS].reverse() : [...DATA.SURAHS];
-      const filtered = ordered.filter((s) => !wizard.surahFilter || s.name.includes(wizard.surahFilter) || String(s.number) === wizard.surahFilter);
-      const memNums = getMemorizedSurahsFromWizard(wizard.draft);
-      const stats = DATA.calculateSurahSetStats(memNums);
-      const stopObj = DATA.getSurahByNumber(wizard.draft.stopSurah);
-      const nextNum = isNas ? Math.max(1, (wizard.draft.stopSurah || 114) - 1) : Math.min(114, (wizard.draft.stopSurah || 1) + 1);
-      const nextObj = DATA.getSurahByNumber(nextNum);
-
-      container.innerHTML = `
-        <h2>واقف عند أي سورة بالضبط؟</h2>
-        <p class="muted">اختر آخر سورة أتممت حفظها (${isNas ? 'من الناس باتجاه البقرة' : 'من البقرة باتجاه الناس'}) لنحسب أجزاءك وأوجهك بدقة.</p>
-        <div class="form-group">
-          <input type="search" id="inpSurahSearch" placeholder="ابحث باسم السورة أو رقمها..." value="${escapeHTML(wizard.surahFilter)}" />
+  const legacyKey = findLegacyStorageKey();
+  const migBanner = document.getElementById('obMigrationBanner');
+  if (!isEditing && legacyKey) {
+    const vLabel = legacyKey === 'rafiq_altathbit_smart_v5' ? 'النسخة v5' : 'النسخة v4';
+    migBanner.innerHTML = `
+      <div class="alert-banner" style="justify-content:space-between; align-items:center; flex-wrap:wrap;">
+        <div>
+          <strong>تم العثور على بياناتك المحفوظة من ${vLabel}</strong>
+          يمكنك استيراد تقدمك وسجل تسميعك مباشرة إلى النسخة السادسة دون فقدان أي بيانات.
         </div>
-        <div class="picker-list" id="singleSurahPicker">
+        <button type="button" class="btn btn-gold btn-sm" onclick="importLegacyFromStorage()">استيراد والمتابعة الآن</button>
+      </div>`;
+  } else {
+    migBanner.innerHTML = '';
+  }
+
+  renderThemeGrids();
+  renderObStep2();
+  renderObStep3();
+  renderObStep4();
+  obNext(1);
+  document.getElementById('onboardingOverlay').classList.add('active');
+}
+
+function renderObStep2() {
+  const modes = [
+    { id: 'from_nas', title: 'بدأت الحفظ من الناس إلى البقرة (تصاعدياً)', sub: 'ستحدد السورة التي تقف عندها بالضبط لنحسب أجزاءك وأوجهك تلقائياً' },
+    { id: 'from_baqarah', title: 'بدأت الحفظ من البقرة إلى الناس (تنازلياً)', sub: 'ستحدد السورة التي تقف عندها بالضبط لنبني خطة الترميم والجديد منها' },
+    { id: 'beginner', title: 'لم أحفظ شيئاً بعد (بداية من الصفر)', sub: 'نساعدك في اختيار نقطة البداية الأنسب وبناء خطة تأسيس متدرجة' },
+    { id: 'khatim', title: 'خاتم للقرآن الكريم (٣٠ جزءاً) — مراجعة وتثبيت', sub: 'يُخفي قسم الحفظ الجديد تماماً ويركّز على دورة المراجعة الذكية' },
+    { id: 'scattered', title: 'حافظ سور متفرقة من المصحف', sub: 'تختار السور التي حفظتها فعلاً من قائمة الـ ١١٤ سورة ثم تقرر طريقة المتابعة' }
+  ];
+  document.getElementById('obModeOptions').innerHTML = modes.map((m) => `
+    <div class="choice-card ${obDraft.mode === m.id ? 'selected' : ''}" onclick="selectObMode('${m.id}')">
+      <div class="choice-radio"></div>
+      <div>
+        <strong style="display:block; font-size:0.88rem;">${m.title}</strong>
+        <small style="color:var(--text-muted); font-size:0.75rem;">${m.sub}</small>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectObMode(modeId) {
+  obDraft.mode = modeId;
+  surahSearchQuery = '';
+  if (modeId === 'from_nas' && (!obDraft.stopSurahNum || obDraft.stopSurahNum < 1)) obDraft.stopSurahNum = 78;
+  if (modeId === 'from_baqarah' && (!obDraft.stopSurahNum || obDraft.stopSurahNum > 114)) obDraft.stopSurahNum = 2;
+  renderObStep2();
+  renderObStep3();
+  renderObStep4();
+}
+
+function renderObStep3() {
+  const dyn = document.getElementById('obStep3Dynamic');
+  const titleEl = document.getElementById('obStep3Title');
+  const stabSec = document.getElementById('obStabilitySection');
+
+  if (obDraft.mode === 'from_nas' || obDraft.mode === 'from_baqarah') {
+    titleEl.textContent = '٣. واقف عند أي سورة بالضبط؟';
+    stabSec.style.display = 'block';
+    const ordered = obDraft.mode === 'from_nas' ? [...SURAHS_DB].reverse() : [...SURAHS_DB];
+    const q = surahSearchQuery.trim();
+    const filtered = q ? ordered.filter((s) => s.name.includes(q) || String(s.num) === q) : ordered;
+    const summary = summarizeDiagnostic(obDraft);
+    const stopSurah = getSurahByNum(obDraft.stopSurahNum) || ordered[0];
+
+    dyn.innerHTML = `
+      <label class="field-label">اختر السورة التي وصلت إليها (من ١١٤ سورة):</label>
+      <div class="surah-picker-box">
+        <input type="text" placeholder="ابحث باسم السورة أو رقمها..." value="${escapeAttr(surahSearchQuery)}"
+          oninput="surahSearchQuery=this.value; renderObStep3();" />
+        <div class="surah-picker-grid">
           ${filtered.map((s) => `
-            <button type="button" class="surah-chip ${Number(wizard.draft.stopSurah) === s.number ? 'selected' : ''}" data-surah="${s.number}">
-              <span>${s.number}. ${s.name}</span>
-              <small>ج${s.juz} · ${formatPages(s.pages)}و</small>
+            <button type="button" class="surah-pick-item ${obDraft.stopSurahNum === s.num ? 'selected' : ''}"
+              onclick="obDraft.stopSurahNum=${s.num}; renderObStep3();">
+              <span>${s.num}. ${s.name}</span>
+              <small>${formatNum(s.pages)} وجه</small>
             </button>
           `).join('')}
         </div>
-        <div class="live-calc-box">
-          <div><strong>موضعك المحدد:</strong> أتممت حتى سورة <strong>${stopObj ? stopObj.name : ''}</strong></div>
-          <div class="small muted mt-xs">
-            المحفوظ المحسوب: <strong>${stats.surahCount} سورة</strong> · <strong>${formatPages(stats.totalPages)} وجهاً</strong> من ٦٠٤ (قرابة <strong>${stats.approxJuz} جزءاً</strong>)
-          </div>
-          <div class="small muted mt-xs">
-            المتبقي للختمة: <strong>${formatPages(stats.remainingPages)} وجهاً</strong> · السورة القادمة للحفظ الجديد: <strong>${nextObj ? 'سورة ' + nextObj.name : 'اكتملت الختمة'}</strong>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm ${obDraft.stopSurahCompleted ? 'btn-gold' : 'btn-ghost'}"
+          onclick="obDraft.stopSurahCompleted=true; renderObStep3();">أتممت سورة ${stopSurah.name} بالكامل</button>
+        <button type="button" class="btn btn-sm ${!obDraft.stopSurahCompleted ? 'btn-gold' : 'btn-ghost'}"
+          onclick="obDraft.stopSurahCompleted=false; renderObStep3();">ما زلت أحفظ داخل سورة ${stopSurah.name}</button>
+      </div>
+
+      <div class="calc-preview-card">
+        <div><strong>الحساب التلقائي لموضعك الفعلي:</strong></div>
+        <div style="margin-top:4px;">
+          • المنجز حتى الآن: <strong>${summary.memCount} سورة</strong> (${summary.completedJuzCount} جزء مكتمل • <strong>${formatNum(summary.memPages)}</strong> وجه من ٦٠٤).<br/>
+          • بداية الحفظ الجديد القادمة: <strong>${summary.nextSurah ? `سورة ${summary.nextSurah.name} (الجزء ${summary.nextSurah.juz})` : 'أتممت المصحف!'}</strong>
+        </div>
+      </div>
+    `;
+  } else if (obDraft.mode === 'beginner') {
+    titleEl.textContent = '٣. من أين تفضّل بداية رحلة الحفظ؟';
+    stabSec.style.display = 'none';
+    const bDirs = [
+      { id: 'from_nas', title: 'من الناس إلى البقرة (موصى به للمبتدئين)', sub: 'بداية مشجعة بقصار السور (الناس، الفلق، الإخلاص...) وتدرّج مريح' },
+      { id: 'from_baqarah', title: 'من البقرة إلى الناس', sub: 'بداية من أول المصحف (الفاتحة ثم سورة البقرة)' }
+    ];
+    const startSurah = obDraft.beginnerDir === 'from_baqarah' ? 'الفاتحة ثم البقرة (الجزء ١)' : 'الناس ثم الفلق والإخلاص (الجزء ٣٠)';
+    dyn.innerHTML = `
+      ${bDirs.map((d) => `
+        <div class="choice-card ${obDraft.beginnerDir === d.id ? 'selected' : ''}" onclick="obDraft.beginnerDir='${d.id}'; renderObStep3();">
+          <div class="choice-radio"></div>
+          <div>
+            <strong style="display:block; font-size:0.88rem;">${d.title}</strong>
+            <small style="color:var(--text-muted); font-size:0.75rem;">${d.sub}</small>
           </div>
         </div>
-      `;
-
-      const searchEl = document.getElementById('inpSurahSearch');
-      searchEl.addEventListener('input', (e) => {
-        wizard.surahFilter = e.target.value.trim();
-        renderBranchStep();
-        const again = document.getElementById('inpSurahSearch');
-        if (again) {
-          again.focus();
-          again.setSelectionRange(again.value.length, again.value.length);
-        }
-      });
-
-      container.querySelectorAll('.surah-chip').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          wizard.draft.stopSurah = Number(btn.dataset.surah);
-          renderBranchStep();
-        });
-      });
-      return;
-    }
-
-    // 2) بداية جديدة (لم يحفظ بعد)
-    if (path === 'fresh') {
-      const mode = wizard.draft.freshStartMode || 'from_nas';
-      container.innerHTML = `
-        <h2>من أين تحب أن تبدأ رحلتك؟</h2>
-        <p class="muted">نرشّح لك البداية من الناس للبقرة لتدرّج طول السور وسهولة التثبيت المبكر.</p>
-        <div class="choice-grid" id="freshChoiceGrid">
-          <button type="button" class="choice-card ${mode === 'from_nas' ? 'selected' : ''}" data-fresh="from_nas">
-            <span class="choice-title">من الناس ← البقرة (مُرشّح)</span>
-            <span class="choice-desc">تبدأ بسورة الناس وجزء عمّ وتبني زخماً سريعاً ومشجعاً.</span>
-          </button>
-          <button type="button" class="choice-card ${mode === 'from_baqarah' ? 'selected' : ''}" data-fresh="from_baqarah">
-            <span class="choice-title">من البقرة ← الناس</span>
-            <span class="choice-desc">تبدأ بترتيب المصحف من الفاتحة والبقرة.</span>
-          </button>
-          <button type="button" class="choice-card ${mode === 'custom_surah' ? 'selected' : ''}" data-fresh="custom_surah">
-            <span class="choice-title">البدء من سورة محددة</span>
-            <span class="choice-desc">اختر السورة التي تود البدء منها مباشرة.</span>
-          </button>
-        </div>
-        ${mode === 'custom_surah' ? `
-          <div class="form-group">
-            <label for="selFreshCustomSurah">اختر سورة البداية</label>
-            <select id="selFreshCustomSurah">
-              ${DATA.SURAHS.map((s) => `<option value="${s.number}" ${Number(wizard.draft.freshStartSurah) === s.number ? 'selected' : ''}>${s.number}. سورة ${s.name} (الجزء ${s.juz} · ${formatPages(s.pages)} وجه)</option>`).join('')}
-            </select>
-          </div>
-        ` : ''}
-      `;
-      container.querySelectorAll('[data-fresh]').forEach((card) => {
-        card.addEventListener('click', () => {
-          wizard.draft.freshStartMode = card.dataset.fresh;
-          renderBranchStep();
-        });
-      });
-      const sel = document.getElementById('selFreshCustomSurah');
-      if (sel) {
-        sel.addEventListener('change', (e) => {
-          wizard.draft.freshStartSurah = Number(e.target.value);
-        });
-      }
-      return;
-    }
-
-    // 3) خاتم للقرآن (30 جزءاً)
-    if (path === 'khatim') {
-      const kMode = wizard.draft.khatimReviewMode || 'from_baqarah';
-      const chosenJuz = new Set(wizard.draft.khatimJuzList || []);
-      container.innerHTML = `
-        <h2>من أين تحب أن تبدأ دورة المراجعة؟</h2>
-        <p class="muted">سيتم إخفاء قسم «الحفظ الجديد» تلقائياً ليركّز التطبيق بالكامل على تثبيت الختمة الكاملة (٣٠ جزءاً / ٦٠٤ أوجه).</p>
-        <div class="choice-grid">
-          <button type="button" class="choice-card ${kMode === 'from_baqarah' ? 'selected' : ''}" data-kmode="from_baqarah">
-            <span class="choice-title">من البقرة ← الناس (الجزء ١ إلى ٣٠)</span>
-            <span class="choice-desc">دورة مراجعة متسلسلة من أول المصحف.</span>
-          </button>
-          <button type="button" class="choice-card ${kMode === 'from_nas' ? 'selected' : ''}" data-kmode="from_nas">
-            <span class="choice-title">من الناس ← البقرة (الجزء ٣٠ إلى ١)</span>
-            <span class="choice-desc">دورة مراجعة عكسية تبدأ من جزء عمّ.</span>
-          </button>
-          <button type="button" class="choice-card ${kMode === 'specific_juz' ? 'selected' : ''}" data-kmode="specific_juz">
-            <span class="choice-title">أجزاء محددة تحتاج أولوية تثبيت</span>
-            <span class="choice-desc">اختر الأجزاء التي تريد التركيز عليها في هذه الدورة.</span>
-          </button>
-        </div>
-        ${kMode === 'specific_juz' ? `
-          <div class="form-group">
-            <label>اختر الأجزاء المستهدفة (${chosenJuz.size} جزء محدد)</label>
-            <div class="juz-grid">
-              ${DATA.JUZ_DATA.map((j) => `
-                <button type="button" class="surah-chip ${chosenJuz.has(j.juz) ? 'selected' : ''}" data-juz="${j.juz}">
-                  <span>جزء ${j.juz}</span>
-                </button>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
-      `;
-      container.querySelectorAll('[data-kmode]').forEach((card) => {
-        card.addEventListener('click', () => {
-          wizard.draft.khatimReviewMode = card.dataset.kmode;
-          renderBranchStep();
-        });
-      });
-      container.querySelectorAll('[data-juz]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const j = Number(btn.dataset.juz);
-          if (chosenJuz.has(j)) chosenJuz.delete(j);
-          else chosenJuz.add(j);
-          wizard.draft.khatimJuzList = Array.from(chosenJuz).sort((a, b) => a - b);
-          renderBranchStep();
-        });
-      });
-      return;
-    }
-
-    // 4) حافظ سور متفرقة
-    if (path === 'scattered') {
-      const selectedSet = new Set(wizard.draft.scatteredSurahs || []);
-      const filtered = DATA.SURAHS.filter((s) => !wizard.surahFilter || s.name.includes(wizard.surahFilter) || String(s.number) === wizard.surahFilter);
-      const stats = DATA.calculateSurahSetStats(Array.from(selectedSet));
-      const contMode = wizard.draft.scatteredContinueMode || 'from_nas';
-
-      container.innerHTML = `
-        <h2>اختر السور التي حفظتها فعلاً</h2>
-        <p class="muted">حدد كل سورة تحفظها الآن من قائمة الـ ١١٤ سورة، ثم اختر طريقة إكمال الحفظ.</p>
-        <div class="form-group">
-          <input type="search" id="inpScatteredSearch" placeholder="ابحث باسم السورة..." value="${escapeHTML(wizard.surahFilter)}" />
-        </div>
-        <div class="picker-list">
-          ${filtered.map((s) => `
-            <button type="button" class="surah-chip ${selectedSet.has(s.number) ? 'selected' : ''}" data-msurah="${s.number}">
-              <span>${s.number}. ${s.name}</span>
-              <small>${formatPages(s.pages)}و</small>
-            </button>
+      `).join('')}
+      <div class="calc-preview-card">
+        <strong>نقطة الانطلاق:</strong> ستبدأ خطة الحفظ الجديد مباشرةً من <strong>${startSurah}</strong> بإجمالي ٦٠٤ صفحات متدرجة.
+      </div>
+    `;
+  } else if (obDraft.mode === 'khatim') {
+    titleEl.textContent = '٣. من أين تبدأ دورة مراجعة الـ ٣٠ جزءاً؟';
+    stabSec.style.display = 'block';
+    const kOpts = [
+      { id: 'from_baqarah', title: 'من البقرة إلى الناس (الجزء ١ ← ٣٠)', sub: 'دورة مراجعة متسلسلة من أول المصحف' },
+      { id: 'from_nas', title: 'من الناس إلى البقرة (الجزء ٣٠ ← ١)', sub: 'دورة مراجعة متسلسلة من آخر المصحف' },
+      { id: 'specific_juz', title: 'أجزاء محددة أختارها بنفسي', sub: 'ابدأ بالأجزاء التي تحتاج تقوية أولاً ثم استكمل بقية المصحف' }
+    ];
+    let specHtml = '';
+    if (obDraft.khatimStart === 'specific_juz') {
+      specHtml = `
+        <label class="field-label" style="margin-top:10px;">اختر الأجزاء التي تريد البدء بها (${obDraft.khatimSpecificJuz.length} أجزاء محددة):</label>
+        <div class="juz-pick-grid">
+          ${JUZ_DB.map((j) => `
+            <button type="button" class="juz-pick-chip ${obDraft.khatimSpecificJuz.includes(j.num) ? 'selected' : ''}"
+              onclick="toggleKhatimJuz(${j.num})">ج ${j.num}</button>
           `).join('')}
-        </div>
-        <div class="live-calc-box">
-          <strong>المحدد حالياً:</strong> ${stats.surahCount} سورة · ${formatPages(stats.totalPages)} وجهاً من ٦٠٤ (قرابة ${stats.approxJuz} جزءاً)
-        </div>
-        <div class="form-group">
-          <label>كيف تحب أن تكمل الحفظ الجديد؟</label>
-          <div class="pill-group">
-            <button type="button" class="pill ${contMode === 'scattered' ? 'active' : ''}" data-scont="scattered">أكمّل متفرق بسور أختارها</button>
-            <button type="button" class="pill ${contMode === 'from_nas' ? 'active' : ''}" data-scont="from_nas">أنتظم من الناس ← البقرة</button>
-            <button type="button" class="pill ${contMode === 'from_baqarah' ? 'active' : ''}" data-scont="from_baqarah">أنتظم من البقرة ← الناس</button>
-          </div>
-        </div>
-      `;
-
-      const searchEl = document.getElementById('inpScatteredSearch');
-      searchEl.addEventListener('input', (e) => {
-        wizard.surahFilter = e.target.value.trim();
-        renderBranchStep();
-        const again = document.getElementById('inpScatteredSearch');
-        if (again) {
-          again.focus();
-          again.setSelectionRange(again.value.length, again.value.length);
-        }
-      });
-
-      container.querySelectorAll('[data-msurah]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const n = Number(btn.dataset.msurah);
-          if (selectedSet.has(n)) selectedSet.delete(n);
-          else selectedSet.add(n);
-          wizard.draft.scatteredSurahs = Array.from(selectedSet).sort((a, b) => a - b);
-          renderBranchStep();
-        });
-      });
-
-      container.querySelectorAll('[data-scont]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          wizard.draft.scatteredContinueMode = btn.dataset.scont;
-          renderBranchStep();
-        });
-      });
+        </div>`;
     }
-  }
-
-  function renderPlanPreview() {
-    const box = document.getElementById('planPreviewBox');
-    const memNums = getMemorizedSurahsFromWizard(wizard.draft);
-    const pace = calculateDailyPace(wizard.draft, memNums);
-    const unmem = getOrderedUnmemorizedSurahs(wizard.draft, memNums);
-    const nextSurah = unmem[0];
-    const maqraaLabels = (wizard.draft.maqraaDays || [])
-      .map((id) => (DATA.WEEKDAYS_AR.find((d) => d.id === id) || {}).name)
-      .filter(Boolean);
-
-    box.innerHTML = `
-      <div class="stack-list">
-        <div><strong>الاسم:</strong> ${escapeHTML(wizard.draft.firstName || 'صاحب الهمة')}</div>
-        <div><strong>المحفوظ الفعلي:</strong> ${pace.stats.surahCount} سورة · ${formatPages(pace.stats.totalPages)} وجهاً من ٦٠٤ (${pace.stats.percent}%)</div>
-        <div><strong>الوقت اليومي المرن:</strong> ${pace.mins} دقيقة (جلسة أساسية ${pace.primaryMin} د + جلسة تسميع وتثبيت ${pace.secondaryMin} د في أي وقت)</div>
-        ${wizard.draft.path === 'khatim'
-          ? `<div><strong>وضع الخاتم:</strong> قسم الحفظ الجديد مخفي — معدل المراجعة المقترح <strong>${formatPages(pace.reviewPagesPerDay)} وجه يومياً</strong> (دورة كاملة كل ${pace.daysForReviewCycle} يوماً تقريباً).</div>`
-          : `
-            <div><strong>السورة القادمة للحفظ الجديد:</strong> ${nextSurah ? `سورة ${nextSurah.name} (الجزء ${nextSurah.juz} · ${formatPages(nextSurah.pages)} وجه)` : 'اكتملت السور'}</div>
-            <div><strong>الوتيرة المحسوبة:</strong> حفظ جديد <strong>${formatPages(pace.newPagesPerDay)} وجه/يوم</strong> + مراجعة وترميم <strong>${formatPages(pace.reviewPagesPerDay)} وجه/يوم</strong></div>
-            <div><strong>المدة التقديرية للمتبقي (${formatPages(pace.stats.remainingPages)} وجه):</strong> قرابة ${Math.max(1, Math.round(pace.daysToFinishNew / 30))} شهر (${pace.daysToFinishNew} يوماً)</div>
-          `
-        }
-        <div><strong>أيام التسميع / المقرأة:</strong> ${maqraaLabels.length > 0 ? maqraaLabels.join('، ') : 'مرن بدون أيام محددة'}</div>
-      </div>
-    `;
-  }
-
-  function commitWizardPlan() {
-    const memNums = getMemorizedSurahsFromWizard(wizard.draft);
-    state.profile = JSON.parse(JSON.stringify(wizard.draft));
-    state.memorizedSurahs = memNums;
-    state.oldBox = buildInitialOldBox(state.profile, memNums);
-    state.weeklySchedule = generateWeeklySchedule(state.profile, memNums, state.oldBox);
-    state.onboarded = true;
-    saveState();
-
-    document.getElementById('onboardingView').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
-    renderAll();
-    showToast('تم بناء خطتك وجدولك الحقيقي بنجاح.');
-  }
-
-  // ---------------- عرض الصفحة الرئيسية ----------------
-  function getAllDueItems() {
-    const today = todayISO();
-    const list = [];
-
-    state.newBox.forEach((item) => {
-      if (!item.nextDue || item.nextDue <= today) {
-        list.push({ ...item, boxType: 'newBox', overdueDays: item.nextDue ? diffDays(today, item.nextDue) : 0 });
-      }
-    });
-    state.oldBox.forEach((item) => {
-      if (!item.nextDue || item.nextDue <= today) {
-        list.push({ ...item, boxType: 'oldBox', overdueDays: item.nextDue ? diffDays(today, item.nextDue) : 0 });
-      }
-    });
-
-    list.sort((a, b) => b.overdueDays - a.overdueDays);
-    return list;
-  }
-
-  function renderHome() {
-    const p = state.profile;
-    const stats = DATA.calculateSurahSetStats(state.memorizedSurahs);
-    const dueItems = getAllDueItems();
-    const unmem = getOrderedUnmemorizedSurahs(p, state.memorizedSurahs);
-    const nextSurah = unmem[0];
-
-    document.getElementById('topGreeting').textContent = `أهلاً ${p.firstName || 'بك'}`;
-    document.getElementById('streakBadge').textContent = `${state.streak.count || 0} يوم`;
-
-    // التذكير الذكي الديناميكي
-    const remBanner = document.getElementById('smartReminderCard');
-    const remText = document.getElementById('smartReminderText');
-    if (state.settings.smartReminders) {
-      remBanner.classList.remove('hidden');
-      remText.textContent = buildDynamicReminderMessage(dueItems, nextSurah);
-    } else {
-      remBanner.classList.add('hidden');
-    }
-
-    // شبكة الإحصائيات
-    document.getElementById('homeStatsGrid').innerHTML = `
-      <div class="stat-tile">
-        <div class="stat-val">${formatPages(stats.totalPages)} / ٦٠٤</div>
-        <div class="stat-label">أوجه محفوظة (${stats.percent}%)</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-val">${stats.approxJuz} / ٣٠</div>
-        <div class="stat-label">أجزاء منجزة</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-val">${dueItems.length}</div>
-        <div class="stat-label">مستحق للمراجعة اليوم</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-val">${p.path === 'khatim' ? 'دورة تثبيت' : (nextSurah ? nextSurah.name : 'مكتمل')}</div>
-        <div class="stat-label">${p.path === 'khatim' ? 'خاتم للقرآن' : 'السورة القادمة'}</div>
-      </div>
-    `;
-
-    // قائمة المستحق للمراجعة اليوم
-    document.getElementById('dueCountPill').textContent = String(dueItems.length);
-    const dueWrap = document.getElementById('dueListContainer');
-    if (dueItems.length === 0) {
-      dueWrap.innerHTML = `<div class="empty-state">أحسنت — لا توجد مراجعات متأخرة مستحقة اليوم. يمكنك التقدم في الورد الجديد أو مراجعة أي بند من صندوق التثبيت.</div>`;
-    } else {
-      const shown = dueItems.slice(0, 6);
-      dueWrap.innerHTML = shown.map((item) => {
-        const title = item.boxType === 'newBox'
-          ? `سورة ${item.surahName} — ${item.segmentLabel}`
-          : item.title;
-        const badge = item.overdueDays > 0
-          ? `<span class="badge-status badge-overdue">متأخر ${item.overdueDays} يوم</span>`
-          : `<span class="badge-status">مستحق اليوم</span>`;
-        const timerMode = item.boxType === 'newBox' ? 'link_new' : 'restore';
-        return `
-          <div class="item-card">
-            <div class="item-top">
-              <div>
-                <div class="item-title">${escapeHTML(title)}</div>
-                <div class="item-meta">${item.boxType === 'newBox' ? 'تثبيت جديد' : 'تثبيت قديم'} · ${formatPages(item.pages)} وجه</div>
-              </div>
-              ${badge}
-            </div>
-            <div class="inline-actions">
-              <button type="button" class="btn btn-ghost btn-sm" data-open-timer="${timerMode}">افتح في دكتور الصفحة</button>
-            </div>
-            <div class="rating-row">
-              ${Object.values(DATA.RATINGS).map((r) => `
-                <button type="button" class="rate-btn" data-rate="${r.id}" data-box="${item.boxType}" data-id="${item.id}" title="${r.hint}">${r.label}</button>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      dueWrap.querySelectorAll('.rate-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          rateBoxItem(btn.dataset.box, btn.dataset.id, btn.dataset.rate);
-        });
-      });
-      dueWrap.querySelectorAll('[data-open-timer]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          switchTab('tools');
-          setDoctorMode(btn.dataset.openTimer);
-        });
-      });
-    }
-
-    // بطاقة الحفظ الجديد المدمجة في الرئيسية (تختفي للخاتم)
-    const newCard = document.getElementById('newMemCard');
-    if (p.path === 'khatim') {
-      newCard.classList.add('hidden');
-    } else {
-      newCard.classList.remove('hidden');
-      renderNewMemorizationCard(unmem);
-    }
-  }
-
-  function renderNewMemorizationCard(unmemQueue) {
-    const body = document.getElementById('newMemBody');
-    const tag = document.getElementById('nextSurahTag');
-    const pace = calculateDailyPace(state.profile, state.memorizedSurahs);
-
-    if (state.activeWird) {
-      const w = state.activeWird;
-      tag.textContent = 'الخطوة ٢: التسميع والتقييم';
-      body.innerHTML = `
-        <div class="highlight-box">
-          <div class="item-title">وردك المسجّل الآن: سورة ${escapeHTML(w.surahName)} — ${escapeHTML(w.segmentLabel)}</div>
-          <div class="item-meta mt-xs">المقدار: ${formatPages(w.pages)} وجه ${w.notes ? '· ' + escapeHTML(w.notes) : ''}</div>
-          <div class="inline-actions mt-sm">
-            <button type="button" class="btn btn-ghost btn-sm" id="btnWirdLinkTimer">ربط في دكتور الصفحة (٦ د)</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btnCancelActiveWird">تعديل الورد</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>تم التسميع + التقييم (ينتقل تلقائياً لصندوق التثبيت):</label>
-          <div class="rating-row">
-            ${Object.values(DATA.RATINGS).map((r) => `
-              <button type="button" class="rate-btn" data-rate="${r.id}" data-wird-rate="${r.id}" title="${r.hint}">${r.label}</button>
-            `).join('')}
-          </div>
-        </div>
-      `;
-
-      document.getElementById('btnWirdLinkTimer').addEventListener('click', () => {
-        switchTab('tools');
-        setDoctorMode('link_new');
-      });
-      document.getElementById('btnCancelActiveWird').addEventListener('click', () => {
-        state.activeWird = null;
-        saveState();
-        renderHome();
-      });
-      body.querySelectorAll('[data-wird-rate]').forEach((btn) => {
-        btn.addEventListener('click', () => completeActiveWird(btn.dataset.wirdRate));
-      });
-      return;
-    }
-
-    // الخطوة 1: تسجيل الورد الجديد
-    const defaultSurah = unmemQueue[0] || DATA.SURAHS[113];
-    tag.textContent = 'الخطوة ١: تسجيل الورد';
-    const existingSegments = state.newBox.filter((x) => x.surahNumber === defaultSurah.number).length;
-    const defaultSegLabel = `المقطع ${existingSegments + 1} (${formatPages(Math.min(pace.newPagesPerDay, defaultSurah.pages))} وجه)`;
-
-    body.innerHTML = `
-      <div class="form-group">
-        <label for="selNewSurah">السورة الحالية للحفظ الجديد</label>
-        <select id="selNewSurah">
-          ${(unmemQueue.length > 0 ? unmemQueue : DATA.SURAHS).map((s) => `
-            <option value="${s.number}" ${s.number === defaultSurah.number ? 'selected' : ''}>
-              ${s.number}. سورة ${s.name} (الجزء ${s.juz} · ${formatPages(s.pages)} وجه)
-            </option>
-          `).join('')}
-        </select>
-      </div>
-      <div class="custom-color-row">
-        <div class="form-group">
-          <label for="inpWirdSegment">وصف المقطع / الآيات</label>
-          <input type="text" id="inpWirdSegment" value="${escapeHTML(defaultSegLabel)}" placeholder="مثال: وجه ١ – ٢ أو آية ١–١٥" />
-        </div>
-        <div class="form-group">
-          <label for="inpWirdPages">عدد الأوجه</label>
-          <input type="number" id="inpWirdPages" min="0.25" max="20" step="0.25" value="${Math.min(pace.newPagesPerDay, defaultSurah.pages)}" />
+    dyn.innerHTML = kOpts.map((k) => `
+      <div class="choice-card ${obDraft.khatimStart === k.id ? 'selected' : ''}" onclick="obDraft.khatimStart='${k.id}'; renderObStep3();">
+        <div class="choice-radio"></div>
+        <div>
+          <strong style="display:block; font-size:0.88rem;">${k.title}</strong>
+          <small style="color:var(--text-muted); font-size:0.75rem;">${k.sub}</small>
         </div>
       </div>
-      <div class="form-group">
-        <label for="inpWirdNotes">ملاحظة سريعة (اختياري)</label>
-        <input type="text" id="inpWirdNotes" placeholder="مثال: الانتباه للمتشابهات في آخر الوجه" />
-      </div>
-      <button type="button" class="btn btn-gold full-width mt-sm" id="btnRegisterWird">تسجيل الورد الجديد</button>
-    `;
+    `).join('') + specHtml;
+  } else if (obDraft.mode === 'scattered') {
+    titleEl.textContent = '٣. اختر السور التي حفظتها فعلاً';
+    stabSec.style.display = 'block';
+    const q = surahSearchQuery.trim();
+    const filtered = q ? SURAHS_DB.filter((s) => s.name.includes(q) || String(s.num) === q) : SURAHS_DB;
+    const summary = summarizeDiagnostic(obDraft);
 
-    document.getElementById('btnRegisterWird').addEventListener('click', () => {
-      const surahNum = Number(document.getElementById('selNewSurah').value);
-      const sObj = DATA.getSurahByNumber(surahNum);
-      const segLabel = document.getElementById('inpWirdSegment').value.trim() || 'مقطع جديد';
-      const pages = Math.max(0.25, Number(document.getElementById('inpWirdPages').value) || 1);
-      const notes = document.getElementById('inpWirdNotes').value.trim();
+    const contOpts = [
+      { id: 'keep_scattered', title: 'أكمل متفرق بحرية', sub: 'أختار السورة الجديدة بنفسي في كل مرة' },
+      { id: 'org_nas', title: 'أنتظم بترتيب من الناس إلى البقرة', sub: 'استكمال السور غير المحفوظة تصاعدياً من الجزء ٣٠' },
+      { id: 'org_baqarah', title: 'أنتظم بترتيب من البقرة إلى الناس', sub: 'استكمال السور غير المحفوظة تنازلياً من الجزء ١' }
+    ];
 
-      state.activeWird = {
-        id: uid('wird'),
-        surahNumber: surahNum,
-        surahName: sObj ? sObj.name : '',
-        segmentLabel: segLabel,
-        pages,
-        notes,
-        createdAt: todayISO()
-      };
-      saveState();
-      renderHome();
-      showToast(`تم تسجيل ورد سورة ${state.activeWird.surahName}. عند الانتهاء اضغط التقييم.`);
-    });
-  }
-
-  function completeActiveWird(ratingId) {
-    if (!state.activeWird) return;
-    const w = state.activeWird;
-    const today = todayISO();
-    const srs = computeNextSRS(ratingId, 0);
-
-    state.newBox.unshift({
-      id: uid('new'),
-      surahNumber: w.surahNumber,
-      surahName: w.surahName,
-      segmentLabel: w.segmentLabel,
-      pages: w.pages,
-      rating: ratingId,
-      nextDue: addDaysISO(today, srs.days),
-      intervalDays: srs.days,
-      reps: srs.nextReps,
-      updatedAt: today
-    });
-
-    state.recitationLog.unshift({
-      id: uid('log'),
-      date: today,
-      type: 'new',
-      title: `سورة ${w.surahName} — ${w.segmentLabel}`,
-      pages: w.pages,
-      rating: ratingId,
-      notes: w.notes || ''
-    });
-
-    // إذا بلغ مجموع مقاطع السورة في تثبيت جديد عدد صفحاتها، نضيف السورة لقائمة المحفوظة
-    const sObj = DATA.getSurahByNumber(w.surahNumber);
-    if (sObj) {
-      const sumPages = state.newBox
-        .filter((x) => x.surahNumber === w.surahNumber)
-        .reduce((acc, x) => acc + Number(x.pages || 0), 0);
-      if (sumPages >= sObj.pages - 0.1 && !state.memorizedSurahs.includes(w.surahNumber)) {
-        state.memorizedSurahs.push(w.surahNumber);
-      }
-    }
-
-    state.activeWird = null;
-    touchStreak();
-    saveState();
-    renderAll();
-    showToast(`نُقل المقطع لصندوق «تثبيت جديد» (المراجعة القادمة بعد ${srs.days} ${srs.days === 1 ? 'يوم' : 'أيام'}).`);
-  }
-
-  function rateBoxItem(boxType, itemId, ratingId) {
-    const arr = boxType === 'newBox' ? state.newBox : state.oldBox;
-    const item = arr.find((x) => x.id === itemId);
-    if (!item) return;
-
-    const today = todayISO();
-    const srs = computeNextSRS(ratingId, item.reps);
-    item.rating = ratingId;
-    item.intervalDays = srs.days;
-    item.reps = srs.nextReps;
-    item.nextDue = addDaysISO(today, srs.days);
-    item.updatedAt = today;
-
-    const title = boxType === 'newBox' ? `سورة ${item.surahName} — ${item.segmentLabel}` : item.title;
-    state.recitationLog.unshift({
-      id: uid('log'),
-      date: today,
-      type: 'review',
-      title,
-      pages: item.pages,
-      rating: ratingId,
-      notes: boxType === 'newBox' ? 'تثبيت جديد' : 'تثبيت قديم'
-    });
-
-    touchStreak();
-    saveState();
-    renderAll();
-    showToast(`تم التقييم — سيعود للمراجعة بعد ${srs.days} ${srs.days === 1 ? 'يوم' : 'أيام'}.`);
-  }
-
-  // ---------------- صندوق التثبيت (3 تبويبات) ----------------
-  let currentBoxSubTab = 'new_solid';
-  let logFilter = 'all';
-
-  function renderBox() {
-    const wrap = document.getElementById('boxSubContent');
-    const today = todayISO();
-
-    if (currentBoxSubTab === 'new_solid') {
-      if (state.newBox.length === 0) {
-        wrap.innerHTML = `<div class="card empty-state">لا توجد مقاطع في «تثبيت جديد» بعد. كل ورد جديد تسمّعه من الصفحة الرئيسية يُجمع هنا تلقائياً لربط مقاطع السور الطويلة معاً.</div>`;
-        return;
-      }
-
-      // تجميع المقاطع حسب السورة لسهولة ربط السور الطويلة
-      const grouped = new Map();
-      state.newBox.forEach((item) => {
-        const key = item.surahNumber;
-        if (!grouped.has(key)) grouped.set(key, []);
-        grouped.get(key).push(item);
-      });
-
-      let html = '';
-      grouped.forEach((segments, surahNum) => {
-        const sObj = DATA.getSurahByNumber(surahNum);
-        const totalSegPages = segments.reduce((sum, x) => sum + Number(x.pages || 0), 0);
-        html += `
-          <article class="card">
-            <div class="card-head">
-              <div>
-                <h3>سورة ${escapeHTML(sObj ? sObj.name : segments[0].surahName)} (${segments.length} ${segments.length === 1 ? 'مقطع' : 'مقاطع'})</h3>
-                <p class="muted small">إجمالي المجمّع: ${formatPages(totalSegPages)} وجه ${sObj ? `من أصل ${formatPages(sObj.pages)} وجه` : ''}</p>
-              </div>
-              <button type="button" class="btn btn-outline btn-sm" data-promote-surah="${surahNum}">ترقية لتثبيت قديم</button>
-            </div>
-            <div class="inline-actions mb-sm">
-              <button type="button" class="btn btn-ghost btn-sm" data-link-surah="${surahNum}">ربط مقاطع السورة معاً (٦ د)</button>
-            </div>
-            <div class="stack-list mt-sm">
-              ${segments.map((seg) => {
-                const daysLeft = seg.nextDue ? diffDays(seg.nextDue, today) : 0;
-                const dueLabel = daysLeft <= 0 ? 'مستحق اليوم' : `بعد ${daysLeft} يوم`;
-                return `
-                  <div class="item-card">
-                    <div class="item-top">
-                      <div>
-                        <div class="item-title">${escapeHTML(seg.segmentLabel)}</div>
-                        <div class="item-meta">${formatPages(seg.pages)} وجه · آخر تقييم: ${seg.rating ? DATA.RATINGS[seg.rating].label : 'جديد'}</div>
-                      </div>
-                      <span class="badge-status ${daysLeft <= 0 ? 'badge-overdue' : ''}">${dueLabel}</span>
-                    </div>
-                    <div class="rating-row">
-                      ${Object.values(DATA.RATINGS).map((r) => `
-                        <button type="button" class="rate-btn" data-rate="${r.id}" data-box="newBox" data-id="${seg.id}">${r.label}</button>
-                      `).join('')}
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </article>
-        `;
-      });
-
-      wrap.innerHTML = html;
-      wrap.querySelectorAll('.rate-btn').forEach((btn) => {
-        btn.addEventListener('click', () => rateBoxItem(btn.dataset.box, btn.dataset.id, btn.dataset.rate));
-      });
-      wrap.querySelectorAll('[data-link-surah]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          switchTab('tools');
-          setDoctorMode('link_new');
-        });
-      });
-      wrap.querySelectorAll('[data-promote-surah]').forEach((btn) => {
-        btn.addEventListener('click', () => promoteSurahToOldBox(Number(btn.dataset.promoteSurah)));
-      });
-      return;
-    }
-
-    if (currentBoxSubTab === 'old_solid') {
-      const addForm = `
-        <article class="card">
-          <div class="card-head">
-            <h3>تثبيت قديم (${state.oldBox.length} عنصر)</h3>
-          </div>
-          <div class="inline-actions">
-            <select id="selAddOldJuz" style="flex:1; min-width:170px;">
-              ${DATA.JUZ_DATA.map((j) => `<option value="${j.juz}">${j.name}</option>`).join('')}
-            </select>
-            <button type="button" class="btn btn-gold btn-sm" id="btnAddOldJuz">إضافة جزء</button>
-          </div>
-        </article>
-      `;
-
-      const listHtml = state.oldBox.length === 0
-        ? `<div class="card empty-state">لا توجد عناصر في «تثبيت قديم» حالياً.</div>`
-        : `<div class="stack-list">${state.oldBox.map((item) => {
-            const daysLeft = item.nextDue ? diffDays(item.nextDue, today) : 0;
-            const dueLabel = daysLeft <= 0 ? 'مستحق اليوم' : `بعد ${daysLeft} يوم`;
+    dyn.innerHTML = `
+      <label class="field-label">حدّد السور التي حفظتها (من قائمة الـ ١١٤ سورة):</label>
+      <div class="surah-picker-box">
+        <div style="display:flex; gap:6px;">
+          <input type="text" placeholder="ابحث باسم السورة..." value="${escapeAttr(surahSearchQuery)}"
+            oninput="surahSearchQuery=this.value; renderObStep3();" />
+          <button type="button" class="btn btn-ghost btn-sm" onclick="obDraft.scatteredSurahs=[]; renderObStep3();">مسح</button>
+        </div>
+        <div class="surah-picker-grid">
+          ${filtered.map((s) => {
+            const sel = obDraft.scatteredSurahs.includes(s.num);
             return `
-              <div class="card">
-                <div class="item-top">
-                  <div>
-                    <div class="item-title">${escapeHTML(item.title)}</div>
-                    <div class="item-meta">${formatPages(item.pages)} وجه · ${item.rating ? 'آخر تقييم: ' + DATA.RATINGS[item.rating].label : 'بانتظار أول مراجعة'}</div>
-                  </div>
-                  <span class="badge-status ${daysLeft <= 0 ? 'badge-overdue' : ''}">${dueLabel}</span>
-                </div>
-                <div class="inline-actions">
-                  <button type="button" class="btn btn-ghost btn-sm" data-old-timer="old_solid">مؤقت تثبيت قديم (١٠ د)</button>
-                </div>
-                <div class="rating-row">
-                  ${Object.values(DATA.RATINGS).map((r) => `
-                    <button type="button" class="rate-btn" data-rate="${r.id}" data-box="oldBox" data-id="${item.id}">${r.label}</button>
-                  `).join('')}
-                </div>
-              </div>
-            `;
-          }).join('')}</div>`;
-
-      wrap.innerHTML = addForm + listHtml;
-      document.getElementById('btnAddOldJuz').addEventListener('click', () => {
-        const j = Number(document.getElementById('selAddOldJuz').value);
-        const info = DATA.getJuzSummary(j);
-        state.oldBox.unshift({
-          id: uid('old'),
-          title: `${info.name} (${info.surahRangeLabel})`,
-          kind: 'juz',
-          juz: j,
-          surahNumbers: info.surahs.map((s) => s.number),
-          pages: info.pages,
-          rating: null,
-          nextDue: todayISO(),
-          intervalDays: 0,
-          reps: 0,
-          updatedAt: todayISO()
-        });
-        saveState();
-        renderAll();
-        showToast(`أُضيف ${info.name} إلى صندوق التثبيت القديم.`);
-      });
-
-      wrap.querySelectorAll('.rate-btn').forEach((btn) => {
-        btn.addEventListener('click', () => rateBoxItem(btn.dataset.box, btn.dataset.id, btn.dataset.rate));
-      });
-      wrap.querySelectorAll('[data-old-timer]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          switchTab('tools');
-          setDoctorMode('old_solid');
-        });
-      });
-      return;
-    }
-
-    // تبويب سجل التسميع
-    const filteredLogs = state.recitationLog.filter((l) => logFilter === 'all' || l.type === logFilter);
-    wrap.innerHTML = `
-      <article class="card">
-        <div class="card-head">
-          <h3>سجل التسميع (${filteredLogs.length})</h3>
-          <div class="pill-group">
-            <button type="button" class="pill ${logFilter === 'all' ? 'active' : ''}" data-lf="all">الكل</button>
-            <button type="button" class="pill ${logFilter === 'new' ? 'active' : ''}" data-lf="new">حفظ جديد</button>
-            <button type="button" class="pill ${logFilter === 'review' ? 'active' : ''}" data-lf="review">مراجعة</button>
-          </div>
+              <button type="button" class="surah-pick-item ${sel ? 'selected' : ''}"
+                onclick="toggleScatteredSurah(${s.num})">
+                <span>${sel ? '✓ ' : ''}${s.name}</span>
+                <small>${formatNum(s.pages)}</small>
+              </button>`;
+          }).join('')}
         </div>
-        ${filteredLogs.length === 0
-          ? `<div class="empty-state">سجل التسميع فارغ حتى الآن. سيُحفظ هنا كل ورد ومراجعة تقيمها تلقائياً.</div>`
-          : `<div class="stack-list">
-              ${filteredLogs.slice(0, 60).map((l) => {
-                const rObj = DATA.RATINGS[l.rating] || { label: l.rating || 'تم' };
-                return `
-                  <div class="item-card">
-                    <div class="item-top">
-                      <div>
-                        <div class="item-title">${escapeHTML(l.title)}</div>
-                        <div class="item-meta">${escapeHTML(l.date)} · ${l.type === 'new' ? 'حفظ جديد' : 'مراجعة وتثبيت'} · ${formatPages(l.pages)} وجه</div>
-                      </div>
-                      <span class="badge-status">${escapeHTML(rObj.label)}</span>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>`
-        }
-      </article>
-    `;
-
-    wrap.querySelectorAll('[data-lf]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        logFilter = btn.dataset.lf;
-        renderBox();
-      });
-    });
-  }
-
-  function promoteSurahToOldBox(surahNum) {
-    const segs = state.newBox.filter((x) => x.surahNumber === surahNum);
-    if (segs.length === 0) return;
-    const sObj = DATA.getSurahByNumber(surahNum);
-    const totalPages = sObj ? sObj.pages : segs.reduce((sum, x) => sum + Number(x.pages || 0), 0);
-
-    state.newBox = state.newBox.filter((x) => x.surahNumber !== surahNum);
-    if (!state.memorizedSurahs.includes(surahNum)) {
-      state.memorizedSurahs.push(surahNum);
-    }
-
-    state.oldBox.unshift({
-      id: uid('old'),
-      title: `سورة ${sObj ? sObj.name : segs[0].surahName} (مكتملة)`,
-      kind: 'surah',
-      juz: sObj ? sObj.juz : 30,
-      surahNumbers: [surahNum],
-      pages: totalPages,
-      rating: 'good',
-      nextDue: addDaysISO(todayISO(), 4),
-      intervalDays: 4,
-      reps: 1,
-      updatedAt: todayISO()
-    });
-
-    saveState();
-    renderAll();
-    showToast(`تمت ترقية سورة ${sObj ? sObj.name : ''} إلى «تثبيت قديم».`);
-  }
-
-  // ---------------- عرض الجدول الأسبوعي المرن ----------------
-  function renderSchedule() {
-    if (!state.weeklySchedule || state.weeklySchedule.length === 0) {
-      state.weeklySchedule = generateWeeklySchedule(state.profile, state.memorizedSurahs, state.oldBox);
-      saveState();
-    }
-
-    const pace = calculateDailyPace(state.profile, state.memorizedSurahs);
-    const todayDayId = new Date().getDay();
-
-    document.getElementById('scheduleMetaBar').innerHTML = `
-      <span class="tag-pill">وقتك المرن: ${pace.mins} د/يوم</span>
-      <span class="tag-pill">جلسة أساسية: ${pace.primaryMin} د</span>
-      <span class="tag-pill">جلسة تسميع وتثبيت: ${pace.secondaryMin} د</span>
-      <span class="tag-pill">بدون أوقات ثابتة مفروضة</span>
-    `;
-
-    const container = document.getElementById('weeklyScheduleContainer');
-    container.innerHTML = state.weeklySchedule.map((day, idx) => `
-      <div class="day-card ${day.dayId === todayDayId ? 'is-today' : ''}">
-        <div class="day-head">
-          <div class="day-name">${escapeHTML(day.dayName)} ${day.dayId === todayDayId ? '· اليوم' : ''}</div>
-          ${day.isMaqraa ? '<span class="tag-pill">يوم تسميع / مقرأة</span>' : ''}
-        </div>
-        <label class="session-row">
-          <div>
-            <strong>الجلسة الأساسية (${day.primaryMin} د):</strong>
-            <div>${escapeHTML(day.primarySession)}</div>
-          </div>
-          <input type="checkbox" data-sched-idx="${idx}" data-field="donePrimary" ${day.donePrimary ? 'checked' : ''} />
-        </label>
-        <label class="session-row">
-          <div>
-            <strong>جلسة التسميع والتثبيت (${day.secondaryMin} د):</strong>
-            <div>${escapeHTML(day.secondarySession)}</div>
-          </div>
-          <input type="checkbox" data-sched-idx="${idx}" data-field="doneSecondary" ${day.doneSecondary ? 'checked' : ''} />
-        </label>
       </div>
-    `).join('');
 
-    container.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
-      chk.addEventListener('change', () => {
-        const i = Number(chk.dataset.schedIdx);
-        const f = chk.dataset.field;
-        state.weeklySchedule[i][f] = chk.checked;
-        if (chk.checked) touchStreak();
-        saveState();
-        document.getElementById('streakBadge').textContent = `${state.streak.count || 0} يوم`;
-      });
-    });
+      <div class="calc-preview-card">
+        <strong>المحدد حالياً:</strong> ${summary.memCount} سورة بإجمالي <strong>${formatNum(summary.memPages)}</strong> وجه من مصحف المدينة.
+      </div>
+
+      <label class="field-label" style="margin-top:12px;">كيف حابب تكمل حفظك بعد ذلك؟</label>
+      ${contOpts.map((c) => `
+        <div class="choice-card ${obDraft.scatteredContinue === c.id ? 'selected' : ''}" onclick="obDraft.scatteredContinue='${c.id}'; renderObStep3();">
+          <div class="choice-radio"></div>
+          <div>
+            <strong style="display:block; font-size:0.86rem;">${c.title}</strong>
+            <small style="color:var(--text-muted); font-size:0.74rem;">${c.sub}</small>
+          </div>
+        </div>
+      `).join('')}
+    `;
   }
 
-  // ---------------- مؤقت دكتور الصفحة + صوت تنبيه محلي أوفلاين ----------------
-  const doctorTimer = {
-    modeId: 'restore',
-    stageIdx: 0,
-    remainingSec: 3 * 60,
-    running: false,
-    intervalRef: null
+  // خيارات مستوى تثبيت المحفوظ القديم
+  const stabs = [
+    { id: 'weak', title: 'متفلت (يحتاج ترميماً وتنشيطاً)', sub: 'تدخل الأجزاء المحفوظة ورشة الترميم خطوة بخطوة ثم لصندوق التثبيت' },
+    { id: 'medium', title: 'متوسط (أستحضره بالنظر السريع)', sub: 'يبدأ برصيد ٥٠٪ لتسريع إتمام المراجعة والدخول لصندوق التثبيت' },
+    { id: 'solid', title: 'ثابت ومستقر (يحتاج دورة مراجعة فقط)', sub: 'تنتقل الأجزاء المكتملة مباشرةً لصندوق التثبيت بالتكرار المتباعد' }
+  ];
+  document.getElementById('obStabilityOptions').innerHTML = stabs.map((s) => `
+    <div class="choice-card ${obDraft.stability === s.id ? 'selected' : ''}" onclick="obDraft.stability='${s.id}'; renderObStep3();">
+      <div class="choice-radio"></div>
+      <div>
+        <strong style="display:block; font-size:0.86rem;">${s.title}</strong>
+        <small style="color:var(--text-muted); font-size:0.74rem;">${s.sub}</small>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleKhatimJuz(juzNum) {
+  if (obDraft.khatimSpecificJuz.includes(juzNum)) {
+    if (obDraft.khatimSpecificJuz.length > 1) {
+      obDraft.khatimSpecificJuz = obDraft.khatimSpecificJuz.filter((n) => n !== juzNum);
+    }
+  } else {
+    obDraft.khatimSpecificJuz.push(juzNum);
+    obDraft.khatimSpecificJuz.sort((a, b) => a - b);
+  }
+  renderObStep3();
+}
+
+function toggleScatteredSurah(surahNum) {
+  if (obDraft.scatteredSurahs.includes(surahNum)) {
+    obDraft.scatteredSurahs = obDraft.scatteredSurahs.filter((n) => n !== surahNum);
+  } else {
+    obDraft.scatteredSurahs.push(surahNum);
+  }
+  renderObStep3();
+}
+
+function renderObStep4() {
+  const styles = [
+    { id: 'solo', title: 'حفظ ومراجعة ذاتية مرنة (بدون أيام مقرأة ثابتة)', sub: 'توزّع جلساتك بحرية في أي وقت يناسبك خلال اليوم' },
+    { id: 'maqraa', title: 'أتابع مع شيخ أو مقرأة بأيام محددة (اختياري)', sub: 'يُضبط التحضير والتسميع في جدولك حسب الأيام التي تختارها' }
+  ];
+  document.getElementById('obStudyStyleOptions').innerHTML = styles.map((st) => `
+    <div class="choice-card ${obDraft.studyStyle === st.id ? 'selected' : ''}" onclick="obDraft.studyStyle='${st.id}'; renderObStep4();">
+      <div class="choice-radio"></div>
+      <div>
+        <strong style="display:block; font-size:0.87rem;">${st.title}</strong>
+        <small style="color:var(--text-muted); font-size:0.74rem;">${st.sub}</small>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('obMaqraaDaysWrap').style.display = obDraft.studyStyle === 'maqraa' ? 'block' : 'none';
+  document.getElementById('obPagesPerSessionWrap').style.display = obDraft.mode === 'khatim' ? 'none' : 'block';
+
+  document.getElementById('obMaqraaDayChips').innerHTML = DAYS_META.map((d) => `
+    <button type="button" class="day-chip ${obDraft.maqraaDays.includes(d.id) ? 'active' : ''}"
+      onclick="toggleObMaqraaDay('${d.id}')">${d.name}</button>
+  `).join('');
+
+  document.getElementById('obRemToggleRow').classList.toggle('done', obDraft.remEnabled);
+  document.getElementById('obRemCheck').textContent = obDraft.remEnabled ? '✓' : '';
+  document.getElementById('obRemTimesWrap').style.display = obDraft.remEnabled ? 'block' : 'none';
+}
+
+function setObMin(m) {
+  obDraft.dailyMin = m;
+  document.getElementById('obDailyMin').value = m;
+  document.getElementById('obTimeVal').textContent = m + ' دقيقة';
+}
+
+function toggleObMaqraaDay(dayId) {
+  if (obDraft.maqraaDays.includes(dayId)) {
+    if (obDraft.maqraaDays.length > 1) {
+      obDraft.maqraaDays = obDraft.maqraaDays.filter((x) => x !== dayId);
+    }
+  } else {
+    obDraft.maqraaDays.push(dayId);
+  }
+  renderObStep4();
+}
+
+function toggleObReminders() {
+  obDraft.remEnabled = !obDraft.remEnabled;
+  renderObStep4();
+}
+
+function renderObStep5Preview() {
+  const tempProfile = {
+    ...obDraft,
+    dailyMin: parseInt(document.getElementById('obDailyMin').value, 10) || 45,
+    pagesPerSession: parseFloat(document.getElementById('obPagesPerSession').value) || 1
+  };
+  const summary = summarizeDiagnostic(tempProfile);
+  const built = buildPersonalizedPlan(tempProfile);
+  const sched = buildPersonalizedSchedule(tempProfile, built.juzList);
+  const firstRev = built.juzList.find((j) => j.track === 'revision');
+
+  document.getElementById('obPlanPreviewBox').innerHTML = `
+    <div style="font-weight:800; color:var(--accent-hi); margin-bottom:6px;">ملخص خطتك الفعلية المحسوبة:</div>
+    <div style="line-height:1.8;">
+      ${tempProfile.mode === 'khatim'
+        ? `• المسار: <strong>مراجعة وتثبيت ٣٠ جزءاً</strong> (قسم الحفظ الجديد مخفي).<br/>• نقطة بداية الدورة: <strong>${firstRev ? firstRev.title : 'الجزء ١'}</strong>.`
+        : `• المحفوظ الحالي: <strong>${summary.memCount} سورة</strong> (${formatNum(summary.memPages)} وجه من ٦٠٤).<br/>
+           • بداية الحفظ الجديد: <strong>${summary.nextSurah ? `سورة ${summary.nextSurah.name} (الجزء ${summary.nextSurah.juz})` : 'مكتمل'}</strong>.<br/>
+           ${firstRev ? `• نقطة بداية الترميم: <strong>${firstRev.title}</strong>.` : '• بداية تأسيسية نظيفة من الصفر.'}`
+      }
+      <br/>• مثال لأول يوم في جدولك المرن (${sched[0].name}): <strong>${escapeHtml(sched[0].main)}</strong>
+    </div>
+  `;
+}
+
+function obNext(step) {
+  if (step === 4 && obDraft.mode === 'scattered' && obDraft.scatteredSurahs.length === 0) {
+    showToast('اختر سورة واحدة على الأقل من قائمة السور التي حفظتها');
+    return;
+  }
+  obDraft.step = step;
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('obStep' + i).classList.toggle('active', i === step);
+  }
+  document.querySelectorAll('#obProgressDots .ob-dot').forEach((dot, idx) => {
+    dot.classList.toggle('done', idx < step);
+  });
+  if (step === 3) renderObStep3();
+  if (step === 4) renderObStep4();
+  if (step === 5) {
+    renderObStep4();
+    renderObStep5Preview();
+  }
+  document.getElementById('onboardingOverlay').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function finishOnboarding() {
+  const name = document.getElementById('obName').value.trim() || 'حافظ القرآن';
+  let username = document.getElementById('obUsername').value.trim();
+  if (username && !username.startsWith('@')) username = '@' + username;
+  const dailyMin = parseInt(document.getElementById('obDailyMin').value, 10) || 45;
+  const pagesPerSession = parseFloat(document.getElementById('obPagesPerSession').value) || 1;
+
+  const newProfile = {
+    name,
+    username,
+    theme: obDraft.theme,
+    customColors: { ...(obDraft.customColors || { bg: '#00112B', accent: '#D0A151' }) },
+    mode: obDraft.mode,
+    stopSurahNum: obDraft.stopSurahNum,
+    stopSurahCompleted: obDraft.stopSurahCompleted,
+    beginnerDir: obDraft.beginnerDir,
+    khatimStart: obDraft.khatimStart,
+    khatimSpecificJuz: [...(obDraft.khatimSpecificJuz || [1, 2, 3])],
+    scatteredSurahs: [...(obDraft.scatteredSurahs || [])],
+    scatteredContinue: obDraft.scatteredContinue,
+    stability: obDraft.mode === 'beginner' ? 'weak' : obDraft.stability,
+    dailyMin,
+    studyStyle: obDraft.studyStyle,
+    maqraaDays: [...(obDraft.maqraaDays || ['mon', 'thu'])],
+    pagesPerSession
   };
 
-  function playGentleChime() {
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(528, ctx.currentTime);
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.14, ctx.currentTime + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.7);
-    } catch (e) {
-      // تجاهل إذا كان الصوت غير متاح
-    }
+  const shouldRebuildJuz = !obDraft.isEditing ||
+    confirm('هل تريد إعادة بناء الخريطة والجدول حسب التشخيص الجديد؟ (اضغط «إلغاء» للاحتفاظ بأوجهك الحالية وتحديث الاسم والمظهر والجدول فقط)');
+
+  state.profile = newProfile;
+  state.onboarded = true;
+  state.calcDailyMin = dailyMin;
+  state.calcNewPages = newProfile.mode === 'khatim' ? 0 : pagesPerSession;
+
+  if (shouldRebuildJuz || state.juzList.length !== 30) {
+    const built = buildPersonalizedPlan(newProfile);
+    state.juzList = built.juzList;
+    state.solidMeta = built.solidMeta;
+    state.mapFilter = newProfile.mode === 'beginner' ? 'new' : 'revision';
+  }
+  state.schedule = buildPersonalizedSchedule(newProfile, state.juzList);
+
+  if (obDraft.remEnabled) {
+    const tRev = document.getElementById('obRemRevTime').value || '09:00';
+    const tSol = document.getElementById('obRemSolidTime').value || '20:00';
+    state.reminders = [
+      { id: 'r1', time: tRev, type: newProfile.mode === 'beginner' ? 'new' : 'revision', enabled: true, lastTriggeredDate: '' },
+      { id: 'r2', time: tSol, type: 'solid', enabled: true, lastTriggeredDate: '' }
+    ];
+    requestNotifPermission(true);
+  } else if (!obDraft.isEditing) {
+    state.reminders = [];
   }
 
-  function formatMMSS(sec) {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
-  }
+  applyTheme(state.profile.theme, state.profile.customColors);
+  saveState();
+  document.getElementById('onboardingOverlay').classList.remove('active');
+  document.getElementById('calcDailyMin').value = state.calcDailyMin;
+  document.getElementById('calcNewPages').value = state.calcNewPages;
+  renderAll();
+  showToast(`أهلاً يا ${name}! تم بناء خطتك وجدولك الفعلي بنجاح ✓`);
+}
 
-  function setDoctorMode(modeId) {
-    stopDoctorTimer();
-    const mode = DATA.DOCTOR_MODES[modeId] || DATA.DOCTOR_MODES.restore;
-    doctorTimer.modeId = mode.id;
-    doctorTimer.stageIdx = 0;
-    doctorTimer.remainingSec = mode.stages[0].duration;
+// ================= CORE UI & NAVIGATION =================
+function showToast(msg) {
+  const el = document.getElementById('toastEl');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => el.classList.remove('show'), 3000);
+}
 
-    document.querySelectorAll('#doctorModePills .pill').forEach((p) => {
-      p.classList.toggle('active', p.dataset.mode === mode.id);
-    });
-    renderDoctorTimer();
-  }
+function touchStreak() {
+  const t = todayStr();
+  if (state.streak.lastDate === t) return;
+  const y = addDaysStr(t, -1);
+  state.streak.count = state.streak.lastDate === y ? state.streak.count + 1 : 1;
+  state.streak.lastDate = t;
+}
 
-  function stopDoctorTimer() {
-    doctorTimer.running = false;
-    if (doctorTimer.intervalRef) {
-      clearInterval(doctorTimer.intervalRef);
-      doctorTimer.intervalRef = null;
-    }
-  }
-
-  function renderDoctorTimer() {
-    const mode = DATA.DOCTOR_MODES[doctorTimer.modeId] || DATA.DOCTOR_MODES.restore;
-    const stage = mode.stages[doctorTimer.stageIdx] || mode.stages[0];
-
-    document.getElementById('timerDisplay').textContent = formatMMSS(doctorTimer.remainingSec);
-    document.getElementById('timerStageTitle').textContent = stage.title;
-    document.getElementById('timerStageTip').textContent = stage.tip;
-    document.getElementById('btnTimerToggle').textContent = doctorTimer.running ? 'إيقاف مؤقت' : 'ابدأ المؤقت';
-
-    const elapsedInPrev = mode.stages.slice(0, doctorTimer.stageIdx).reduce((a, s) => a + s.duration, 0);
-    const elapsedInCurr = stage.duration - doctorTimer.remainingSec;
-    const pct = Math.min(100, Math.round(((elapsedInPrev + elapsedInCurr) / mode.totalSeconds) * 100));
-    document.getElementById('timerProgressFill').style.width = `${pct}%`;
-
-    document.getElementById('timerStagesList').innerHTML = mode.stages.map((st, idx) => `
-      <div class="stage-item ${idx === doctorTimer.stageIdx ? 'active' : ''}">
-        <span>${escapeHTML(st.title)}</span>
-        <span>${Math.round(st.duration / 60)} د</span>
-      </div>
-    `).join('');
-  }
-
-  function toggleDoctorTimer() {
-    if (doctorTimer.running) {
-      stopDoctorTimer();
-      renderDoctorTimer();
-      return;
-    }
-    doctorTimer.running = true;
-    renderDoctorTimer();
-    doctorTimer.intervalRef = setInterval(() => {
-      doctorTimer.remainingSec -= 1;
-      if (doctorTimer.remainingSec <= 0) {
-        playGentleChime();
-        const mode = DATA.DOCTOR_MODES[doctorTimer.modeId];
-        if (doctorTimer.stageIdx < mode.stages.length - 1) {
-          doctorTimer.stageIdx += 1;
-          doctorTimer.remainingSec = mode.stages[doctorTimer.stageIdx].duration;
-          showToast(`انتقل إلى: ${mode.stages[doctorTimer.stageIdx].title}`);
-        } else {
-          stopDoctorTimer();
-          doctorTimer.remainingSec = 0;
-          touchStreak();
-          saveState();
-          showToast('أحسنت — أتممت جلسة دكتور الصفحة بنجاح.');
-        }
-      }
-      renderDoctorTimer();
-    }, 1000);
-  }
-
-  // ---------------- حاسبة الوقت المرنة ----------------
-  function renderTimeCalculator() {
-    const slider = document.getElementById('calcMinutesSlider');
-    const mins = Number(slider.value || state.profile.dailyMinutes || 60);
-    document.getElementById('calcMinutesVal').textContent = `${mins} دقيقة`;
-
-    const simProfile = { ...state.profile, dailyMinutes: mins };
-    const pace = calculateDailyPace(simProfile, state.memorizedSurahs);
-
-    document.getElementById('calcOutputGrid').innerHTML = `
-      <div class="stat-tile">
-        <div class="stat-val">${pace.primaryMin} + ${pace.secondaryMin} د</div>
-        <div class="stat-label">توزيع الجلستين المرن</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-val">${formatPages(pace.reviewPagesPerDay)} وجه</div>
-        <div class="stat-label">مراجعة وترميم يومياً</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-val">${state.profile.path === 'khatim' ? '—' : formatPages(pace.newPagesPerDay) + ' وجه'}</div>
-        <div class="stat-label">حفظ جديد يومياً</div>
-      </div>
-      <div class="stat-tile">
-        <div class="stat-val">${state.profile.path === 'khatim' ? pace.daysForReviewCycle + ' يوم' : Math.max(1, Math.round(pace.daysToFinishNew / 30)) + ' شهر'}</div>
-        <div class="stat-label">${state.profile.path === 'khatim' ? 'مدة دورة الختمة' : 'تقدير إتمام المتبقي'}</div>
-      </div>
-    `;
-  }
-
-  // ---------------- وضع حماية الـ 7 دقائق (وقتي مضغوط النهارده) ----------------
-  const busyTimer = { remainingSec: 7 * 60, running: false, intervalRef: null };
-
-  function openBusyModal() {
-    const due = getAllDueItems();
-    const targetBox = document.getElementById('busyTargetBox');
-    if (due.length > 0) {
-      const top = due[0];
-      const title = top.boxType === 'newBox' ? `سورة ${top.surahName} — ${top.segmentLabel}` : top.title;
-      targetBox.innerHTML = `<strong>هدفك الوحيد اليوم (٧ دقائق فقط):</strong><div class="mt-xs">${escapeHTML(title)} (${formatPages(Math.min(2, top.pages))} وجه سريع)</div>`;
-    } else if (state.activeWird) {
-      targetBox.innerHTML = `<strong>هدفك الوحيد اليوم (٧ دقائق فقط):</strong><div class="mt-xs">قراءة وربط وردك الحالي: سورة ${escapeHTML(state.activeWird.surahName)}</div>`;
-    } else {
-      targetBox.innerHTML = `<strong>هدفك الوحيد اليوم (٧ دقائق فقط):</strong><div class="mt-xs">تلاوة وجه واحد مما تحفظه بتركيز وهدوء لحماية الاستمرارية.</div>`;
-    }
-
-    resetBusyTimer();
-    document.getElementById('busyModal').classList.remove('hidden');
-  }
-
-  function resetBusyTimer() {
-    busyTimer.running = false;
-    clearInterval(busyTimer.intervalRef);
-    busyTimer.intervalRef = null;
-    busyTimer.remainingSec = 7 * 60;
-    document.getElementById('busyTimerDisplay').textContent = '07:00';
-    document.getElementById('btnBusyTimerToggle').textContent = 'ابدأ ٧ دقائق';
-  }
-
-  function toggleBusyTimer() {
-    if (busyTimer.running) {
-      busyTimer.running = false;
-      clearInterval(busyTimer.intervalRef);
-      document.getElementById('btnBusyTimerToggle').textContent = 'استكمال';
-      return;
-    }
-    busyTimer.running = true;
-    document.getElementById('btnBusyTimerToggle').textContent = 'إيقاف مؤقت';
-    busyTimer.intervalRef = setInterval(() => {
-      busyTimer.remainingSec -= 1;
-      document.getElementById('busyTimerDisplay').textContent = formatMMSS(busyTimer.remainingSec);
-      if (busyTimer.remainingSec <= 0) {
-        clearInterval(busyTimer.intervalRef);
-        busyTimer.running = false;
-        playGentleChime();
-        showToast('أحسنت — أتممت ٧ دقائق وحافظت على سلسلتك.');
-      }
-    }, 1000);
-  }
-
-  // ---------------- التذكيرات الذكية الديناميكية ----------------
-  function buildDynamicReminderMessage(dueItems, nextSurah) {
-    const name = state.profile.firstName || 'صاحب الهمة';
-    if (dueItems.length > 0) {
-      const top = dueItems[0];
-      const title = top.boxType === 'newBox' ? `سورة ${top.surahName}` : top.title;
-      return `يا ${name}، لديك ${dueItems.length} ${dueItems.length === 1 ? 'بند مستحق' : 'بنود مستحقة'} للمراجعة اليوم (أهمها: ${title}). وإذا كان يومك مزدحماً، زر «وقتي مضغوط (٧ د)» يحفظ استمراريتك.`;
-    }
-    if (state.activeWird) {
-      return `وردك الحالي في سورة ${state.activeWird.surahName} بانتظار التسميع والتقييم لينتقل تلقائياً لصندوق التثبيت.`;
-    }
-    if (state.profile.path === 'khatim') {
-      return `يوم هادئ يا ${name} — راجع جزءاً من جدولك المرن في أي وقت يناسبك لتبقى ختمتك حاضرة.`;
-    }
-    return `يومك جاهز يا ${name}: ${nextSurah ? `وردك القادم في سورة ${nextSurah.name}` : 'استمر في تثبيت محفوظك'} في الوقت الذي يناسب يومك.`;
-  }
-
-  // ---------------- الإعدادات والألوان والنسخ الاحتياطي واستيراد v4/v5 ----------------
-  function renderSettings() {
-    const p = state.profile;
-    const stats = DATA.calculateSurahSetStats(state.memorizedSurahs);
-    const pathNames = {
-      from_nas: 'من الناس ← البقرة',
-      from_baqarah: 'من البقرة ← الناس',
-      fresh: 'بداية جديدة',
-      khatim: 'خاتم للقرآن (٣٠ جزءاً)',
-      scattered: 'سور متفرقة'
+function syncSolidBoxMembership(juz) {
+  const isComplete = juz.donePages >= juz.totalPages - 0.01;
+  const t = todayStr();
+  if (isComplete && !state.solidMeta[juz.num]) {
+    state.solidMeta[juz.num] = {
+      reviews: 0,
+      lastReviewed: t,
+      rating: 'جيد جداً',
+      intervalDays: 4,
+      nextReviewDate: addDaysStr(t, 4),
+      addedAt: t
     };
+    showToast(`مبارك! دخل ${juz.title} تلقائياً في صندوق التثبيت وجُدول بالتكرار الذكي`);
+  } else if (!isComplete && state.solidMeta[juz.num]) {
+    delete state.solidMeta[juz.num];
+  }
+}
 
-    document.getElementById('profileSummaryBox').innerHTML = `
-      <div><strong>الاسم:</strong> ${escapeHTML(p.firstName || '—')}</div>
-      <div><strong>المسار:</strong> ${escapeHTML(pathNames[p.path] || p.path)}</div>
-      <div><strong>المحفوظ:</strong> ${formatPages(stats.totalPages)} / ٦٠٤ وجه</div>
-      <div><strong>الوقت اليومي:</strong> ${p.dailyMinutes} دقيقة مرنة</div>
-    `;
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+  const target = document.getElementById('tab-' + tabId);
+  if (target) target.classList.add('active');
+  document.querySelectorAll('[data-tab]').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderAll();
+}
 
-    // عرض الثيمات
-    const grid = document.getElementById('themeSwatchesGrid');
-    grid.innerHTML = DATA.PRESET_THEMES.map((t) => `
-      <button type="button" class="theme-card ${state.settings.themeId === t.id ? 'active' : ''}" data-theme-id="${t.id}">
-        <div class="swatch-bar">
-          <span style="background:${t.bg}"></span>
-          <span style="background:${t.surface2}"></span>
-          <span style="background:${t.accent}"></span>
-          <span style="background:${t.text}"></span>
+function renderAll() {
+  if (!state.onboarded) return;
+  renderHeader();
+  renderDashboard();
+  renderSchedule();
+  renderSolidTab();
+  renderMap();
+  renderRemindersUI();
+  renderThemeGrids();
+  updateCalculator();
+  populateManualLinkSurahSelect();
+}
+
+function renderHeader() {
+  const p = state.profile;
+  const name = p.name || 'رفيق التثبيت';
+  document.getElementById('headerUserTitle').textContent = `أهلاً يا ${name}`;
+  const modeNames = {
+    from_nas: 'الناس ← البقرة',
+    from_baqarah: 'البقرة ← الناس',
+    beginner: 'بداية جديدة',
+    khatim: 'خاتم ٣٠ جزءاً',
+    scattered: 'سور متفرقة'
+  };
+  const modeLabel = modeNames[p.mode] || 'الختمة المرنة';
+  document.getElementById('headerUserSub').textContent = `${p.username ? p.username + ' • ' : ''}${modeLabel} • ${p.dailyMin} د/يوم`;
+  document.getElementById('streakBadge').textContent = `🔥 ${state.streak.count} أيام`;
+
+  const profLine = document.getElementById('profileSummaryLine');
+  if (profLine) {
+    profLine.innerHTML = `المستخدم: <strong style="color:var(--accent-hi);">${escapeHtml(name)}</strong> ${p.username ? `(${escapeHtml(p.username)})` : ''} • المسار: <strong>${modeLabel}</strong> • الوقت اليومي: <strong>${p.dailyMin} دقيقة</strong>`;
+  }
+  const legacyBtn = document.getElementById('settingsLegacyImportBtn');
+  if (legacyBtn) {
+    legacyBtn.style.display = findLegacyStorageKey() ? 'inline-flex' : 'none';
+  }
+}
+
+// ================= SPACED REPETITION ENGINE =================
+function getDueItems() {
+  const items = [];
+  const today = todayStr();
+
+  // 1. تثبيت جديد (مقاطع السور الطويلة)
+  state.newLinkingGroups.filter((g) => !g.archived).forEach((g) => {
+    const nextDate = g.nextReviewDate || today;
+    const diff = diffDaysFromToday(nextDate);
+    const hasUrgent = g.passages.some((p) => p.rating === 'يحتاج إعادة');
+    const needsMerge = g.passages.length >= 3 && g.linkCount < Math.floor(g.passages.length / 2);
+    if (diff <= 0 || hasUrgent || needsMerge) {
+      const sumP = g.passages.reduce((s, p) => s + p.pages, 0);
+      items.push({
+        kind: 'new',
+        id: g.id,
+        title: g.surahName,
+        subtitle: `${g.passages.length} مقاطع (${formatNum(sumP)} وجه) • تثبيت جديد وربط`,
+        rating: hasUrgent ? 'يحتاج إعادة' : (g.rating || 'جيد'),
+        diff,
+        priority: hasUrgent ? 0 : (diff < 0 ? 1 : (needsMerge ? 2 : 3)),
+        badge: hasUrgent ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : (needsMerge ? 'تجميع ٣+ مقاطع' : 'مستحق اليوم'))
+      });
+    }
+  });
+
+  // 2. تثبيت قديم (الأجزاء المكتملة)
+  state.juzList.filter((j) => j.donePages >= j.totalPages - 0.01).forEach((j) => {
+    const meta = state.solidMeta[j.num];
+    if (!meta) return;
+    const nextDate = meta.nextReviewDate || today;
+    const diff = diffDaysFromToday(nextDate);
+    if (diff <= 0 || meta.rating === 'يحتاج إعادة') {
+      items.push({
+        kind: 'old',
+        id: j.num,
+        title: j.title,
+        subtitle: `${j.range} • تثبيت قديم`,
+        rating: meta.rating || 'جيد جداً',
+        diff,
+        priority: meta.rating === 'يحتاج إعادة' ? 0 : (diff < 0 ? 1 : 3),
+        badge: meta.rating === 'يحتاج إعادة' ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : 'مستحق اليوم')
+      });
+    }
+  });
+
+  items.sort((a, b) => a.priority - b.priority || a.diff - b.diff);
+  return items;
+}
+
+function openSrReviewModal(kind, id, title) {
+  srTarget = { kind, id, title };
+  document.getElementById('srReviewTargetInfo').innerHTML = `
+    <strong style="color:var(--accent-hi);">${escapeHtml(title)}</strong>
+    <div style="font-size:0.77rem; color:var(--text-muted); margin-top:2px;">${kind === 'new' ? 'صندوق التثبيت — تثبيت جديد (ربط السورة)' : 'صندوق التثبيت — تثبيت قديم (جزء مكتمل)'}</div>
+  `;
+  selectSrRating('ممتاز');
+  document.getElementById('srReviewModal').classList.add('open');
+}
+
+function selectSrRating(rate) {
+  selectedSrRating = rate;
+  document.querySelectorAll('#srRatingGrid .rating-choice').forEach((btn) => {
+    btn.classList.remove('selected-excellent', 'selected-vgood', 'selected-good', 'selected-repeat');
+    const r = btn.getAttribute('data-rate');
+    if (r === rate) {
+      if (r === 'ممتاز') btn.classList.add('selected-excellent');
+      else if (r === 'جيد جداً') btn.classList.add('selected-vgood');
+      else if (r === 'جيد') btn.classList.add('selected-good');
+      else btn.classList.add('selected-repeat');
+    }
+  });
+}
+
+function confirmSrReview() {
+  if (!srTarget) return;
+  const t = todayStr();
+  if (srTarget.kind === 'old') {
+    const meta = state.solidMeta[srTarget.id] || { reviews: 0, rating: '', intervalDays: 4 };
+    const nextInt = computeNextInterval(selectedSrRating, meta.rating, meta.intervalDays);
+    state.solidMeta[srTarget.id] = {
+      ...meta,
+      reviews: (meta.reviews || 0) + 1,
+      lastReviewed: t,
+      rating: selectedSrRating,
+      intervalDays: nextInt,
+      nextReviewDate: addDaysStr(t, nextInt)
+    };
+    showToast(`تمت المراجعة (${selectedSrRating}) — الموعد القادم بعد ${nextInt} يوم ✓`);
+  } else {
+    const g = state.newLinkingGroups.find((x) => x.id === srTarget.id);
+    if (g) {
+      const nextInt = computeNextInterval(selectedSrRating, g.rating, g.intervalDays);
+      g.linkCount = (g.linkCount || 0) + 1;
+      g.lastLinked = t;
+      g.rating = selectedSrRating;
+      g.intervalDays = nextInt;
+      g.nextReviewDate = addDaysStr(t, nextInt);
+      if (selectedSrRating === 'ممتاز' || selectedSrRating === 'جيد جداً') {
+        g.passages.forEach((p) => { if (p.rating === 'يحتاج إعادة') p.rating = 'جيد جداً'; });
+      }
+      showToast(`تم ربط ${g.surahName} (${selectedSrRating}) — الموعد القادم بعد ${nextInt} يوم ✓`);
+    }
+  }
+  touchStreak();
+  saveState();
+  closeModal('srReviewModal');
+  renderAll();
+}
+
+// ================= TAB 1: DASHBOARD =================
+function renderDashboard() {
+  const isKhatim = state.profile.mode === 'khatim';
+  const revList = state.juzList.filter((j) => j.track === 'revision');
+  const newList = state.juzList.filter((j) => j.track === 'new');
+
+  const totalPages = state.juzList.reduce((s, j) => s + j.totalPages, 0) || 604;
+  const donePages = state.juzList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+  const pct = Math.round((donePages / totalPages) * 100);
+
+  const revDoneJuz = revList.filter((j) => j.donePages >= j.totalPages - 0.01).length;
+  const revDonePages = revList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+  const revTotalPages = revList.reduce((s, j) => s + j.totalPages, 0);
+
+  const newDoneJuz = newList.filter((j) => j.donePages >= j.totalPages - 0.01).length;
+  const newDonePages = newList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+  const newTotalPages = newList.reduce((s, j) => s + j.totalPages, 0);
+
+  const solidOldCount = revDoneJuz + newDoneJuz;
+  const activeLinkGroups = state.newLinkingGroups.filter((g) => !g.archived);
+  const solidNewPassages = activeLinkGroups.reduce((s, g) => s + g.passages.length, 0);
+
+  const circ = 339;
+  document.getElementById('khatmaRingCircle').style.strokeDashoffset = circ - (circ * pct / 100);
+  document.getElementById('khatmaPct').textContent = pct + '%';
+  document.getElementById('khatmaPagesText').textContent = `${formatNum(donePages)} / ${totalPages} وجهاً`;
+
+  document.getElementById('heroRevBlock').style.display = revList.length > 0 ? 'block' : 'none';
+  if (revList.length > 0) {
+    document.getElementById('revProgressLabel').textContent = `${revDoneJuz} / ${revList.length} جزء`;
+    document.getElementById('revProgressBar').style.width = `${revTotalPages ? (revDonePages / revTotalPages * 100).toFixed(1) : 0}%`;
+    document.getElementById('revPagesDetail').textContent = `${formatNum(revDonePages)} من ${revTotalPages} وجهاً`;
+  }
+
+  document.getElementById('heroNewBlock').style.display = (!isKhatim && newList.length > 0) ? 'block' : 'none';
+  if (!isKhatim && newList.length > 0) {
+    document.getElementById('newProgressLabel').textContent = `${newDoneJuz} / ${newList.length} جزء`;
+    document.getElementById('newProgressBar').style.width = `${newTotalPages ? (newDonePages / newTotalPages * 100).toFixed(1) : 0}%`;
+    document.getElementById('newPagesDetail').textContent = `${formatNum(newDonePages)} من ${newTotalPages} وجهاً`;
+  }
+
+  document.getElementById('solidProgressLabel').textContent = `${solidOldCount} أجزاء قديم • ${solidNewPassages} مقاطع جديد`;
+  document.getElementById('solidProgressBar').style.width = `${(solidOldCount / 30 * 100).toFixed(1)}%`;
+
+  // Due Today (Spaced Repetition)
+  const dueItems = getDueItems();
+  document.getElementById('dueCountBadge').textContent = `${dueItems.length} عناصر`;
+  const dueListEl = document.getElementById('dueTodayList');
+  if (dueItems.length === 0) {
+    dueListEl.innerHTML = '<div style="font-size:0.83rem; color:var(--text-muted); padding:6px 2px;">لا توجد مراجعات متأخرة اليوم — كل ورد تسمّعه أو جزء تنجزه يُجدول هنا تلقائياً حسب تقييمك.</div>';
+  } else {
+    dueListEl.innerHTML = dueItems.slice(0, 5).map((item) => `
+      <div class="log-item" style="align-items:center;">
+        <div>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <strong style="font-size:0.9rem;">${escapeHtml(item.title)}</strong>
+            <span class="tag ${item.priority === 0 ? 'tag-danger' : (item.priority === 1 ? 'tag-warn' : 'tag-gold')}">${item.badge}</span>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(item.subtitle)}</div>
         </div>
-        <span class="small"><strong>${escapeHTML(t.name)}</strong></span>
-      </button>
+        <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('${item.kind}', '${item.id}', '${escapeAttr(item.title)}')">راجعته ✓</button>
+      </div>
     `).join('');
-
-    grid.querySelectorAll('.theme-card').forEach((card) => {
-      card.addEventListener('click', () => {
-        state.settings.themeId = card.dataset.themeId;
-        saveState();
-        applyTheme();
-        renderSettings();
-      });
-    });
-
-    document.getElementById('inpCustomBg').value = state.settings.customColors.bg || '#00112B';
-    document.getElementById('inpCustomAccent').value = state.settings.customColors.accent || '#D0A151';
-    document.getElementById('chkSmartReminders').checked = !!state.settings.smartReminders;
-
-    const notifText = document.getElementById('notifStatusText');
-    if (!('Notification' in window)) {
-      notifText.textContent = 'متصفحك لا يدعم إشعارات النظام؛ ستظهر التذكيرات الذكية داخل التطبيق.';
-    } else if (Notification.permission === 'granted') {
-      notifText.textContent = 'إشعارات المتصفح مفعّلة وجاهزة.';
-    } else {
-      notifText.textContent = 'يمكنك تفعيل إشعارات المتصفح اختيارياً للتذكير الهادئ.';
-    }
   }
 
-  function findLegacyLocalStorage() {
-    for (const key of LEGACY_KEYS) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') return { key, data: parsed };
-        }
-      } catch (e) {
-        // تجاهل البيانات غير الصالحة
+  // New Memorization right on Home (hidden if Khatim)
+  const nwCard = document.getElementById('homeNewWorkflowCard');
+  if (isKhatim) {
+    nwCard.innerHTML = '';
+  } else {
+    renderHomeNewWorkflow();
+  }
+
+  // Today's Flexible Tasks + Busy Day Mode (7 min)
+  const isBusyToday = state.busyDayDate === todayStr();
+  const todayWrap = document.getElementById('todayCardWrapper');
+  todayWrap.classList.toggle('card-busy', isBusyToday);
+  const busyBtn = document.getElementById('busyDayToggleBtn');
+  busyBtn.textContent = isBusyToday ? 'العودة للجدول العادي' : 'وقتي مضغوط النهارده';
+  busyBtn.className = isBusyToday ? 'btn btn-outline btn-sm' : 'btn btn-warn btn-sm';
+
+  const jsToday = new Date().getDay();
+  const todayObj = state.schedule.find((d) => d.jsDay === jsToday) || state.schedule[0];
+  document.getElementById('todayDayTitle').textContent = todayObj ? (todayObj.name + (todayObj.maqraa ? ' • يوم التسميع' : '')) : 'اليوم';
+
+  const curRev = revList.find((j) => j.donePages < j.totalPages - 0.01);
+  const nextSurah = getNextNewSurah(state.profile, state.juzList);
+
+  if (isBusyToday) {
+    const weakest = dueItems[0]
+      ? dueItems[0].title
+      : (curRev ? curRev.title : (nextSurah ? `سورة ${nextSurah.name}` : 'أقرب مقطع حفظته'));
+    document.getElementById('todayTasksContainer').innerHTML = `
+      <div style="font-size:0.81rem; color:var(--warn); font-weight:700; margin-bottom:10px;">
+        🛡️ وضع الحماية السريع (٧ دقائق فقط) — يحفظ سلسلتك وترابط محفوظك بدون ضغط أو إحباط:
+      </div>
+      <div class="task-row ${state.busyTasksDone.t1 ? 'done' : ''}" onclick="toggleBusyTask('t1')">
+        <div class="check-circle">${state.busyTasksDone.t1 ? '✓' : ''}</div>
+        <div class="task-text"><strong>حماية سريعة (٣ دقائق)</strong><small>مراجعة سريعة لـ: ${escapeHtml(weakest)}</small></div>
+      </div>
+      <div class="task-row ${state.busyTasksDone.t2 ? 'done' : ''}" onclick="toggleBusyTask('t2')">
+        <div class="check-circle">${state.busyTasksDone.t2 ? '✓' : ''}</div>
+        <div class="task-text"><strong>تنشيط التثبيت (٤ دقائق)</strong><small>سرد وجهين فقط من أي جزء أو سورة منجزة — والباقي مُرحّل بهدوء</small></div>
+      </div>
+    `;
+  } else if (todayObj) {
+    document.getElementById('todayTasksContainer').innerHTML = `
+      <div class="task-row ${todayObj.mDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'mDone')">
+        <div class="check-circle">${todayObj.mDone ? '✓' : ''}</div>
+        <div class="task-text"><strong>الجلسة الأساسية (في أي وقت يناسبك)</strong><small>${escapeHtml(todayObj.main)}</small></div>
+      </div>
+      <div class="task-row ${todayObj.eDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'eDone')">
+        <div class="check-circle">${todayObj.eDone ? '✓' : ''}</div>
+        <div class="task-text"><strong>جلسة التسميع والربط (مرنة)</strong><small>${escapeHtml(todayObj.second)}</small></div>
+      </div>
+      <div class="task-row ${todayObj.sDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'sDone')">
+        <div class="check-circle">${todayObj.sDone ? '✓' : ''}</div>
+        <div class="task-text"><strong>صندوق التثبيت (قديم وجديد)</strong><small>${escapeHtml(todayObj.solid)}</small></div>
+      </div>
+    `;
+  }
+
+  // Quick revision button visibility
+  const quickRevBtn = document.getElementById('quickRevBtn');
+  if (quickRevBtn) {
+    quickRevBtn.style.display = curRev ? 'inline-flex' : 'none';
+    if (curRev) quickRevBtn.textContent = `+١ وجه في ${curRev.title}`;
+  }
+
+  // Overview stats
+  document.getElementById('statCurrentRev').textContent = revList.length === 0 ? '—' : (curRev ? curRev.title : 'مكتمل ✓');
+  document.getElementById('statCurrentRevSub').textContent = revList.length === 0
+    ? 'بداية جديدة'
+    : (curRev ? `${formatNum(curRev.donePages)} / ${curRev.totalPages} وجهاً` : 'كل القديم في التثبيت');
+
+  document.getElementById('statCurrentNew').textContent = isKhatim
+    ? 'خاتم ✓'
+    : (nextSurah ? `سورة ${nextSurah.name}` : 'مكتمل ✓');
+  document.getElementById('statCurrentNewSub').textContent = isKhatim
+    ? 'تثبيت ٣٠ جزءاً'
+    : (nextSurah ? `الجزء ${nextSurah.juz} • ${formatNum(nextSurah.pages)} وجه` : 'ختمة مباركة');
+
+  document.getElementById('statSolidNewCount').textContent = `${solidNewPassages} مقاطع`;
+  document.getElementById('statSolidNewSub').textContent = activeLinkGroups.length > 0 ? `في ${activeLinkGroups.length} سورة للربط` : 'في صندوق التثبيت';
+
+  let doneT = 0;
+  const totalT = state.schedule.length * 3;
+  state.schedule.forEach((d) => { if (d.mDone) doneT++; if (d.eDone) doneT++; if (d.sDone) doneT++; });
+  document.getElementById('statWeekPct').textContent = totalT ? Math.round(doneT / totalT * 100) + '%' : '0%';
+  document.getElementById('statWeekSub').textContent = `${doneT} من ${totalT} مهمة`;
+
+  // Stabilization alert every 3 completed revision Juz
+  const alertBox = document.getElementById('stabilizationAlert');
+  if (revDoneJuz > 0 && revDoneJuz % 3 === 0 && revDoneJuz < revList.length) {
+    alertBox.innerHTML = `
+      <div class="alert-banner">
+        <span style="font-size:1.25rem;">🛡️</span>
+        <div>
+          <strong>تذكير أسبوع التثبيت (أتممت ${revDoneJuz} أجزاء)</strong>
+          لفّ على الأجزاء الـ ${solidOldCount} في صندوق التثبيت لفة سريعة قبل فتح الجزء التالي.
+        </div>
+      </div>`;
+  } else {
+    alertBox.innerHTML = '';
+  }
+
+  // Dynamic Active Juz Surahs Widget (shows user's ACTUAL active Juz, NEVER hardcoded Amma!)
+  const activeJuz = curRev || newList.find((j) => j.donePages < j.totalPages - 0.01);
+  const ajCard = document.getElementById('activeJuzSurahsCard');
+  if (activeJuz && activeJuz.surahs && activeJuz.surahs.length > 0) {
+    ajCard.style.display = 'block';
+    document.getElementById('activeJuzSurahsTitle').textContent = `🎯 سور ${activeJuz.title}`;
+    document.getElementById('activeJuzSurahsList').innerHTML = activeJuz.surahs.map((s, idx) => `
+      <div class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(${activeJuz.num}, ${idx})">
+        <span>${s.done ? '✓' : '○'} ${escapeHtml(s.name)}</span>
+        <small>${formatNum(s.pages)} وجه</small>
+      </div>
+    `).join('');
+  } else {
+    ajCard.style.display = 'none';
+  }
+
+  renderInAppReminderBanner();
+}
+
+function toggleBusyDay() {
+  const t = todayStr();
+  if (state.busyDayDate === t) {
+    state.busyDayDate = '';
+    showToast('رجعنا لجدول اليوم العادي');
+  } else {
+    state.busyDayDate = t;
+    state.busyTasksDone = { t1: false, t2: false };
+    showToast('تم تفعيل وضع الحماية (٧ دقائق) — حافظ على استمراريتك بهدوء 🛡️');
+  }
+  saveState();
+  renderDashboard();
+}
+
+function toggleBusyTask(key) {
+  state.busyTasksDone[key] = !state.busyTasksDone[key];
+  if (state.busyTasksDone[key]) touchStreak();
+  saveState();
+  renderDashboard();
+}
+
+// ================= NEW MEMORIZATION ON HOME (2-STEP CYCLE) =================
+function renderHomeNewWorkflow() {
+  const container = document.getElementById('homeNewWorkflowCard');
+  const nextSurah = getNextNewSurah(state.profile, state.juzList);
+  const dir = getEffectiveDirection(state.profile);
+  const orderedSurahs = dir === 'from_nas' ? [...SURAHS_DB].reverse() : [...SURAHS_DB];
+  const defaultNum = nextSurah ? nextSurah.num : orderedSurahs[0].num;
+  const defaultJuz = nextSurah ? nextSurah.juz : orderedSurahs[0].juz;
+
+  if (!state.activeWird) {
+    const surahOptions = orderedSurahs.map((s) =>
+      `<option value="${s.num}" ${s.num === defaultNum ? 'selected' : ''}>${s.num}. سورة ${s.name} (الجزء ${s.juz} • ${formatNum(s.pages)} وجه)</option>`
+    ).join('');
+
+    const juzOptions = JUZ_DB.map((j) =>
+      `<option value="${j.num}" ${j.num === defaultJuz ? 'selected' : ''}>${j.title} — ${j.range}</option>`
+    ).join('');
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-title">
+          <h2>📖 الحفظ الجديد — تسجيل الورد القادم</h2>
+          <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('solid'); setSolidTab('new');">تثبيت الجديد ↗</button>
+        </div>
+        <p style="margin:0 0 11px; font-size:0.79rem; color:var(--text-muted);">
+          سجّل الورد الجديد من موضعك الفعلي، وبعد التسميع اضغط <strong>«تم التسميع + التقييم»</strong> فينتقل تلقائياً إلى <strong>صندوق التثبيت</strong> ويُتاح الورد التالي.
+        </p>
+        <form onsubmit="registerNewWird(event)">
+          <div class="form-grid form-grid-2">
+            <div>
+              <label class="field-label">السورة (مختارة تلقائياً حسب خطتك)</label>
+              <select id="nwSurahSelect" onchange="syncWirdJuzFromSurah(this.value)" required>${surahOptions}</select>
+            </div>
+            <div>
+              <label class="field-label">المقطع / الآيات</label>
+              <input type="text" id="nwPassage" placeholder="مثلاً: آية ١ – ١٥ أو السورة كاملة" required />
+            </div>
+            <div>
+              <label class="field-label">عدد الأوجه</label>
+              <input type="number" id="nwPages" step="0.25" min="0.25" max="15" value="${state.profile.pagesPerSession || 1}" required />
+            </div>
+            <div>
+              <label class="field-label">الجزء التابع له</label>
+              <select id="nwJuz">${juzOptions}</select>
+            </div>
+          </div>
+          <div style="margin-top:9px;">
+            <input type="text" id="nwNote" placeholder="ملاحظة قبل الحفظ (اختياري)" />
+          </div>
+          <div style="margin-top:11px;">
+            <button type="submit" class="btn btn-gold btn-block">تسجيل الورد الجديد</button>
+          </div>
+        </form>
+      </div>
+    `;
+  } else {
+    const w = state.activeWird;
+    container.innerHTML = `
+      <div class="card card-active-wird">
+        <div class="card-title">
+          <h2>📖 الورد الجديد المسجّل (بانتظار التسميع)</h2>
+          <span class="tag tag-info">الجزء ${w.juzNum} • ${formatNum(w.pages)} وجه</span>
+        </div>
+        <div style="padding:11px 12px; border-radius:12px; background:var(--bg-surface-strong); border:1px solid var(--accent-border); margin-bottom:11px;">
+          <div style="font-size:1.04rem; font-weight:800; color:var(--accent-hi);">${escapeHtml(w.surahName)} — ${escapeHtml(w.passage)}</div>
+          <div style="font-size:0.77rem; color:var(--text-muted); margin-top:2px;">سُجّل في ${w.createdAt} ${w.note ? `• 📝 ${escapeHtml(w.note)}` : ''}</div>
+        </div>
+        <div style="margin-bottom:11px;">
+          <div class="task-row ${w.prepRead ? 'done' : ''}" onclick="toggleWirdPrep('prepRead')">
+            <div class="check-circle">${w.prepRead ? '✓' : ''}</div>
+            <div class="task-text"><strong>قراءة نظرية وفهم المعنى</strong></div>
+          </div>
+          <div class="task-row ${w.prepMem ? 'done' : ''}" onclick="toggleWirdPrep('prepMem')">
+            <div class="check-circle">${w.prepMem ? '✓' : ''}</div>
+            <div class="task-text"><strong>الحفظ والتسميع الذاتي غيباً</strong></div>
+          </div>
+          <div class="task-row ${w.prepLink ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleWirdPrep('prepLink')">
+            <div class="check-circle">${w.prepLink ? '✓' : ''}</div>
+            <div class="task-text"><strong>ربط الورد بالمقطع السابق في السورة</strong></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-gold" style="flex:1;" onclick="openReciteModal()">✅ تم التسميع + التقييم</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="cancelActiveWird()">تعديل / إلغاء</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function syncWirdJuzFromSurah(surahNum) {
+  const s = getSurahByNum(surahNum);
+  const juzSel = document.getElementById('nwJuz');
+  if (s && juzSel) juzSel.value = String(s.juz);
+}
+
+function registerNewWird(e) {
+  e.preventDefault();
+  const surahNum = parseInt(document.getElementById('nwSurahSelect').value, 10);
+  const sObj = getSurahByNum(surahNum);
+  const surahName = sObj ? `سورة ${sObj.name}` : 'سورة مختارة';
+  const passage = document.getElementById('nwPassage').value.trim();
+  const pages = parseFloat(document.getElementById('nwPages').value) || 1;
+  const juzNum = parseInt(document.getElementById('nwJuz').value, 10) || (sObj ? sObj.juz : 1);
+  const note = document.getElementById('nwNote').value.trim();
+
+  state.activeWird = {
+    id: 'w_' + Date.now(),
+    surahNum,
+    surahName,
+    passage,
+    pages,
+    juzNum,
+    note,
+    createdAt: todayStr(),
+    prepRead: false,
+    prepMem: false,
+    prepLink: false
+  };
+  saveState();
+  renderAll();
+  showToast(`تم تسجيل الورد الجديد: ${surahName} — ${passage}`);
+}
+
+function toggleWirdPrep(field) {
+  if (!state.activeWird) return;
+  state.activeWird[field] = !state.activeWird[field];
+  if (state.activeWird[field]) touchStreak();
+  saveState();
+  renderHomeNewWorkflow();
+}
+
+function cancelActiveWird() {
+  if (!confirm('هل تريد إلغاء الورد المسجّل حالياً لتسجيل ورد آخر؟')) return;
+  state.activeWird = null;
+  saveState();
+  renderAll();
+}
+
+function openReciteModal() {
+  if (!state.activeWird) return;
+  const w = state.activeWird;
+  document.getElementById('reciteModalSummary').innerHTML = `
+    <strong style="color:var(--accent-hi);">${escapeHtml(w.surahName)} — ${escapeHtml(w.passage)}</strong>
+    <div style="color:var(--text-muted); font-size:0.78rem; margin-top:2px;">المقدار: ${formatNum(w.pages)} وجه • الجزء ${w.juzNum}</div>
+  `;
+  selectRating('ممتاز');
+  document.getElementById('reciteSheikhNote').value = w.note || '';
+  document.getElementById('reciteAutoMap').checked = true;
+  document.getElementById('reciteAddToLink').checked = true;
+  document.getElementById('reciteModal').classList.add('open');
+}
+
+function selectRating(rate) {
+  selectedRating = rate;
+  document.querySelectorAll('#ratingGrid .rating-choice').forEach((btn) => {
+    btn.classList.remove('selected-excellent', 'selected-vgood', 'selected-good', 'selected-repeat');
+    const r = btn.getAttribute('data-rate');
+    if (r === rate) {
+      if (r === 'ممتاز') btn.classList.add('selected-excellent');
+      else if (r === 'جيد جداً') btn.classList.add('selected-vgood');
+      else if (r === 'جيد') btn.classList.add('selected-good');
+      else btn.classList.add('selected-repeat');
+    }
+  });
+  document.getElementById('reciteAutoMap').checked = (rate !== 'يحتاج إعادة');
+}
+
+function confirmRecitation() {
+  if (!state.activeWird) return;
+  const w = state.activeWird;
+  const note = document.getElementById('reciteSheikhNote').value.trim();
+  const autoMap = document.getElementById('reciteAutoMap').checked;
+  const addToLink = document.getElementById('reciteAddToLink').checked;
+  const today = todayStr();
+
+  state.maqraaLogs.unshift({
+    id: 'mq_' + Date.now(),
+    surahName: w.surahName,
+    passage: w.passage,
+    pages: w.pages,
+    juzNum: w.juzNum,
+    date: today,
+    rating: selectedRating,
+    note
+  });
+
+  if (autoMap) {
+    const targetJuz = state.juzList.find((j) => j.num === w.juzNum);
+    if (targetJuz) {
+      targetJuz.donePages = Math.min(targetJuz.totalPages, Number((targetJuz.donePages + w.pages).toFixed(2)));
+      // إن غطّى الورد كامل صفحات سورة قصيرة، نعلّمها كمنجزة
+      if (w.surahNum && targetJuz.surahs) {
+        const sItem = targetJuz.surahs.find((s) => s.num === w.surahNum);
+        if (sItem && w.pages >= sItem.pages - 0.01) sItem.done = true;
       }
+      syncSolidBoxMembership(targetJuz);
     }
-    return null;
   }
 
-  function importAnyBackupObject(rawObj, sourceLabel) {
-    if (!rawObj || typeof rawObj !== 'object') {
-      throw new Error('ملف غير صالح');
-    }
+  if (addToLink) {
+    addPassageToLinkingGroup(w.surahName, w.passage, w.pages, selectedRating, today);
+  }
 
-    // 1) نسخة v6 كاملة
-    if (rawObj.version === 6 && rawObj.profile && Array.isArray(rawObj.memorizedSurahs)) {
-      state = mergeWithDefaults(rawObj);
-      state.onboarded = true;
-      saveState();
-      applyTheme();
-      document.getElementById('onboardingView').classList.add('hidden');
-      document.getElementById('appShell').classList.remove('hidden');
-      renderAll();
-      showToast(`تم استيراد نسخة v6 بنجاح (${sourceLabel}).`);
-      return;
-    }
+  state.activeWird = null;
+  touchStreak();
+  saveState();
+  closeModal('reciteModal');
+  renderAll();
+  showToast(`تم التسميع (${selectedRating}) ونُقل المقطع لصندوق التثبيت ✓`);
+}
 
-    // 2) استيراد ذكي مرن لبيانات v4 (rafiq_altathbit_khatma_v4) أو v5 (rafiq_altathbit_smart_v5)
-    const migrated = createDefaultState();
-    migrated.onboarded = true;
+// ================= TAB 2: FLEXIBLE WEEKLY SCHEDULE =================
+function renderSchedule() {
+  const jsToday = new Date().getDay();
+  document.getElementById('scheduleList').innerHTML = state.schedule.map((d) => {
+    const isToday = d.jsDay === jsToday;
+    const doneCount = (d.mDone ? 1 : 0) + (d.eDone ? 1 : 0) + (d.sDone ? 1 : 0);
+    return `
+      <div class="week-day-row ${isToday ? 'today' : ''}">
+        <div class="week-day-head">
+          <div class="day-name">
+            <span>${d.name}</span>
+            ${isToday ? '<span class="tag tag-gold">اليوم</span>' : ''}
+            ${d.maqraa ? '<span class="tag tag-info">يوم التسميع</span>' : '<span class="tag tag-gold">وقت مرن</span>'}
+            ${doneCount === 3 ? '<span class="tag tag-success">✓ مكتمل</span>' : `<span style="font-size:0.74rem; color:var(--text-muted);">${doneCount}/3</span>`}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openEditDay('${d.id}')">تعديل</button>
+        </div>
+        <div class="week-sessions-grid">
+          <div class="session-col">
+            <div class="session-col-title"><span>الجلسة الأساسية</span><span style="color:var(--text-dim); font-weight:600;">في أي وقت</span></div>
+            <div class="task-row ${d.mDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${d.id}', 'mDone')">
+              <div class="check-circle">${d.mDone ? '✓' : ''}</div>
+              <div class="task-text"><strong>${escapeHtml(d.main)}</strong></div>
+            </div>
+          </div>
+          <div class="session-col">
+            <div class="session-col-title"><span>جلسة التسميع والتثبيت</span><span style="color:var(--text-dim); font-weight:600;">في أي وقت</span></div>
+            <div class="task-row ${d.eDone ? 'done' : ''}" onclick="toggleDayTask('${d.id}', 'eDone')">
+              <div class="check-circle">${d.eDone ? '✓' : ''}</div>
+              <div class="task-text"><strong style="font-size:0.82rem;">${escapeHtml(d.second)}</strong></div>
+            </div>
+            <div class="task-row ${d.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${d.id}', 'sDone')">
+              <div class="check-circle">${d.sDone ? '✓' : ''}</div>
+              <div class="task-text"><strong style="font-size:0.82rem;">${escapeHtml(d.solid)}</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
 
-    const oldUser = rawObj.user || rawObj.profile || {};
-    migrated.profile.firstName = oldUser.firstName || oldUser.name || rawObj.name || 'صاحب الهمة';
-    migrated.profile.username = oldUser.username || rawObj.username || '';
-    migrated.profile.dailyMinutes = Number(oldUser.dailyMinutes || rawObj.dailyMinutes || 60);
+  document.getElementById('archiveCountTag').textContent = `${state.weekArchives.length} أسابيع`;
+  const archEl = document.getElementById('weekArchiveList');
+  if (state.weekArchives.length === 0) {
+    archEl.innerHTML = '<div class="empty-state">اضغط «إغلاق الأسبوع وأرشفته» في نهاية أسبوعك لحفظ سجل التزامك هنا.</div>';
+  } else {
+    archEl.innerHTML = state.weekArchives.map((a) => `
+      <div class="log-item">
+        <div>
+          <strong style="font-size:0.87rem;">أسبوع منتهٍ في ${a.date}</strong>
+          <div style="font-size:0.75rem; color:var(--text-muted);">أنجزت ${a.doneTasks} من 21 مهمة • الختمة: ${a.khatmaPct}%</div>
+        </div>
+        <span class="tag tag-success">${Math.round(a.doneTasks / 21 * 100)}%</span>
+      </div>`).join('');
+  }
+}
 
-    // استخراج السجل والتثبيت من أي مفاتيح محتملة في v4 / v5
-    const logs = rawObj.recitationLog || rawObj.log || rawObj.history || [];
-    if (Array.isArray(logs)) {
-      migrated.recitationLog = logs.map((l) => ({
-        id: l.id || uid('log'),
-        date: l.date || todayISO(),
-        type: l.type === 'new' ? 'new' : 'review',
-        title: l.title || l.surah || l.label || 'مراجعة مستوردة',
-        pages: Number(l.pages || 1),
-        rating: DATA.RATINGS[l.rating] ? l.rating : 'good',
-        notes: l.notes || `مستورد من ${sourceLabel}`
-      }));
-    }
+function regenerateScheduleFromCurrent() {
+  state.schedule = buildPersonalizedSchedule(state.profile, state.juzList);
+  saveState();
+  renderAll();
+  showToast('تم تحديث الجدول الأسبوعي بأسماء سورك وأجزائك الحالية ✓');
+}
 
-    const oldNewItems = rawObj.newBox || rawObj.newConsolidation || rawObj.newItems || [];
-    if (Array.isArray(oldNewItems)) {
-      migrated.newBox = oldNewItems.map((x) => {
-        const sMatch = DATA.SURAHS.find((s) => s.number === Number(x.surahNumber) || (x.surahName && s.name === x.surahName));
-        return {
-          id: x.id || uid('new'),
-          surahNumber: sMatch ? sMatch.number : 114,
-          surahName: sMatch ? sMatch.name : (x.surahName || x.title || 'مقطع مستورد'),
-          segmentLabel: x.segmentLabel || x.label || x.title || 'مقطع مستورد',
-          pages: Number(x.pages || 1),
-          rating: DATA.RATINGS[x.rating] ? x.rating : 'good',
-          nextDue: x.nextDue || addDaysISO(todayISO(), 2),
-          intervalDays: Number(x.intervalDays || 4),
-          reps: Number(x.reps || 1),
-          updatedAt: x.updatedAt || todayISO()
-        };
-      });
-    }
+function toggleDayTask(dayId, field) {
+  const d = state.schedule.find((x) => x.id === dayId);
+  if (!d) return;
+  d[field] = !d[field];
+  if (d[field]) touchStreak();
+  saveState();
+  renderAll();
+}
 
-    const oldOldItems = rawObj.oldBox || rawObj.oldConsolidation || rawObj.oldItems || rawObj.juzList || [];
-    if (Array.isArray(oldOldItems)) {
-      migrated.oldBox = oldOldItems.map((x, idx) => ({
-        id: x.id || uid('old'),
-        title: x.title || x.name || `بند تثبيت قديم #${idx + 1}`,
-        kind: x.kind || 'juz',
-        juz: Number(x.juz || 30),
-        surahNumbers: Array.isArray(x.surahNumbers) ? x.surahNumbers : [],
-        pages: Number(x.pages || 20),
-        rating: DATA.RATINGS[x.rating] ? x.rating : null,
-        nextDue: x.nextDue || addDaysISO(todayISO(), idx % 5),
-        intervalDays: Number(x.intervalDays || 0),
-        reps: Number(x.reps || 0),
-        updatedAt: x.updatedAt || todayISO()
-      }));
-    }
+function openEditDay(dayId) {
+  const d = state.schedule.find((x) => x.id === dayId);
+  if (!d) return;
+  editingDayId = dayId;
+  document.getElementById('editDayName').textContent = d.name;
+  document.getElementById('editMainText').value = d.main;
+  document.getElementById('editSecondText').value = d.second;
+  document.getElementById('editSolidText').value = d.solid;
+  document.getElementById('editDayModal').classList.add('open');
+}
 
-    if (Array.isArray(rawObj.memorizedSurahs) && rawObj.memorizedSurahs.length > 0) {
-      migrated.memorizedSurahs = rawObj.memorizedSurahs.map(Number);
-    } else if (migrated.oldBox.length > 0) {
-      const gathered = new Set();
-      migrated.oldBox.forEach((o) => {
-        if (o.surahNumbers && o.surahNumbers.length) o.surahNumbers.forEach((n) => gathered.add(n));
-        else if (o.juz) DATA.getSurahsInJuz(o.juz).forEach((s) => gathered.add(s.number));
-      });
-      migrated.memorizedSurahs = Array.from(gathered);
-    }
-
-    migrated.weeklySchedule = generateWeeklySchedule(migrated.profile, migrated.memorizedSurahs, migrated.oldBox);
-    state = migrated;
+function saveDayEdit() {
+  const d = state.schedule.find((x) => x.id === editingDayId);
+  if (d) {
+    d.main = document.getElementById('editMainText').value.trim() || d.main;
+    d.second = document.getElementById('editSecondText').value.trim() || d.second;
+    d.solid = document.getElementById('editSolidText').value.trim() || d.solid;
     saveState();
-    applyTheme();
-    document.getElementById('onboardingView').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
     renderAll();
-    showToast(`تم استيراد بياناتك من ${sourceLabel} بنجاح! يمكنك مراجعة مسارك من «إعادة الاختبار التشخيصي» لو رغبت.`);
+    showToast('تم تحديث مهام اليوم ✓');
+  }
+  closeModal('editDayModal');
+}
+
+function archiveWeek() {
+  let doneT = 0;
+  state.schedule.forEach((d) => { if (d.mDone) doneT++; if (d.eDone) doneT++; if (d.sDone) doneT++; });
+  const totalPages = state.juzList.reduce((s, j) => s + j.totalPages, 0) || 604;
+  const donePages = state.juzList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+  state.weekArchives.unshift({ date: todayStr(), doneTasks: doneT, khatmaPct: Math.round(donePages / totalPages * 100) });
+  state.schedule = buildPersonalizedSchedule(state.profile, state.juzList);
+  saveState();
+  renderAll();
+  showToast('تم أرشفة الأسبوع وتوليد جدول الأسبوع الجديد ✓');
+}
+
+// ================= TAB 3: SOLID BOX =================
+function setSolidTab(sub) {
+  state.solidSubTab = sub;
+  saveState();
+  renderSolidTab();
+}
+
+function formatDueTag(nextDateStr) {
+  const diff = diffDaysFromToday(nextDateStr);
+  if (diff < 0) return `<span class="tag tag-danger">متأخر ${Math.abs(diff)} يوم</span>`;
+  if (diff === 0) return '<span class="tag tag-warn">مستحق اليوم</span>';
+  return `<span class="tag tag-success">القادم بعد ${diff} يوم</span>`;
+}
+
+function renderSolidTab() {
+  const sub = state.solidSubTab || 'new';
+  document.getElementById('solidTabNew').classList.toggle('active', sub === 'new');
+  document.getElementById('solidTabOld').classList.toggle('active', sub === 'old');
+  document.getElementById('solidTabLogs').classList.toggle('active', sub === 'logs');
+  document.getElementById('solidPanelNew').style.display = sub === 'new' ? 'block' : 'none';
+  document.getElementById('solidPanelOld').style.display = sub === 'old' ? 'block' : 'none';
+  document.getElementById('solidPanelLogs').style.display = sub === 'logs' ? 'block' : 'none';
+
+  const completedList = state.juzList.filter((j) => j.donePages >= j.totalPages - 0.01);
+  const activeGroups = state.newLinkingGroups.filter((g) => !g.archived);
+  const archivedGroups = state.newLinkingGroups.filter((g) => g.archived);
+  const totalNewPassages = activeGroups.reduce((s, g) => s + g.passages.length, 0);
+
+  document.getElementById('solidBoxOldSummary').textContent = `${completedList.length} أجزاء`;
+  document.getElementById('solidBoxNewSummary').textContent = `${totalNewPassages} مقاطع (${activeGroups.length} سورة)`;
+
+  // تثبيت جديد
+  const linkContainer = document.getElementById('linkingGroupsContainer');
+  const linkAlert = document.getElementById('linkingAlertBanner');
+  const dueGroup = activeGroups.find((g) => g.passages.length >= 3 && g.linkCount < Math.floor(g.passages.length / 2));
+  linkAlert.innerHTML = dueGroup ? `
+    <div class="alert-banner">
+      <span style="font-size:1.25rem;">🔗</span>
+      <div><strong>جلسة تجميع وربط مقترحة لـ ${escapeHtml(dueGroup.surahName)}</strong> جمّعت فيها ${dueGroup.passages.length} مقاطع — اسردها متصلة الآن لتتلاحم السورة.</div>
+    </div>` : '';
+
+  if (activeGroups.length === 0 && archivedGroups.length === 0) {
+    linkContainer.innerHTML = '<div class="empty-state">قسم <strong>تثبيت الجديد</strong> فارغ حالياً — أي ورد تسمّعه من الرئيسية يدخل هنا تلقائياً مجمّعاً حسب السورة.</div>';
+  } else {
+    let html = '';
+    activeGroups.forEach((g) => {
+      const sumPages = g.passages.reduce((s, p) => s + p.pages, 0);
+      const hasWeak = g.passages.some((p) => p.rating === 'جيد' || p.rating === 'يحتاج إعادة');
+      html += `
+        <div class="link-group-card ${hasWeak ? 'priority' : ''}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+            <div>
+              <strong style="font-size:0.97rem; color:var(--accent-hi);">${escapeHtml(g.surahName)}</strong>
+              <div style="font-size:0.75rem; color:var(--text-muted);">
+                ${g.passages.length} مقاطع (${formatNum(sumPages)} وجه) • مرات التثبيت: <strong>${g.linkCount}</strong>
+                ${g.lastLinked ? ` • آخر تثبيت: ${g.lastLinked}` : ''}
+              </div>
+            </div>
+            ${formatDueTag(g.nextReviewDate || todayStr())}
+          </div>
+          <div class="passage-chain">
+            ${g.passages.map((p, idx) => {
+              const weak = p.rating === 'جيد' || p.rating === 'يحتاج إعادة';
+              return `<span class="passage-pill ${weak ? 'needs-work' : ''}">
+                <span>${idx + 1}. ${escapeHtml(p.passage)} (${formatNum(p.pages)})</span>
+                <span style="opacity:0.82;">• ${escapeHtml(p.rating)}</span>
+                <button type="button" onclick="removeLinkPassage('${g.id}','${p.id}')" style="background:none;border:none;color:inherit;cursor:pointer;padding:0 2px;font-weight:900;">×</button>
+              </span>`;
+            }).join('')}
+          </div>
+          <div style="display:flex; gap:7px; flex-wrap:wrap; margin-top:8px;">
+            <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('new', '${g.id}', '${escapeAttr(g.surahName)}')">+ تمت المراجعة والربط</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="startLinkTimer()">مؤقت الربط (٦ د)</button>
+            <button type="button" class="btn btn-success btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">تم إتقان السورة ✓</button>
+          </div>
+        </div>`;
+    });
+    if (archivedGroups.length > 0) {
+      html += `<div style="margin-top:12px; font-size:0.81rem; font-weight:800; color:var(--success); margin-bottom:7px;">✓ سور تم إتقانها (${archivedGroups.length})</div>`;
+      archivedGroups.forEach((g) => {
+        html += `<div class="log-item"><div><strong style="font-size:0.89rem; color:var(--success);">${escapeHtml(g.surahName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${g.passages.length} مقاطع • رُبطت ${g.linkCount} مرات</div></div><button type="button" class="btn btn-ghost btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">إعادة</button></div>`;
+      });
+    }
+    linkContainer.innerHTML = html;
   }
 
-  function exportJsonBackup() {
-    const payload = JSON.stringify(state, null, 2);
-    const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rafiq_altathbit_v6_backup_${todayISO()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast('تم تحميل ملف النسخة الاحتياطية JSON.');
+  // تثبيت قديم
+  document.getElementById('solidCountBadge').textContent = `${completedList.length} أجزاء`;
+  const solidEl = document.getElementById('solidBoxList');
+  if (completedList.length === 0) {
+    solidEl.innerHTML = '<div class="empty-state">قسم <strong>تثبيت القديم</strong> بانتظار أول جزء مكتمل من خريطة الـ ٣٠ جزءاً.</div>';
+  } else {
+    solidEl.innerHTML = completedList.map((j) => {
+      const meta = state.solidMeta[j.num] || { reviews: 0, lastReviewed: '', rating: 'جيد جداً', nextReviewDate: todayStr() };
+      return `
+        <div class="log-item" style="align-items:center;">
+          <div>
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <strong style="font-size:0.91rem;">${j.title}</strong>
+              ${formatDueTag(meta.nextReviewDate || todayStr())}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
+              اللفات: <strong style="color:var(--accent-hi);">${meta.reviews}</strong> • آخر تقييم: <strong>${meta.rating || '—'}</strong>
+              ${meta.lastReviewed ? ` • ${meta.lastReviewed}` : ''}
+            </div>
+          </div>
+          <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('old', ${j.num}, '${escapeAttr(j.title)}')">+ راجعته</button>
+        </div>`;
+    }).join('');
   }
 
-  function handleJsonFileInput(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result || '{}'));
-        importAnyBackupObject(parsed, file.name);
-      } catch (e) {
-        showToast('تعذر قراءة الملف — تأكد أنه ملف JSON صحيح.');
-      }
+  // سجل التسميع
+  document.getElementById('maqraaCountTag').textContent = `${state.maqraaLogs.length} حصص`;
+  const logEl = document.getElementById('maqraaLogList');
+  if (state.maqraaLogs.length === 0) {
+    logEl.innerHTML = '<div class="empty-state">سجل حصص التسميع والتقييمات سيظهر هنا فور تأكيد أول تسميع.</div>';
+  } else {
+    logEl.innerHTML = state.maqraaLogs.map((item) => `
+      <div class="log-item">
+        <div>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <strong style="font-size:0.89rem; color:var(--accent-hi);">${escapeHtml(item.surahName)} — ${escapeHtml(item.passage)}</strong>
+            ${ratingBadgeHtml(item.rating)}
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${formatNum(item.pages)} وجه • الجزء ${item.juzNum} • ${item.date}</div>
+          ${item.note ? `<div style="font-size:0.76rem; color:var(--text-main); margin-top:3px;">📝 ${escapeHtml(item.note)}</div>` : ''}
+        </div>
+        <button type="button" class="btn btn-danger btn-sm" onclick="deleteMaqraaLog('${item.id}')">حذف</button>
+      </div>`).join('');
+  }
+}
+
+function ratingBadgeHtml(r) {
+  if (r === 'ممتاز') return '<span class="tag tag-success">ممتاز</span>';
+  if (r === 'جيد جداً') return '<span class="tag tag-gold">جيد جداً</span>';
+  if (r === 'جيد') return '<span class="tag tag-warn">جيد</span>';
+  return '<span class="tag tag-danger">يحتاج إعادة</span>';
+}
+
+function addPassageToLinkingGroup(surahName, passage, pages, rating, date) {
+  const cleanName = surahName.trim();
+  const nextInt = computeNextInterval(rating, '', 0);
+  let group = state.newLinkingGroups.find((g) => g.surahName === cleanName && !g.archived);
+  if (!group) {
+    group = {
+      id: 'lg_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      surahName: cleanName,
+      archived: false,
+      linkCount: 0,
+      lastLinked: date,
+      rating,
+      intervalDays: nextInt,
+      nextReviewDate: addDaysStr(date, nextInt),
+      passages: []
     };
-    reader.readAsText(file, 'utf-8');
-  }
-
-  // ---------------- التنقل والتحديث العام ----------------
-  function switchTab(tabId) {
-    document.querySelectorAll('.tab-panel').forEach((p) => {
-      p.classList.toggle('active', p.id === `tab-${tabId}`);
-    });
-    document.querySelectorAll('.bottom-nav .nav-item').forEach((n) => {
-      n.classList.toggle('active', n.dataset.tab === tabId);
-    });
-    if (tabId === 'tools') {
-      document.getElementById('calcMinutesSlider').value = state.profile.dailyMinutes || 60;
-      renderTimeCalculator();
+    state.newLinkingGroups.unshift(group);
+  } else {
+    const candidateDate = addDaysStr(date, nextInt);
+    if (!group.nextReviewDate || candidateDate < group.nextReviewDate) {
+      group.nextReviewDate = candidateDate;
+      group.rating = rating;
     }
   }
+  group.passages.push({
+    id: 'p_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    passage: passage.trim(),
+    pages: Number(pages) || 1,
+    rating,
+    date
+  });
+}
 
-  function renderAll() {
-    renderHome();
-    renderBox();
-    renderSchedule();
-    renderDoctorTimer();
-    renderTimeCalculator();
-    renderSettings();
-  }
+function populateManualLinkSurahSelect() {
+  const sel = document.getElementById('mlSurah');
+  if (!sel || sel.options.length === SURAHS_DB.length) return;
+  sel.innerHTML = SURAHS_DB.map((s) =>
+    `<option value="سورة ${s.name}">${s.num}. سورة ${s.name} (الجزء ${s.juz})</option>`
+  ).join('');
+}
 
-  // ---------------- ربط الأحداث وتسجيل Service Worker ----------------
-  function bindEvents() {
-    // التنقل السفلي
-    document.querySelectorAll('.bottom-nav .nav-item').forEach((btn) => {
-      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-    });
+function openManualLinkModal() {
+  populateManualLinkSurahSelect();
+  const nextSurah = getNextNewSurah(state.profile, state.juzList);
+  if (nextSurah) document.getElementById('mlSurah').value = `سورة ${nextSurah.name}`;
+  document.getElementById('manualLinkModal').classList.add('open');
+}
 
-    // تبويبات صندوق التثبيت
-    document.querySelectorAll('#boxSubTabs .seg-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        currentBoxSubTab = btn.dataset.subtab;
-        document.querySelectorAll('#boxSubTabs .seg-btn').forEach((b) => b.classList.toggle('active', b === btn));
-        renderBox();
-      });
-    });
+function saveManualLinkPassage(e) {
+  e.preventDefault();
+  addPassageToLinkingGroup(
+    document.getElementById('mlSurah').value.trim(),
+    document.getElementById('mlPassage').value.trim(),
+    parseFloat(document.getElementById('mlPages').value) || 1,
+    document.getElementById('mlRating').value,
+    todayStr()
+  );
+  saveState();
+  closeModal('manualLinkModal');
+  document.getElementById('mlPassage').value = '';
+  renderAll();
+  showToast('أُضيف المقطع إلى تثبيت الجديد وجُدول تلقائياً ✓');
+}
 
-    // خطوات الاختبار التشخيصي
-    document.getElementById('pathChoiceGrid').querySelectorAll('.choice-card').forEach((card) => {
-      card.addEventListener('click', () => {
-        wizard.draft.path = card.dataset.path;
-        if (wizard.draft.path === 'from_nas' && !wizard.draft.stopSurah) wizard.draft.stopSurah = 114;
-        if (wizard.draft.path === 'from_baqarah' && wizard.draft.stopSurah === 114) wizard.draft.stopSurah = 1;
-        updateWizardUI();
-      });
-    });
+function removeLinkPassage(groupId, passageId) {
+  const g = state.newLinkingGroups.find((x) => x.id === groupId);
+  if (!g) return;
+  g.passages = g.passages.filter((p) => p.id !== passageId);
+  if (g.passages.length === 0) state.newLinkingGroups = state.newLinkingGroups.filter((x) => x.id !== groupId);
+  saveState();
+  renderAll();
+}
 
-    document.getElementById('stabilityPills').querySelectorAll('.pill').forEach((p) => {
-      p.addEventListener('click', () => {
-        wizard.draft.stability = p.dataset.val;
-        updateWizardUI();
-      });
-    });
+function toggleArchiveLinkGroup(groupId) {
+  const g = state.newLinkingGroups.find((x) => x.id === groupId);
+  if (!g) return;
+  g.archived = !g.archived;
+  saveState();
+  renderAll();
+  showToast(g.archived ? `تم توثيق إتقان ${g.surahName} ✓` : `أُعيدت ${g.surahName} للتثبيت النشط`);
+}
 
-    document.getElementById('rngDailyMinutes').addEventListener('input', (e) => {
-      wizard.draft.dailyMinutes = Number(e.target.value);
-      document.getElementById('lblDailyMinutes').textContent = `${wizard.draft.dailyMinutes} دقيقة`;
-    });
+function startLinkTimer() { switchTab('tools'); setTimerMode('link'); }
+function deleteMaqraaLog(id) { state.maqraaLogs = state.maqraaLogs.filter((x) => x.id !== id); saveState(); renderAll(); }
 
-    document.getElementById('btnWizardPrev').addEventListener('click', () => {
-      if (wizard.step > 1) {
-        wizard.step -= 1;
-        updateWizardUI();
-      }
-    });
+// ================= TAB 4: 30-JUZ MAP =================
+function setMapFilter(filter) {
+  state.mapFilter = filter;
+  saveState();
+  renderMap();
+}
 
-    document.getElementById('btnWizardNext').addEventListener('click', () => {
-      if (wizard.step === 1) {
-        const fn = document.getElementById('inpFirstName').value.trim();
-        if (!fn) {
-          showToast('من فضلك أدخل اسمك الأول للمتابعة.');
-          document.getElementById('inpFirstName').focus();
-          return;
-        }
-        wizard.draft.firstName = fn;
-        wizard.draft.username = document.getElementById('inpUsername').value.trim();
-      } else if (wizard.step === 3) {
-        if (wizard.draft.path === 'scattered' && (!wizard.draft.scatteredSurahs || wizard.draft.scatteredSurahs.length === 0)) {
-          showToast('اختر سورة واحدة على الأقل، أو ارجع واختر «بداية جديدة».');
-          return;
-        }
-        if (wizard.draft.path === 'khatim' && wizard.draft.khatimReviewMode === 'specific_juz' && (!wizard.draft.khatimJuzList || wizard.draft.khatimJuzList.length === 0)) {
-          showToast('اختر جزءاً واحداً على الأقل لدورة المراجعة.');
-          return;
-        }
-      }
+function renderMap() {
+  const revCount = state.juzList.filter((j) => j.track === 'revision').length;
+  const newCount = state.juzList.filter((j) => j.track === 'new').length;
+  const fRev = document.getElementById('filterRev');
+  const fNew = document.getElementById('filterNew');
+  const fAll = document.getElementById('filterAll');
 
-      if (wizard.step < 5) {
-        wizard.step += 1;
-        updateWizardUI();
-      } else {
-        commitWizardPlan();
-      }
-    });
+  fRev.textContent = `الترميم (${revCount})`;
+  fNew.textContent = `الجديد (${newCount})`;
+  fRev.style.display = revCount > 0 ? 'block' : 'none';
+  fNew.style.display = (state.profile.mode !== 'khatim' && newCount > 0) ? 'block' : 'none';
 
-    // استيراد من شاشة الترحيب
-    document.getElementById('inpOnboardingImport').addEventListener('change', (e) => {
-      handleJsonFileInput(e.target.files[0]);
-      e.target.value = '';
-    });
+  if (state.mapFilter === 'new' && (newCount === 0 || state.profile.mode === 'khatim')) state.mapFilter = 'revision';
+  if (state.mapFilter === 'revision' && revCount === 0) state.mapFilter = 'new';
 
-    document.getElementById('btnImportDetectedLegacy').addEventListener('click', () => {
-      const found = findLegacyLocalStorage();
-      if (found) importAnyBackupObject(found.data, found.key);
-    });
+  [fRev, fNew, fAll].forEach((b) => b.classList.remove('active'));
+  if (state.mapFilter === 'revision') fRev.classList.add('active');
+  if (state.mapFilter === 'new') fNew.classList.add('active');
+  if (state.mapFilter === 'all') fAll.classList.add('active');
 
-    // التذكير
-    document.getElementById('btnDismissReminder').addEventListener('click', () => {
-      document.getElementById('smartReminderCard').classList.add('hidden');
-    });
+  const filtered = state.juzList.filter((j) => state.mapFilter === 'all' || j.track === state.mapFilter);
+  const phases = [];
+  filtered.forEach((j) => {
+    let group = phases.find((p) => p.name === j.phase);
+    if (!group) { group = { name: j.phase, items: [] }; phases.push(group); }
+    group.items.push(j);
+  });
 
-    // زر وقتي مضغوط (7 دقائق)
-    document.getElementById('btnBusyMode').addEventListener('click', openBusyModal);
-    document.getElementById('btnCloseBusyModal').addEventListener('click', () => {
-      resetBusyTimer();
-      document.getElementById('busyModal').classList.add('hidden');
-    });
-    document.getElementById('btnBusyTimerToggle').addEventListener('click', toggleBusyTimer);
-    document.getElementById('btnBusyTimerReset').addEventListener('click', resetBusyTimer);
-    document.getElementById('btnCompleteBusyDay').addEventListener('click', () => {
-      resetBusyTimer();
-      document.getElementById('busyModal').classList.add('hidden');
-      touchStreak();
-      state.recitationLog.unshift({
-        id: uid('log'),
-        date: todayISO(),
-        type: 'review',
-        title: 'جلسة حماية اليوم المزدحم (٧ دقائق)',
-        pages: 1,
-        rating: 'good',
-        notes: 'حماية الاستمرارية بدون انقطاع'
-      });
-      saveState();
-      renderAll();
-      showToast('بارك الله في وقتك — تم تسجيل جلسة الحماية وحفظ سلسلتك اليوم.');
-    });
+  const curRev = state.juzList.find((j) => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
+  const curNew = state.juzList.find((j) => j.track === 'new' && j.donePages < j.totalPages - 0.01);
 
-    // الجدول
-    document.getElementById('btnRegenerateSchedule').addEventListener('click', () => {
-      state.weeklySchedule = generateWeeklySchedule(state.profile, state.memorizedSurahs, state.oldBox);
-      saveState();
-      renderSchedule();
-      showToast('تم تحديث توزيع الجدول الأسبوعي بأسماء سورك الحالية.');
-    });
+  let html = '';
+  phases.forEach((ph) => {
+    const phDone = ph.items.filter((j) => j.donePages >= j.totalPages - 0.01).length;
+    html += `<div class="phase-header"><h3>${ph.name}</h3><span>${phDone} / ${ph.items.length} مكتمل</span></div>`;
+    ph.items.forEach((j) => {
+      const pct = Math.min(100, Math.round((j.donePages / j.totalPages) * 100));
+      const completed = j.donePages >= j.totalPages - 0.01;
+      const isActive = (curRev && curRev.num === j.num) || (curNew && curNew.num === j.num);
+      const expanded = !!state.expandedJuz[j.num];
+      const fillClass = completed ? 'bar-fill-success' : (j.track === 'new' ? 'bar-fill-info' : 'bar-fill-gold');
 
-    // مؤقت دكتور الصفحة
-    document.querySelectorAll('#doctorModePills .pill').forEach((p) => {
-      p.addEventListener('click', () => setDoctorMode(p.dataset.mode));
-    });
-    document.getElementById('btnTimerToggle').addEventListener('click', toggleDoctorTimer);
-    document.getElementById('btnTimerReset').addEventListener('click', () => setDoctorMode(doctorTimer.modeId));
-    document.getElementById('btnTimerNextStage').addEventListener('click', () => {
-      const mode = DATA.DOCTOR_MODES[doctorTimer.modeId];
-      if (doctorTimer.stageIdx < mode.stages.length - 1) {
-        doctorTimer.stageIdx += 1;
-        doctorTimer.remainingSec = mode.stages[doctorTimer.stageIdx].duration;
-        renderDoctorTimer();
-      } else {
-        showToast('أنت بالفعل في المرحلة الأخيرة من المؤقت.');
-      }
-    });
-
-    // حاسبة الوقت
-    document.getElementById('calcMinutesSlider').addEventListener('input', renderTimeCalculator);
-    document.getElementById('btnApplyCalcTime').addEventListener('click', () => {
-      const mins = Number(document.getElementById('calcMinutesSlider').value);
-      state.profile.dailyMinutes = mins;
-      state.weeklySchedule = generateWeeklySchedule(state.profile, state.memorizedSurahs, state.oldBox);
-      saveState();
-      renderAll();
-      showToast(`تم اعتماد ${mins} دقيقة يومياً وتحديث جدولك الأسبوعي.`);
-    });
-
-    // الإعدادات والألوان الحرة
-    document.getElementById('btnRerunDiagnostic').addEventListener('click', () => openOnboarding(true));
-    document.getElementById('btnApplyCustomTheme').addEventListener('click', () => {
-      state.settings.themeId = 'custom';
-      state.settings.customColors = {
-        bg: document.getElementById('inpCustomBg').value,
-        accent: document.getElementById('inpCustomAccent').value
-      };
-      saveState();
-      applyTheme();
-      renderSettings();
-      showToast('تم تطبيق ألوانك الخاصة مع ضبط التباين تلقائياً.');
-    });
-
-    document.getElementById('btnResetDefaultTheme').addEventListener('click', () => {
-      state.settings.themeId = 'royal-navy';
-      state.settings.customColors = { bg: '#00112B', accent: '#D0A151' };
-      saveState();
-      applyTheme();
-      renderSettings();
-      showToast('تمت العودة لهوية الكحلي الملكي والذهبي.');
-    });
-
-    document.getElementById('chkSmartReminders').addEventListener('change', (e) => {
-      state.settings.smartReminders = e.target.checked;
-      saveState();
-      renderHome();
-    });
-
-    document.getElementById('btnEnableBrowserNotif').addEventListener('click', () => {
-      if (!('Notification' in window)) {
-        showToast('إشعارات النظام غير مدعومة في هذا المتصفح.');
-        return;
-      }
-      Notification.requestPermission().then((perm) => {
-        renderSettings();
-        showToast(perm === 'granted' ? 'تم تفعيل الإشعارات بنجاح.' : 'لم يتم منح إذن الإشعارات.');
-      });
-    });
-
-    document.getElementById('btnPreviewNotif').addEventListener('click', () => {
-      const msg = buildDynamicReminderMessage(getAllDueItems(), getOrderedUnmemorizedSurahs(state.profile, state.memorizedSurahs)[0]);
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('رفيق التثبيت', { body: msg, icon: './icon-192.png' });
-      } else {
-        showToast(msg);
-      }
-    });
-
-    // النسخ الاحتياطي واستيراد v4/v5
-    document.getElementById('btnExportJson').addEventListener('click', exportJsonBackup);
-    document.getElementById('inpImportJson').addEventListener('change', (e) => {
-      handleJsonFileInput(e.target.files[0]);
-      e.target.value = '';
-    });
-
-    document.getElementById('btnScanLegacyStorage').addEventListener('click', () => {
-      const found = findLegacyLocalStorage();
-      const status = document.getElementById('backupStatusText');
-      if (found) {
-        importAnyBackupObject(found.data, found.key);
-        status.textContent = `تم العثور على ${found.key} واستيراد بياناته.`;
-      } else {
-        status.textContent = 'لم يتم العثور على مفاتيح v4 أو v5 محفوظة في هذا المتصفح (يمكنك استيراد ملف JSON مباشرة).';
-      }
-    });
-
-    // تحديث الكاش الفوري
-    document.getElementById('btnCheckUpdate').addEventListener('click', () => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then((reg) => {
-          if (reg) {
-            reg.update().then(() => {
-              showToast('جارٍ التحقق من أحدث نسخة وتحديث الملفات...');
-              setTimeout(() => window.location.reload(), 600);
-            });
-          } else {
-            window.location.reload();
-          }
-        });
-      } else {
-        window.location.reload();
-      }
-    });
-  }
-
-  function registerServiceWorker() {
-    if (!('serviceWorker' in navigator)) return;
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').then((reg) => {
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              nw.postMessage({ type: 'SKIP_WAITING' });
-              showToast('تم تنزيل تحديث جديد للتطبيق وسيتم تفعيله فوراً.');
+      html += `
+        <div class="juz-card ${completed ? 'completed' : ''} ${isActive && !completed ? 'active-juz' : ''}">
+          <div class="juz-top">
+            <div>
+              <div class="juz-title">
+                <span>${j.title}</span>
+                <span class="tag ${j.track === 'new' ? 'tag-info' : 'tag-gold'}">${j.track === 'new' ? 'جديد' : 'ترميم'}</span>
+                ${completed ? '<span class="tag tag-success">✓ في صندوق التثبيت</span>' : (isActive ? '<span class="tag tag-gold">النشط</span>' : '')}
+              </div>
+              <div class="juz-sub">${j.range}</div>
+            </div>
+            <div style="text-align:left; flex-shrink:0;">
+              <strong style="color:${completed ? 'var(--success)' : 'var(--accent-hi)'}; font-size:0.93rem;">${formatNum(j.donePages)} / ${j.totalPages}</strong>
+              <div style="font-size:0.7rem; color:var(--text-muted);">${pct}%</div>
+            </div>
+          </div>
+          <div class="bar-track"><div class="${fillClass}" style="width:${pct}%"></div></div>
+          <div class="juz-controls">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="adjustJuzPages(${j.num}, -1)">-١</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 0.5)">+٠.٥</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 1)">+١ وجه</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 3)">+٣</button>
+            ${!completed
+              ? `<button type="button" class="btn btn-success btn-sm" onclick="completeJuz(${j.num})">إتمام ✓</button>`
+              : `<button type="button" class="btn btn-ghost btn-sm" onclick="resetJuz(${j.num})">إعادة فتح</button>`
             }
-          });
-        });
-      }).catch((err) => {
-        console.warn('Service Worker registration note:', err);
-      });
+            ${j.surahs && j.surahs.length > 0 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="toggleExpandJuz(${j.num})">${expanded ? 'السور ▲' : `السور (${j.surahs.length}) ▼`}</button>` : ''}
+            ${state.profile.mode === 'scattered' ? `<button type="button" class="btn btn-ghost btn-sm" onclick="flipJuzTrack(${j.num})">نقل لـ ${j.track === 'new' ? 'الترميم' : 'الجديد'}</button>` : ''}
+          </div>
+          ${j.surahs && expanded ? `
+            <div class="surah-list">
+              ${j.surahs.map((s, idx) => `
+                <div class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(${j.num}, ${idx})">
+                  <span>${s.done ? '✓' : '○'} ${escapeHtml(s.name)}</span>
+                  <small>${formatNum(s.pages)}</small>
+                </div>`).join('')}
+            </div>` : ''}
+          <div style="margin-top:8px;">
+            <input type="text" value="${escapeAttr(j.note || '')}" placeholder="ملاحظة أو متشابهات..."
+              onchange="updateJuzNote(${j.num}, this.value)" style="padding:7px 10px; font-size:0.77rem;" />
+          </div>
+        </div>`;
+    });
+  });
+  document.getElementById('juzMapContainer').innerHTML = html || '<div class="empty-state">لا توجد أجزاء في هذا الفلتر</div>';
+}
+
+function flipJuzTrack(juzNum) {
+  const j = state.juzList.find((x) => x.num === juzNum);
+  if (!j) return;
+  j.track = j.track === 'new' ? 'revision' : 'new';
+  j.phase = j.track === 'new' ? 'مسار الحفظ الجديد' : 'مسار مراجعة وترميم السور المحفوظة';
+  saveState();
+  renderAll();
+}
+
+function adjustJuzPages(juzNum, delta) {
+  const j = state.juzList.find((x) => x.num === juzNum);
+  if (!j) return;
+  j.donePages = Math.max(0, Math.min(j.totalPages, Number((j.donePages + delta).toFixed(2))));
+  if (delta > 0) touchStreak();
+  syncSolidBoxMembership(j);
+  saveState();
+  renderAll();
+}
+
+function completeJuz(juzNum) {
+  const j = state.juzList.find((x) => x.num === juzNum);
+  if (!j) return;
+  j.donePages = j.totalPages;
+  if (j.surahs) j.surahs.forEach((s) => { s.done = true; });
+  touchStreak();
+  syncSolidBoxMembership(j);
+  saveState();
+  renderAll();
+}
+
+function resetJuz(juzNum) {
+  const j = state.juzList.find((x) => x.num === juzNum);
+  if (!j) return;
+  j.donePages = j.basePages || 0;
+  if (j.surahs) j.surahs.forEach((s) => { s.done = false; });
+  syncSolidBoxMembership(j);
+  saveState();
+  renderAll();
+}
+
+function toggleSurah(juzNum, idx) {
+  const j = state.juzList.find((x) => x.num === juzNum);
+  if (!j || !j.surahs || !j.surahs[idx]) return;
+  j.surahs[idx].done = !j.surahs[idx].done;
+  const surahSum = j.surahs.reduce((sum, s) => sum + (s.done ? s.pages : 0), 0);
+  j.donePages = Math.min(j.totalPages, Number(((j.basePages || 0) + surahSum).toFixed(2)));
+  if (j.surahs[idx].done) touchStreak();
+  syncSolidBoxMembership(j);
+  saveState();
+  renderAll();
+}
+
+function toggleExpandJuz(juzNum) { state.expandedJuz[juzNum] = !state.expandedJuz[juzNum]; saveState(); renderMap(); }
+function updateJuzNote(juzNum, val) { const j = state.juzList.find((x) => x.num === juzNum); if (j) { j.note = val; saveState(); } }
+
+function quickAddRevPage() {
+  const curRev = state.juzList.find((j) => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
+  if (!curRev) { showToast('ما شاء الله! كل أجزاء المراجعة مكتملة في صندوق التثبيت'); return; }
+  adjustJuzPages(curRev.num, 1);
+  showToast(`+١ وجه في ${curRev.title} (${formatNum(curRev.donePages)}/${curRev.totalPages})`);
+}
+
+// ================= SMART REMINDERS =================
+function buildSmartMessage(type) {
+  const name = state.profile.name || 'حافظ القرآن';
+  const curRev = state.juzList.find((j) => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
+  const nextSurah = getNextNewSurah(state.profile, state.juzList);
+  const due = getDueItems();
+
+  if (type === 'revision') {
+    if (curRev) {
+      const rem = formatNum(curRev.totalPages - curRev.donePages);
+      return `يا ${name}، متبقّي ${rem} وجه وتتمّ ${curRev.title} — جلسة ١٢ دقيقة بمؤقت دكتور الصفحة تصنع فرقاً.`;
+    }
+    return `يا ${name}، كل أجزاء المراجعة مكتملة — خصّص ١٠ دقائق لتثبيتها اليوم.`;
+  }
+  if (type === 'new') {
+    if (state.activeWird) {
+      return `يا ${name}، وردك الجديد المسجّل: ${state.activeWird.surahName} (${state.activeWird.passage}) — راجعه واستعد للتسميع.`;
+    }
+    return `يا ${name}، موعد وردك القادم في ${nextSurah ? `سورة ${nextSurah.name}` : 'الحفظ الجديد'} — سجّل مقطعك من الرئيسية.`;
+  }
+  if (due.length > 0) {
+    return `يا ${name}، لديك ${due.length} عناصر مستحقة في صندوق التثبيت اليوم — أهمها: ${due[0].title}.`;
+  }
+  return `يا ${name}، ١٠ دقائق سرد سريع من صندوق التثبيت تحفظ لك تعب شهور.`;
+}
+
+function addReminder(e) {
+  e.preventDefault();
+  const time = document.getElementById('remTimeInput').value;
+  const type = document.getElementById('remTypeInput').value;
+  if (!time) return;
+  state.reminders.push({ id: 'rem_' + Date.now(), time, type, enabled: true, lastTriggeredDate: '' });
+  saveState();
+  renderRemindersUI();
+  showToast('تم حفظ موعد التذكير الذكي ✓');
+}
+
+function toggleReminder(id) {
+  const r = state.reminders.find((x) => x.id === id);
+  if (r) { r.enabled = !r.enabled; saveState(); renderRemindersUI(); }
+}
+
+function deleteReminder(id) {
+  state.reminders = state.reminders.filter((x) => x.id !== id);
+  saveState();
+  renderRemindersUI();
+}
+
+function renderRemindersUI() {
+  const el = document.getElementById('remindersList');
+  if (!el) return;
+  const typeLabels = { revision: 'مراجعة وترميم', new: 'حفظ جديد / تسميع', solid: 'صندوق التثبيت' };
+  if (state.reminders.length === 0) {
+    el.innerHTML = '<div class="empty-state">لا توجد مواعيد تذكير مفعّلة حالياً (مرونة كاملة بدون إشعارات).</div>';
+    return;
+  }
+  el.innerHTML = state.reminders.map((r) => `
+    <div class="log-item">
+      <div style="flex:1;">
+        <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
+          <strong style="font-size:0.95rem; color:var(--accent-hi);">🔔 ${r.time}</strong>
+          <span class="tag tag-gold">${typeLabels[r.type] || r.type}</span>
+          ${r.enabled ? '<span class="tag tag-success">مفعّل</span>' : '<span class="tag tag-danger">متوقف</span>'}
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">معاينة الرسالة: «${escapeHtml(buildSmartMessage(r.type))}»</div>
+      </div>
+      <div style="display:flex; gap:5px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReminder('${r.id}')">${r.enabled ? 'إيقاف' : 'تفعيل'}</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="deleteReminder('${r.id}')">حذف</button>
+      </div>
+    </div>`).join('');
+}
+
+function requestNotifPermission(silent = false) {
+  if (!('Notification' in window)) {
+    if (!silent) showToast('المتصفح لا يدعم إشعارات النظام — ستظهر التذكيرات داخل التطبيق');
+    return;
+  }
+  Notification.requestPermission().then((res) => {
+    if (!silent) {
+      showToast(res === 'granted' ? 'تم تفعيل إشعارات الجهاز بنجاح ✓' : 'تم رفض الإذن — ستظهر التذكيرات داخل التطبيق');
+    }
+  });
+}
+
+function testSmartNotification() {
+  const msg = buildSmartMessage(state.reminders[0] ? state.reminders[0].type : 'solid');
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('رفيق التثبيت', { body: msg, icon: 'icon-192.png' });
+    showToast('تم إرسال إشعار تجريبي على جهازك 🔔');
+  } else {
+    showToast(msg);
+  }
+}
+
+function renderInAppReminderBanner() {
+  const box = document.getElementById('inAppReminderBanner');
+  if (!box || !state.reminders.length) { if (box) box.innerHTML = ''; return; }
+  const now = new Date();
+  const nowHHMM = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const activeDue = state.reminders.find((r) => r.enabled && r.time <= nowHHMM && r.lastTriggeredDate !== todayStr());
+  if (activeDue) {
+    const msg = buildSmartMessage(activeDue.type);
+    box.innerHTML = `
+      <div class="alert-banner" style="justify-content:space-between; align-items:center;">
+        <div><strong>🔔 تذكير موعد ${activeDue.time}</strong>${escapeHtml(msg)}</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="dismissReminderToday('${activeDue.id}')">حسناً</button>
+      </div>`;
+  } else {
+    box.innerHTML = '';
+  }
+}
+
+function dismissReminderToday(id) {
+  const r = state.reminders.find((x) => x.id === id);
+  if (r) { r.lastTriggeredDate = todayStr(); saveState(); renderInAppReminderBanner(); }
+}
+
+setInterval(() => {
+  if (!state.onboarded || !state.reminders.length) return;
+  const now = new Date();
+  const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const today = todayStr();
+  state.reminders.forEach((r) => {
+    if (r.enabled && r.time === hhmm && r.lastTriggeredDate !== today) {
+      r.lastTriggeredDate = today;
+      saveState();
+      const msg = buildSmartMessage(r.type);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('رفيق التثبيت', { body: msg, icon: 'icon-192.png' });
+      }
+      renderInAppReminderBanner();
+    }
+  });
+}, 45000);
+
+// ================= DOCTOR OF PAGE TIMER & CALCULATOR =================
+const TIMER_MODES = {
+  doctor: {
+    total: 12 * 60,
+    phases: [
+      { start: 0, end: 120, name: 'المرحلة ١: الكشف بالقلم الرصاص', hint: 'اقرأ الوجه نظراً بصوت مسموع وعلّم على الآيات المتفلتة فقط (دقيقتان)' },
+      { start: 120, end: 420, name: 'المرحلة ٢: ترميم الآيات المتفلتة فقط', hint: 'كرّر كل آية معلّم عليها ٥ مرات واربطها بما قبلها وما بعدها (٥ دقائق)' },
+      { start: 420, end: 600, name: 'المرحلة ٣: الاختبار الغيبي والتصحيح السريع', hint: 'سمّع الوجه غيباً ولا ترجع للبداية لو وقفت — صحّح وأكمل (٣ دقائق)' },
+      { start: 600, end: 720, name: 'المرحلة ٤: القفلة النظيفة', hint: 'تسميعة أخيرة متصلة من أول الوجه لآخره ثم انتقل للوجه التالي (دقيقتان)' }
+    ]
+  },
+  link: {
+    total: 6 * 60,
+    phases: [{ start: 0, end: 360, name: 'تثبيت الجديد — ربط السورة الطويلة', hint: 'اسرد مقاطعك الجديدة متصلة مع التركيز على نهايات وبدايات الأوجه (٦ دقائق)' }]
+  },
+  solid: {
+    total: 10 * 60,
+    phases: [{ start: 0, end: 600, name: 'تثبيت القديم — سرد سريع', hint: 'اقرأ ٤ إلى ٥ أوجه غيباً بسرعة متوازنة لتنشيط الذاكرة طويلة المدى (١٠ دقائق)' }]
+  }
+};
+
+let timerMode = 'doctor';
+let timerRemaining = TIMER_MODES.doctor.total;
+let timerInterval = null;
+let lastPhaseIdx = 0;
+
+function playChime() {
+  if (!document.getElementById('timerSoundToggle').checked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(528, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(792, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.65);
+  } catch (e) {}
+}
+
+function setTimerMode(mode) {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerMode = mode;
+  timerRemaining = TIMER_MODES[mode].total;
+  lastPhaseIdx = 0;
+  document.getElementById('modeDoctor').classList.toggle('active', mode === 'doctor');
+  document.getElementById('modeLink').classList.toggle('active', mode === 'link');
+  document.getElementById('modeSolid').classList.toggle('active', mode === 'solid');
+  document.getElementById('doctorPhasePills').style.display = mode === 'doctor' ? 'grid' : 'none';
+  document.getElementById('timerStartBtn').textContent = 'ابدأ الجلسة';
+  renderTimer();
+}
+
+function toggleTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    document.getElementById('timerStartBtn').textContent = 'استكمال';
+  } else {
+    if (timerRemaining <= 0) timerRemaining = TIMER_MODES[timerMode].total;
+    document.getElementById('timerStartBtn').textContent = 'إيقاف مؤقت';
+    timerInterval = setInterval(() => {
+      timerRemaining--;
+      if (timerRemaining <= 0) {
+        timerRemaining = 0;
+        clearInterval(timerInterval);
+        timerInterval = null;
+        document.getElementById('timerStartBtn').textContent = 'ابدأ من جديد';
+        playChime();
+        showToast('انتهت الجلسة بنجاح! بارك الله في وقتك ✓');
+      }
+      renderTimer();
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerRemaining = TIMER_MODES[timerMode].total;
+  lastPhaseIdx = 0;
+  document.getElementById('timerStartBtn').textContent = 'ابدأ الجلسة';
+  renderTimer();
+}
+
+function renderTimer() {
+  const mins = String(Math.floor(timerRemaining / 60)).padStart(2, '0');
+  const secs = String(timerRemaining % 60).padStart(2, '0');
+  document.getElementById('timerClock').textContent = `${mins}:${secs}`;
+  const cfg = TIMER_MODES[timerMode];
+  const elapsed = cfg.total - timerRemaining;
+  let pIdx = cfg.phases.findIndex((p) => elapsed >= p.start && elapsed < p.end);
+  if (pIdx === -1) pIdx = cfg.phases.length - 1;
+  if (timerInterval && pIdx !== lastPhaseIdx) { lastPhaseIdx = pIdx; playChime(); }
+  const phase = cfg.phases[pIdx];
+  document.getElementById('timerPhaseName').textContent = phase.name;
+  document.getElementById('timerPhaseHint').textContent = phase.hint;
+  if (timerMode === 'doctor') {
+    document.querySelectorAll('#doctorPhasePills .phase-pill').forEach((el, i) => {
+      el.classList.remove('current', 'passed');
+      if (i < pIdx) el.classList.add('passed');
+      else if (i === pIdx) el.classList.add('current');
     });
   }
+}
 
-  // ---------------- الإقلاع ----------------
-  function init() {
-    applyTheme();
-    bindEvents();
-    registerServiceWorker();
+function updateCalculator() {
+  const isKhatim = state.profile.mode === 'khatim';
+  const newBlock = document.getElementById('calcNewPagesBlock');
+  if (newBlock) newBlock.style.display = isKhatim ? 'none' : 'block';
 
-    if (!state.onboarded) {
-      openOnboarding(false);
-    } else {
-      document.getElementById('onboardingView').classList.add('hidden');
-      document.getElementById('appShell').classList.remove('hidden');
-      renderAll();
-    }
+  const daily = parseInt(document.getElementById('calcDailyMin').value, 10) || 45;
+  const newPerSession = isKhatim ? 0 : parseFloat(document.getElementById('calcNewPages').value);
+  const nps = isNaN(newPerSession) ? 1 : newPerSession;
+  state.calcDailyMin = daily;
+  state.calcNewPages = nps;
+
+  document.getElementById('calcMinVal').textContent = `${daily} دقيقة (${daily * 7} د/أسبوع)`;
+  document.getElementById('calcNewPagesVal').textContent = `${nps} وجه/جلسة (${nps * 2} وجه/أسبوع)`;
+
+  const weeklyTotal = daily * 7;
+  const newMin = nps * 2 * 45;
+  const revPool = Math.max(0, weeklyTotal - newMin);
+  const restoreMin = revPool * 0.75;
+  const solidMin = revPool * 0.25;
+  const netRevPages = restoreMin / 15;
+
+  const remRevPages = state.juzList.filter((j) => j.track === 'revision').reduce((s, j) => s + Math.max(0, j.totalPages - j.donePages), 0);
+  const remNewPages = state.juzList.filter((j) => j.track === 'new').reduce((s, j) => s + Math.max(0, j.totalPages - j.donePages), 0);
+
+  document.getElementById('calcRevWeek').textContent = netRevPages > 0 ? `${netRevPages.toFixed(1)} وجه` : '0 وجه';
+  document.getElementById('calcWeeksJuz').textContent = netRevPages >= 0.5 ? `${(20 / netRevPages).toFixed(1)} أسبوع` : 'متوقف';
+  document.getElementById('calcOldMonths').textContent = remRevPages <= 0 ? 'مكتمل ✓' : (netRevPages >= 0.5 ? `${(remRevPages / (netRevPages * 4.33)).toFixed(1)} شهر` : '—');
+  document.getElementById('calcNewMonths').textContent = (isKhatim || remNewPages <= 0) ? 'مكتمل ✓' : (nps > 0 ? `${(remNewPages / (nps * 2 * 4.33)).toFixed(1)} شهر` : 'متوقف');
+
+  const denom = Math.max(weeklyTotal, newMin) || 1;
+  const pNew = (Math.min(newMin, weeklyTotal) / denom) * 100;
+  const pRes = (restoreMin / denom) * 100;
+  const pSol = (solidMin / denom) * 100;
+  const pDef = newMin > weeklyTotal ? ((newMin - weeklyTotal) / denom) * 100 : 0;
+
+  document.getElementById('calcDistBar').innerHTML = `
+    <div style="width:${pNew}%; background:var(--info);"></div>
+    <div style="width:${pRes}%; background:var(--accent-grad);"></div>
+    <div style="width:${pSol}%; background:var(--success);"></div>
+    ${pDef > 0 ? `<div style="width:${pDef}%; background:var(--danger);"></div>` : ''}`;
+  document.getElementById('calcDistLegend').innerHTML = `
+    <span><i class="dot" style="background:var(--info)"></i>الجديد: ${Math.round(newMin)} د</span>
+    <span><i class="dot" style="background:var(--accent-mid)"></i>الترميم: ${Math.round(restoreMin)} د</span>
+    <span><i class="dot" style="background:var(--success)"></i>التثبيت: ${Math.round(solidMin)} د</span>`;
+
+  const badge = document.getElementById('calcModeBadge');
+  const advice = document.getElementById('calcAdviceBox');
+  if (weeklyTotal < newMin) {
+    badge.textContent = 'عجز وقت';
+    advice.innerHTML = '⚠️ وقتك اليومي أقل من المطلوب للجديد — قلّل مقدار الجديد أو زوّد الوقت اليومي.';
+  } else if (netRevPages < 3) {
+    badge.textContent = 'حماية فقط';
+    advice.innerHTML = '🛡️ وضع الحماية: ركّز على تثبيت ما في صندوق التثبيت واستخدم وضع «وقتي مضغوط النهارده» عند الانشغال.';
+  } else if (netRevPages < 8) {
+    badge.textContent = 'متوازن';
+    advice.innerHTML = '⚖️ إيقاع متوازن ومستقر يجمع بين التقدم في الجديد وترميم القديم.';
+  } else {
+    badge.textContent = 'إنجاز سريع';
+    advice.innerHTML = '🚀 إيقاع ممتاز يتيح تقدماً سريعاً مع تثبيت متين ومستقر.';
   }
+}
 
-  init();
-})();
+// ================= BACKUP (JSON) & PWA INSTALL =================
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rafiq_altathbit_v6_${(state.profile.username || 'backup').replace('@', '')}_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('تم تحميل النسخة الاحتياطية (JSON) بنجاح ✓');
+}
+
+function importBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || (!data.juzList && !data.profile)) throw new Error('invalid');
+      if (data.version === 6 && data.juzList && data.juzList.length === 30) {
+        const empty = getEmptyState();
+        state = {
+          ...empty,
+          ...data,
+          onboarded: true,
+          profile: { ...empty.profile, ...(data.profile || {}) }
+        };
+      } else {
+        // دعم استيراد ملفات النسخ السابقة v4 و v5
+        state = migrateLegacyObject(data);
+      }
+      applyTheme(state.profile.theme || 'royal', state.profile.customColors);
+      saveState();
+      document.getElementById('onboardingOverlay').classList.remove('active');
+      renderAll();
+      showToast('تم استعادة بياناتك بالكامل بنجاح ✓');
+    } catch (err) {
+      showToast('الملف غير صالح — اختر ملف نسخة احتياطية لرفيق التثبيت');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function resetAllData() {
+  if (!confirm('هل تريد مسح البيانات والبدء بتشخيص مستخدم جديد؟')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state = getEmptyState();
+  openOnboarding(false);
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installPwaBtn').style.display = 'inline-flex';
+});
+
+function promptInstall() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('installPwaBtn').style.display = 'none';
+  });
+}
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+// ================= BOOT =================
+applyTheme(state.profile.theme || 'royal', state.profile.customColors);
+if (!state.onboarded) {
+  openOnboarding(false);
+} else {
+  document.getElementById('calcDailyMin').value = state.calcDailyMin || state.profile.dailyMin || 45;
+  document.getElementById('calcNewPages').value = state.calcNewPages ?? state.profile.pagesPerSession ?? 1;
+  renderAll();
+  renderTimer();
+}

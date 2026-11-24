@@ -1,8 +1,8 @@
 {
-  "name": "رفيق التثبيت — مراجعة وتثبيت القرآن الكريم",
+  "name": "رفيق التثبيت — المدرب الذكي لتثبيت القرآن",
   "short_name": "رفيق التثبيت",
-  "description": "تطبيق ذكي يعمل بدون إنترنت لتنظيم مراجعة القرآن الكريم وتثبيت المحفوظ وحل مشكلة النسيان بنظام التكرار المتباعد والمرونة اليومية.",
-  "start_url": "./index.html",
+  "description": "تطبيق ويب متدرّج لإدارة مراجعة وحفظ القرآن الكريم، وحل مشكلة نسيان المحفوظ بالتكرار المتباعد الذكي والعمل أوفلاين.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
@@ -12,13 +12,13 @@
   "theme_color": "#00112B",
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
