@@ -101,16 +101,15 @@ function computeSM2(prevMeta, rating, overdueDays = 0) {
 function recomputeJuzProgress(j) {
   if (!j) return 0;
   const surahs = Array.isArray(j.surahs) ? j.surahs : [];
-  const allSurahsDone = surahs.length > 0 && surahs.every((s) => s.done);
-  if (allSurahsDone) {
-    j.donePages = j.totalPages;
-    return j.donePages;
-  }
   const surahDonePages = surahs.reduce((sum, s) => sum + (s.done ? Number(s.pages || 0) : 0), 0);
   const basePages = Number(j.basePages || 0);
   const loggedPages = Number(j.loggedPages || 0);
-  // لا نمسح الأوجه المضافة يدوياً عند تعليم السور، ولا نعدّها مرتين مع الرصيد المبدئي
-  const combined = Math.max(basePages, surahDonePages) + loggedPages;
+  const allSurahsDone = surahs.length > 0 && surahs.every((s) => s.done);
+  if (allSurahsDone && loggedPages >= 0) {
+    j.donePages = j.totalPages;
+    return j.donePages;
+  }
+  const combined = basePages + surahDonePages + loggedPages;
   j.donePages = Math.max(0, Math.min(j.totalPages, Number(combined.toFixed(2))));
   return j.donePages;
 }
@@ -2013,10 +2012,7 @@ function renderDashboard() {
           </div>
           <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(item.subtitle)}</div>
         </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button type="button" class="btn btn-outline btn-sm" onclick="openTimerModal('${item.kind === 'new' ? 'link' : 'solid'}')">▶ مؤقت</button>
-          <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('${item.kind}', '${item.id}', '${escapeAttr(item.title)}', ${item.overdueDays})">راجعته ✓</button>
-        </div>
+        <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('${item.kind}', '${item.id}', '${escapeAttr(item.title)}', ${item.overdueDays})">راجعته ✓</button>
       </div>
     `).join('') + (deferredCount > 0
       ? `<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-top:4px;">تم ترحيل ${deferredCount} عناصر إضافية تلقائياً للغد لمنع التراكم المرهق.</div>`
@@ -2060,27 +2056,18 @@ function renderDashboard() {
     `;
   } else if (todayObj) {
     document.getElementById('todayTasksContainer').innerHTML = `
-      <div class="task-row-wrap">
-        <button type="button" class="task-row ${todayObj.mDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'mDone')">
-          <span class="check-circle">${todayObj.mDone ? '✓' : ''}</span>
-          <span class="task-text"><strong>١. الجلسة الأساسية (في أي وقت)</strong><small>${escapeHtml(todayObj.main)}</small></span>
-        </button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="openTimerModal('doctor')" aria-label="بدء مؤقت الجلسة الأساسية">▶</button>
-      </div>
-      <div class="task-row-wrap">
-        <button type="button" class="task-row ${todayObj.eDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'eDone')">
-          <span class="check-circle">${todayObj.eDone ? '✓' : ''}</span>
-          <span class="task-text"><strong>٢. التسميع والربط (مرنة)</strong><small>${escapeHtml(todayObj.second)}</small></span>
-        </button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="openTimerModal('link')" aria-label="بدء مؤقت الربط">▶</button>
-      </div>
-      <div class="task-row-wrap">
-        <button type="button" class="task-row ${todayObj.sDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'sDone')">
-          <span class="check-circle">${todayObj.sDone ? '✓' : ''}</span>
-          <span class="task-text"><strong>٣. صندوق التثبيت</strong><small>${escapeHtml(todayObj.solid)}</small></span>
-        </button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="openTimerModal('solid')" aria-label="بدء مؤقت التثبيت">▶</button>
-      </div>
+      <button type="button" class="task-row ${todayObj.mDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'mDone')">
+        <span class="check-circle">${todayObj.mDone ? '✓' : ''}</span>
+        <span class="task-text"><strong>١. الجلسة الأساسية (في أي وقت)</strong><small>${escapeHtml(todayObj.main)}</small></span>
+      </button>
+      <button type="button" class="task-row ${todayObj.eDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'eDone')">
+        <span class="check-circle">${todayObj.eDone ? '✓' : ''}</span>
+        <span class="task-text"><strong>٢. التسميع والربط (مرنة)</strong><small>${escapeHtml(todayObj.second)}</small></span>
+      </button>
+      <button type="button" class="task-row ${todayObj.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${todayObj.id}', 'sDone')">
+        <span class="check-circle">${todayObj.sDone ? '✓' : ''}</span>
+        <span class="task-text"><strong>٣. صندوق التثبيت</strong><small>${escapeHtml(todayObj.solid)}</small></span>
+      </button>
     `;
   }
 
@@ -2709,37 +2696,65 @@ function renderSolidTab() {
     }).join('');
   }
 
-  // بنك المتشابهات
+  // بنك المتشابهات (يشمل الأجزاء + مجموعات الربط + ملاحظات الشيخ والمقاطع الموسومة في سجل التسميع)
   const mutItems = [];
   state.juzList.forEach((j) => {
     const meta = state.solidMeta[j.num];
     const hasTag = Array.isArray(j.tags) && j.tags.includes('متشابهات');
     const hasWeak = meta && Array.isArray(meta.weakPages) && meta.weakPages.length > 0;
     if (hasTag || hasWeak || (j.note && j.note.includes('متشابه'))) {
+      const canReview = !!meta;
       mutItems.push({
         title: j.title,
         sub: `${j.range}${hasWeak ? ` • أوجه متفلتة: ص ${meta.weakPages.join('، ')}` : ''}`,
-        note: j.note || ''
+        note: j.note || '',
+        actionsHtml: `
+          ${canReview ? `<button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('old', ${j.num}, '${escapeAttr(j.title)}')">تقييم ✓</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm" onclick="clearJuzMutAndWeak(${j.num})">${hasWeak ? 'تصفير المتفلت' : 'إزالة الوسم'}</button>
+        `
       });
     }
   });
   state.newLinkingGroups.forEach((g) => {
     if (Array.isArray(g.tags) && g.tags.includes('متشابهات')) {
-      mutItems.push({ title: g.surahName, sub: `${g.passages.length} مقاطع موسومة بالمتشابهات`, note: '' });
+      mutItems.push({
+        title: g.surahName,
+        sub: `${g.passages.length} مقاطع موسومة بالمتشابهات`,
+        note: '',
+        actionsHtml: `
+          <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('new', '${g.id}', '${escapeAttr(g.surahName)}')">تقييم الربط ✓</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleGroupMutTag('${g.id}')">إزالة الوسم</button>
+        `
+      });
+    }
+  });
+  state.maqraaLogs.forEach((log) => {
+    const isTagged = Array.isArray(log.tags) && log.tags.includes('متشابهات');
+    const hasNote = !!(log.note && log.note.trim());
+    if (isTagged || hasNote) {
+      mutItems.push({
+        title: `${log.surahName} — ${log.passage}`,
+        sub: `ملاحظة تسميع • الجزء ${log.juzNum} • ${log.date}`,
+        note: log.note || 'موسوم ضمن بنك المتشابهات',
+        actionsHtml: `
+          <button type="button" class="btn btn-ghost btn-sm" onclick="clearLogMutAndNote('${log.id}')">إزالة من البنك</button>
+        `
+      });
     }
   });
   document.getElementById('mutCountBadge').textContent = `${mutItems.length} مواضع`;
   const mutEl = document.getElementById('mutashabihatList');
   if (mutItems.length === 0) {
-    mutEl.innerHTML = '<div class="empty-state">لا توجد متشابهات مسجّلة بعد — اضغط «+ متشابهات» على أي جزء أو مقطع لتجميعها هنا للمراجعة المركّزة.</div>';
+    mutEl.innerHTML = '<div class="empty-state">لا توجد متشابهات أو ملاحظات مسجّلة بعد — أضف ملاحظة عند التسميع أو اضغط «+ متشابهات» على أي جزء لتجميعها هنا.</div>';
   } else {
     mutEl.innerHTML = mutItems.map((m) => `
-      <div class="log-item">
-        <div>
+      <div class="log-item" style="align-items:center; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px;">
           <strong style="color:var(--warn); font-size:0.92rem;">${escapeHtml(m.title)}</strong>
           <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(m.sub)}</div>
           ${m.note ? `<div style="font-size:0.8rem; margin-top:3px;">📝 ${escapeHtml(m.note)}</div>` : ''}
         </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">${m.actionsHtml}</div>
       </div>`).join('');
   }
 
@@ -2801,6 +2816,25 @@ function toggleGroupMutTag(groupId) {
   else g.tags.push('متشابهات');
   saveState();
   renderAll();
+}
+
+function clearJuzMutAndWeak(juzNum) {
+  const j = state.juzList.find((x) => x.num === juzNum);
+  if (j && Array.isArray(j.tags)) j.tags = j.tags.filter((t) => t !== 'متشابهات');
+  if (state.solidMeta[juzNum]) state.solidMeta[juzNum].weakPages = [];
+  saveState();
+  renderAll();
+  showToast('تم تنظيف الوسم والأوجه المتفلتة لهذا الجزء ✓');
+}
+
+function clearLogMutAndNote(logId) {
+  const log = state.maqraaLogs.find((x) => x.id === logId);
+  if (!log) return;
+  log.tags = [];
+  log.note = '';
+  saveState();
+  renderAll();
+  showToast('تمت إزالة الملاحظة من بنك المتشابهات ✓');
 }
 
 function populateManualLinkSurahSelect() {
@@ -2983,11 +3017,11 @@ function flipJuzTrack(juzNum) {
 function adjustJuzPages(juzNum, delta) {
   const j = state.juzList.find((x) => x.num === juzNum);
   if (!j) return;
-  if (delta < 0 && j.loggedPages <= 0) {
-    j.basePages = Math.max(0, Number(((j.basePages || 0) + delta).toFixed(2)));
-  } else {
-    j.loggedPages = Math.max(0, Number(((j.loggedPages || 0) + delta).toFixed(2)));
-  }
+  const surahDonePages = (j.surahs || []).reduce((sum, s) => sum + (s.done ? Number(s.pages || 0) : 0), 0);
+  const floorLogged = -(Number(j.basePages || 0) + surahDonePages);
+  const ceilLogged = j.totalPages - (Number(j.basePages || 0) + surahDonePages);
+  const nextLogged = Number(((j.loggedPages || 0) + delta).toFixed(2));
+  j.loggedPages = Math.max(floorLogged, Math.min(ceilLogged, nextLogged));
   recomputeJuzProgress(j);
   if (delta > 0) touchStreak();
   syncSolidBoxMembership(j);
@@ -2999,6 +3033,7 @@ function adjustJuzPages(juzNum, delta) {
 function completeJuz(juzNum) {
   const j = state.juzList.find((x) => x.num === juzNum);
   if (!j) return;
+  j.loggedPages = Math.max(0, Number(j.loggedPages || 0));
   if (j.surahs) j.surahs.forEach((s) => { s.done = true; });
   recomputeJuzProgress(j);
   touchStreak();
@@ -3096,7 +3131,7 @@ function addReminder(e) {
   const time = document.getElementById('remTimeInput').value;
   const type = document.getElementById('remTypeInput').value;
   if (!time) return;
-  state.reminders.push({ id: 'rem_' + Date.now(), time, type, enabled: true, lastTriggeredDate: '' });
+  state.reminders.push({ id: 'rem_' + Date.now(), time, type, enabled: true, lastTriggeredDate: '', lastNotifiedDate: '' });
   saveState();
   renderRemindersUI();
   showToast('تم حفظ موعد التذكير الذكي ✓');
@@ -3219,13 +3254,18 @@ function checkDueRemindersNow() {
   const now = new Date();
   const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   const today = todayStr();
+  let notifiedAny = false;
   state.reminders.forEach((r) => {
     if (r.enabled && r.time <= hhmm && r.lastTriggeredDate !== today) {
-      const msg = buildSmartMessage(r.type);
-      sendSafeSystemNotification('رفيق التثبيت', msg);
+      if (r.lastNotifiedDate !== today) {
+        r.lastNotifiedDate = today;
+        notifiedAny = true;
+        sendSafeSystemNotification('رفيق التثبيت', buildSmartMessage(r.type));
+      }
       renderInAppReminderBanner();
     }
   });
+  if (notifiedAny) saveState();
 }
 
 setInterval(checkDueRemindersNow, 45000);
@@ -3344,7 +3384,7 @@ function tickTimer() {
     timerEndAt = null;
     releaseWakeLock();
     document.getElementById('timerStartBtn').textContent = 'ابدأ من جديد';
-    document.getElementById('timerDoneActionWrap').style.display = 'block';
+    updateTimerDoneActionUI();
     playChime();
     sendSafeSystemNotification('رفيق التثبيت', 'انتهت جلسة المؤقت بنجاح! بارك الله في وقتك.');
     showToast('انتهت الجلسة بنجاح! يمكنك اعتماد الوجه الآن ✓');
@@ -3384,10 +3424,55 @@ function resetTimer() {
   renderTimer();
 }
 
+function updateTimerDoneActionUI() {
+  const wrap = document.getElementById('timerDoneActionWrap');
+  const btn = document.getElementById('timerDoneActionBtn');
+  if (!wrap || !btn) return;
+  if (timerMode === 'doctor') {
+    const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
+    if (curRev) {
+      btn.textContent = `اعتماد الوجه (+١ وجه في ${curRev.title}) ✓`;
+      wrap.style.display = 'block';
+    } else {
+      wrap.style.display = 'none';
+    }
+  } else if (timerMode === 'link') {
+    btn.textContent = 'تقييم ربط السورة في صندوق التثبيت ✓';
+    wrap.style.display = 'block';
+  } else {
+    btn.textContent = 'تقييم مراجعة جزء من صندوق التثبيت ✓';
+    wrap.style.display = 'block';
+  }
+}
+
 function approveTimerPage() {
-  quickAddRevPage();
   document.getElementById('timerDoneActionWrap').style.display = 'none';
   closeModal('timerModal');
+  if (timerMode === 'doctor') {
+    quickAddRevPage();
+  } else if (timerMode === 'link') {
+    const dueLink = getDueItems().find((i) => i.kind === 'new');
+    const firstGroup = state.newLinkingGroups.find((g) => !g.archived);
+    if (dueLink) {
+      openSrReviewModal('new', dueLink.id, dueLink.title, dueLink.overdueDays);
+    } else if (firstGroup) {
+      openSrReviewModal('new', firstGroup.id, firstGroup.surahName, 0);
+    } else {
+      switchTab('solid');
+      setSolidTab('new');
+    }
+  } else {
+    const dueOld = getDueItems().find((i) => i.kind === 'old');
+    const firstComp = state.juzList.find((j) => j.donePages >= j.totalPages - 0.01);
+    if (dueOld) {
+      openSrReviewModal('old', dueOld.id, dueOld.title, dueOld.overdueDays);
+    } else if (firstComp) {
+      openSrReviewModal('old', firstComp.num, firstComp.title, 0);
+    } else {
+      switchTab('solid');
+      setSolidTab('old');
+    }
+  }
 }
 
 function renderTimer() {
