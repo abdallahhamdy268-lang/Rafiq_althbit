@@ -1,5 +1,5 @@
-// رفيق التثبيت v6 — Service Worker (Network-First + Cache-Fallback)
-const CACHE_NAME = 'rafiq-altathbit-v6.0.0';
+// رفيق التثبيت v6.2 — Service Worker (Network-First + Cache-Fallback)
+const CACHE_NAME = 'rafiq-altathbit-v6.2.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -45,7 +45,7 @@ self.addEventListener('fetch', (event) => {
 
   if (!isSameOrigin && !isGoogleFonts) return;
 
-  // Network-First: fetch fresh version immediately, update cache, fallback to cache offline
+  // Network-First: يجلب النسخة الأحدث فوراً، ويحدّث الكاش، ويعمل أوفلاين عند انقطاع الإنترنت
   event.respondWith(
     fetch(req)
       .then((networkRes) => {

@@ -34,7 +34,7 @@
           </svg>
         </div>
         <h1 style="margin:0; font-size:1.35rem; color:var(--accent-hi);">أهلاً بك في رفيق التثبيت</h1>
-        <p style="margin:4px 0 0; font-size:0.84rem; color:var(--text-muted);">اختبار تشخيصي سريع يبني خطتك وجدولك الفعلي بأسماء سورك وأوجهك</p>
+        <p style="margin:4px 0 0; font-size:0.84rem; color:var(--text-muted);">اختبار تشخيصي مرن يبني خطتك وجدولك الحي بأسماء سورك وأجزائك كما تختارها أنت</p>
       </div>
 
       <div id="obMigrationBanner"></div>
@@ -86,13 +86,14 @@
         </div>
       </div>
 
-      <!-- STEP 3: Dynamic Branching Details (Surah position / Beginner / Khatim / Scattered) -->
+      <!-- STEP 3: Dynamic Branching Details -->
       <div class="card ob-step" id="obStep3">
         <div class="card-title">
-          <h2 id="obStep3Title">٣. تحديد موضعك الفعلي ومستوى التثبيت</h2>
+          <h2 id="obStep3Title">٣. تحديد موضعك الفعلي وبداية المراجعة</h2>
           <span class="tag tag-gold">٣ من ٥</span>
         </div>
         <div id="obStep3Dynamic"></div>
+        <div id="obRevStartSection" style="margin-top:14px;"></div>
         <div id="obStabilitySection" style="margin-top:14px;">
           <label class="field-label">مستوى تثبيت ما حفظته سابقاً:</label>
           <div id="obStabilityOptions"></div>
@@ -225,6 +226,7 @@
     <!-- ================= TAB 1: HOME ================= -->
     <section id="tab-dashboard" class="tab-panel active">
       <div id="inAppReminderBanner"></div>
+      <div id="firstTimeGuideBanner"></div>
       <div id="stabilizationAlert"></div>
 
       <!-- 1. Overall Khatma Progress -->
@@ -272,41 +274,21 @@
         </div>
       </div>
 
-      <!-- 2. SMART SPACED REPETITION: DUE TODAY -->
-      <div class="card" id="dueTodayCard">
-        <div class="card-title">
-          <h2>🧠 مستحق للمراجعة اليوم (التكرار المتباعد)</h2>
-          <span class="tag tag-gold" id="dueCountBadge">0 عناصر</span>
-        </div>
-        <div id="dueTodayList"></div>
-      </div>
-
-      <!-- 3. NEW MEMORIZATION RIGHT ON HOME (hidden if Khatim) -->
-      <div id="homeNewWorkflowCard"></div>
-
-      <!-- 4. TODAY'S FLEXIBLE TASKS + BUSY DAY MODE -->
-      <div class="card" id="todayCardWrapper">
-        <div class="card-title">
-          <h2>⚡ مهام اليوم (<span class="accent-text" id="todayDayTitle">اليوم</span>)</h2>
-          <button type="button" class="btn btn-warn btn-sm" id="busyDayToggleBtn" onclick="toggleBusyDay()">وقتي مضغوط النهارده</button>
-        </div>
-        <div id="todayTasksContainer"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-          <button type="button" class="btn btn-gold btn-sm" id="quickRevBtn" onclick="quickAddRevPage()">+١ وجه مراجعة</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('solid')">صندوق التثبيت</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('tools')">المؤقت</button>
-        </div>
-      </div>
-
-      <!-- 5. Overview Stats -->
+      <!-- 2. LIVE CONTROL BAR: Quick Switch Active Revision Juz & Active New Surah -->
       <div class="grid-4" style="margin-bottom:14px;">
-        <div class="stat-box" onclick="switchTab('map')" style="cursor:pointer;">
-          <div class="stat-label" id="statRevLabel">الجزء النشط (ترميم)</div>
+        <div class="stat-box" onclick="openQuickFocusModal('rev')" style="cursor:pointer;">
+          <div class="stat-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>الجزء النشط (مراجعة)</span>
+            <span style="color:var(--accent-hi); font-size:0.68rem;">تغيير ✎</span>
+          </div>
           <div class="stat-value" id="statCurrentRev">—</div>
           <div class="stat-sub" id="statCurrentRevSub">—</div>
         </div>
-        <div class="stat-box" onclick="switchTab('map'); setMapFilter('new');" style="cursor:pointer;">
-          <div class="stat-label" id="statNewLabel">الموضع القادم (جديد)</div>
+        <div class="stat-box" onclick="openQuickFocusModal('new')" style="cursor:pointer;">
+          <div class="stat-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>السورة النشطة (جديد)</span>
+            <span style="color:var(--info); font-size:0.68rem;" id="statNewEditHint">تغيير ✎</span>
+          </div>
           <div class="stat-value" style="color:var(--info);" id="statCurrentNew">—</div>
           <div class="stat-sub" id="statCurrentNewSub">—</div>
         </div>
@@ -322,11 +304,37 @@
         </div>
       </div>
 
+      <!-- 3. TODAY'S FLEXIBLE TASKS + BUSY DAY MODE (Action-First) -->
+      <div class="card" id="todayCardWrapper">
+        <div class="card-title">
+          <h2>⚡ مهام اليوم (<span class="accent-text" id="todayDayTitle">اليوم</span>)</h2>
+          <button type="button" class="btn btn-warn btn-sm" id="busyDayToggleBtn" onclick="toggleBusyDay()">وقتي مضغوط النهارده</button>
+        </div>
+        <div id="todayTasksContainer"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button type="button" class="btn btn-gold btn-sm" id="quickRevBtn" onclick="quickAddRevPage()">+١ وجه مراجعة</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تبديل جزء المراجعة</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('tools')">المؤقت</button>
+        </div>
+      </div>
+
+      <!-- 4. SMART SPACED REPETITION: DUE TODAY -->
+      <div class="card" id="dueTodayCard">
+        <div class="card-title">
+          <h2>🧠 مستحق للمراجعة اليوم (التكرار المتباعد)</h2>
+          <span class="tag tag-gold" id="dueCountBadge">0 عناصر</span>
+        </div>
+        <div id="dueTodayList"></div>
+      </div>
+
+      <!-- 5. NEW MEMORIZATION RIGHT ON HOME (Compact toggleable card, hidden if Khatim) -->
+      <div id="homeNewWorkflowCard"></div>
+
       <!-- 6. Active Juz Surahs Quick Widget (Dynamic to user's ACTUAL active Juz) -->
       <div class="card card-subtle" id="activeJuzSurahsCard" style="display:none;">
         <div class="card-title">
           <h2 id="activeJuzSurahsTitle">🎯 سور الجزء النشط</h2>
-          <span class="tag tag-gold">اضغط عند الانتهاء</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openQuickFocusModal('rev')">تغيير الجزء</button>
         </div>
         <div class="surah-list" id="activeJuzSurahsList"></div>
       </div>
@@ -336,14 +344,14 @@
     <section id="tab-schedule" class="tab-panel">
       <div class="card">
         <div class="card-title">
-          <h2>📅 الجدول الأسبوعي المرن (بأسماء سورك وأجزائك)</h2>
+          <h2>📅 الجدول الأسبوعي الحي والمرن</h2>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="regenerateScheduleFromCurrent()">تحديث الجدول حسب تقدمي</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تغيير جزء المراجعة</button>
             <button type="button" class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع وأرشفته</button>
           </div>
         </div>
         <p style="margin:0 0 12px; font-size:0.81rem; color:var(--text-muted);" id="scheduleIntroText">
-          مولّد فعلياً بأسماء السور والأجزاء والأوجه المحسوبة لوضعك — نفّذ الجلسة الأساسية وجلسة التسميع والتثبيت في أي وقت يناسبك خلال اليوم.
+          يتحدّث تلقائياً فور إتمام أي جزء أو تغيير سورتك النشطة — أي جزء تنهيه ينتقل لصندوق التثبيت ويحلّ الجزء التالي مكانه فوراً.
         </p>
         <div id="scheduleList"></div>
       </div>
@@ -430,7 +438,7 @@
           <button type="button" class="seg-btn" id="filterAll" onclick="setMapFilter('all')">الختمة (٣٠)</button>
         </div>
         <div style="font-size:0.78rem; color:var(--text-muted); text-align:center;" id="mapDirectionHint">
-          اضغط «السور» داخل أي جزء لعرض سوره الكاملة بدقة مصحف المدينة.
+          اضغط «ابدأ به الآن» على أي جزء لتجعله الجزء النشط في خطتك وجدولك فوراً، أو اضغط «السور» لعرض سوره الكاملة.
         </div>
       </div>
       <div id="juzMapContainer"></div>
@@ -588,6 +596,17 @@
     </button>
   </nav>
 
+  <!-- Modal: Quick Switch Active Revision Juz OR Active New Surah -->
+  <div class="modal-backdrop" id="quickFocusModal" onclick="if(event.target===this) closeModal('quickFocusModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="quickFocusTitle">تغيير الموضع النشط</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('quickFocusModal')">إغلاق</button>
+      </div>
+      <div id="quickFocusBody"></div>
+    </div>
+  </div>
+
   <!-- Modal: Recitation Completion & Rating -->
   <div class="modal-backdrop" id="reciteModal" onclick="if(event.target===this) closeModal('reciteModal')">
     <div class="modal-box">
@@ -615,6 +634,10 @@
         <label style="display:flex; align-items:center; gap:8px; font-size:0.81rem; color:var(--info); cursor:pointer;">
           <input type="checkbox" id="reciteAddToLink" checked style="width:17px; height:17px; accent-color:var(--info);" />
           نقل المقطع إلى «صندوق التثبيت ← تثبيت جديد»
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.81rem; color:var(--success); cursor:pointer;">
+          <input type="checkbox" id="reciteFinishSurah" style="width:17px; height:17px; accent-color:var(--success);" />
+          أتممت هذه السورة بالكامل (انتقل تلقائياً للسورة التالية)
         </label>
       </div>
       <button type="button" class="btn btn-gold btn-block" onclick="confirmRecitation()">تأكيد التسميع وإتاحة تسجيل الورد التالي</button>
@@ -685,7 +708,10 @@
         <div><label class="field-label">الجلسة الأساسية</label><input type="text" id="editMainText" /></div>
         <div><label class="field-label">جلسة التسميع أو الربط</label><input type="text" id="editSecondText" /></div>
         <div><label class="field-label">صندوق التثبيت (قديم وجديد)</label><input type="text" id="editSolidText" /></div>
-        <button type="button" class="btn btn-gold" onclick="saveDayEdit()">تحديث اليوم</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-gold" style="flex:1;" onclick="saveDayEdit()">حفظ التعديل</button>
+          <button type="button" class="btn btn-ghost" onclick="resetDayToAuto()">إرجاع للتلقائي</button>
+        </div>
       </div>
     </div>
   </div>
