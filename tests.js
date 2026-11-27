@@ -289,5 +289,17 @@ test('١١. أتمتة تثبيت القديم بضغطة واحدة والتق�
   assert(!html.includes('id="solidBoxNewSummary"'), 'إزالة بطاقة الملخص المكررة في صندوق التثبيت');
 });
 
+
+// 12. v7.7 7-day Trash bin (soft delete, restore, 7-day auto-purge) + Unmerge passages
+test('١٢. سلة المحذوفات في تثبيت الجديد (استرجاع + حذف تلقائي بعد ٧ أيام) وفك الدمج', () => {
+  const appCode = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+  const stCode = fs.readFileSync(path.join(ROOT, 'storage.js'), 'utf8');
+  assert(stCode.includes('solidTrash'), 'حقل solidTrash معرّف في storage.js');
+  assert(appCode.includes('function purgeExpiredSolidTrash('), 'دالة التنظيف التلقائي بعد ٧ أيام موجودة');
+  assert(appCode.includes('function restoreFromSolidTrash('), 'دالة الاسترجاع موجودة');
+  assert(appCode.includes('function unmergeGroupPassages('), 'دالة فك الدمج موجودة');
+  assert(appCode.includes('return elapsed < 7;'), 'شرط الإبقاء أقل من ٧ أيام والحذف بعدها');
+});
+
 console.log(`\nالنتيجة النهائية: اجتاز ${passed} من ${passed + failed} اختباراً.`);
 if (failed > 0) process.exit(1);

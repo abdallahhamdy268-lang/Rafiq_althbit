@@ -1129,12 +1129,14 @@ function mergeGroupPassages(groupId) {
   const lastLabel = g.passages[g.passages.length - 1].passage;
   const mergedLabel = `كتلة مدمجة (${firstLabel} ← ${lastLabel})`;
   const hasWeak = g.passages.some((p) => p.rating === 'يحتاج إعادة' || p.rating === 'نسيت تماماً');
+  const originalPassages = g.passages.map((p) => ({ ...p }));
   g.passages = [{
     id: 'p_merged_' + Date.now(),
     passage: mergedLabel,
     pages: totalPages,
     rating: hasWeak ? 'جيد' : (g.rating || 'جيد جداً'),
-    date: todayStr()
+    date: todayStr(),
+    mergedFrom: originalPassages
   }];
   g.linkCount = (g.linkCount || 0) + 1;
   g.lastLinked = todayStr();
@@ -1330,12 +1332,7 @@ function renderHeader() {
   const graceActive = state.streak.graceUsedDate === todayStr();
   const streakTxt = `🔥 ${state.streak.count} أيام${graceActive ? ' (سماح)' : ''}`;
   document.getElementById('streakBadge').textContent = streakTxt;
-  const sbTitle = document.getElementById('sidebarUserTitle');
-  const sbSub = document.getElementById('sidebarUserSub');
-  const sbStreak = document.getElementById('sidebarStreakBadge');
-  if (sbTitle) sbTitle.textContent = document.getElementById('headerUserTitle').textContent;
-  if (sbSub) sbSub.textContent = document.getElementById('headerUserSub').textContent;
-  if (sbStreak) sbStreak.textContent = streakTxt;
+
 
   const profLine = document.getElementById('profileSummaryLine');
   if (profLine) {
@@ -2065,7 +2062,8 @@ function renderSolidTab() {
                   </div>
                   <div style="display:flex; gap:5px; align-items:center;">
                     <button type="button" class="btn btn-outline btn-sm" onclick="openSrReviewModal('passage', '${g.id}', '${escapeAttr(g.surahName + ' — ' + p.passage)}', 0, '${p.id}')">مراجعة وتقييم</button>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="removeLinkPassage('${g.id}','${p.id}')" aria-label="حذف المقطع">×</button>
+                    ${Array.isArray(p.mergedFrom) && p.mergedFrom.length > 1 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="unmergeGroupPassages('${g.id}','${p.id}')">فك الدمج ↺</button>` : ''}
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="removeLinkPassage('${g.id}','${p.id}')" aria-label="نقل المقطع لسلة المحذوفات">×</button>
                   </div>
                 </div>`;
             }).join('')}
@@ -2085,6 +2083,37 @@ function renderSolidTab() {
       });
     }
     linkContainer.innerHTML = html;
+  }
+
+  // سلة محذوفات «تثبيت الجديد» (تُحفظ ٧ أيام ثم تُحذف تلقائياً)
+  purgeExpiredSolidTrash(false);
+  const trashItems = Array.isArray(state.solidTrash) ? state.solidTrash : [];
+  if (trashItems.length > 0) {
+    const today = todayStr();
+    const trashHtml = `
+      <details class="adv-settings-details" style="margin-top:14px;">
+        <summary>🗑️ سلة المحذوفات (${trashItems.length}) — تُحذف نهائياً بعد ٧ أيام ▾</summary>
+        <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+          ${trashItems.map((tr) => {
+            const elapsed = Math.max(0, -diffDaysFromToday(tr.deletedAt || today, today));
+            const daysLeft = Math.max(1, 7 - elapsed);
+            return `
+              <div class="log-item" style="align-items:center; margin-bottom:0;">
+                <div>
+                  <strong style="font-size:0.86rem;">${escapeHtml(tr.surahName)} — ${escapeHtml(tr.passage && tr.passage.passage ? tr.passage.passage : '')}</strong>
+                  <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">
+                    ${formatNum(tr.passage ? tr.passage.pages : 0)} وجه • متبقّي ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} قبل الحذف النهائي
+                  </div>
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0;">
+                  <button type="button" class="btn btn-success btn-sm" onclick="restoreFromSolidTrash('${tr.id}')">استرجاع ↺</button>
+                  <button type="button" class="btn btn-danger btn-sm" onclick="permanentlyDeleteTrash('${tr.id}')" aria-label="حذف نهائي">حذف</button>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </details>`;
+    linkContainer.innerHTML += trashHtml;
   }
 
   // 2. تثبيت قديم (دورة الخاتم + السور المكتملة المرحلة + الأجزاء المكتملة)
@@ -2346,12 +2375,82 @@ function saveManualLinkPassage(e) {
   renderAll(); showToast('أُضيف المقطع إلى صندوق التثبيت وجُدول تلقائياً ✓');
 }
 
+function purgeExpiredSolidTrash(shouldSave = true) {
+  if (!Array.isArray(state.solidTrash) || state.solidTrash.length === 0) return;
+  const today = todayStr();
+  const before = state.solidTrash.length;
+  state.solidTrash = state.solidTrash.filter((tr) => {
+    const elapsed = -diffDaysFromToday(tr.deletedAt || today, today);
+    return elapsed < 7;
+  });
+  if (shouldSave && state.solidTrash.length !== before) saveState();
+}
+
 function removeLinkPassage(groupId, passageId) {
   const g = state.newLinkingGroups.find((x) => x.id === groupId);
   if (!g) return;
+  const target = g.passages.find((p) => p.id === passageId);
+  if (!target) return;
+  state.solidTrash = Array.isArray(state.solidTrash) ? state.solidTrash : [];
+  state.solidTrash.unshift({
+    id: 'tr_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    groupId: g.id,
+    surahNum: g.surahNum || null,
+    surahName: g.surahName,
+    juzNum: g.juzNum || null,
+    passage: { ...target },
+    deletedAt: todayStr()
+  });
   g.passages = g.passages.filter((p) => p.id !== passageId);
   if (g.passages.length === 0) state.newLinkingGroups = state.newLinkingGroups.filter((x) => x.id !== groupId);
   saveState(); renderAll();
+  showToast('نُقل المقطع إلى «سلة المحذوفات» (يمكنك استرجاعه خلال ٧ أيام) 🗑️');
+}
+
+function restoreFromSolidTrash(trashId) {
+  state.solidTrash = Array.isArray(state.solidTrash) ? state.solidTrash : [];
+  const idx = state.solidTrash.findIndex((t) => t.id === trashId);
+  if (idx === -1) return;
+  const tr = state.solidTrash[idx];
+  state.solidTrash.splice(idx, 1);
+
+  let g = state.newLinkingGroups.find((x) => !x.archived && (x.id === tr.groupId || x.surahName === tr.surahName));
+  if (!g) {
+    const t = todayStr();
+    g = {
+      id: tr.groupId || ('lg_' + Date.now()),
+      surahNum: tr.surahNum || null,
+      surahName: tr.surahName,
+      juzNum: tr.juzNum || null,
+      passages: [],
+      linkCount: 0, reviews: 0, reps: 0, lapses: 0,
+      ease: SR_CONFIG.defaultEase, intervalDays: 1,
+      nextReviewDate: t, archived: false, tags: []
+    };
+    state.newLinkingGroups.unshift(g);
+  }
+  g.passages.push({ ...tr.passage });
+  saveState(); renderAll();
+  showToast(`تم استرجاع مقطع «${tr.surahName}» بنجاح ↺`);
+}
+
+function permanentlyDeleteTrash(trashId) {
+  if (!Array.isArray(state.solidTrash)) return;
+  state.solidTrash = state.solidTrash.filter((t) => t.id !== trashId);
+  saveState(); renderAll();
+  showToast('تم الحذف النهائي للمقطع.');
+}
+
+function unmergeGroupPassages(groupId, passageId) {
+  const g = state.newLinkingGroups.find((x) => x.id === groupId);
+  if (!g) return;
+  const idx = g.passages.findIndex((p) => p.id === passageId);
+  if (idx === -1) return;
+  const p = g.passages[idx];
+  if (!Array.isArray(p.mergedFrom) || p.mergedFrom.length < 2) return;
+  g.passages.splice(idx, 1, ...p.mergedFrom.map((orig) => ({ ...orig })));
+  saveState(); renderAll();
+  showToast(`تم فك دمج مقاطع ${g.surahName} واستعادة المقاطع الأصلية ↺`);
 }
 
 function toggleArchiveLinkGroup(groupId) {
@@ -3071,7 +3170,7 @@ function computeAutoRatingFromWeakCount(weakCount) {
 
 function toggleSolidJuzExpand(juzNum, currentlyOpen) {
   expandedSolidJuzs[juzNum] = !currentlyOpen;
-  renderSolidBox();
+  renderSolidTab();
 }
 
 function resetJuzCycle(juzNum) {

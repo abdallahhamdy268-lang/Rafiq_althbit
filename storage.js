@@ -45,7 +45,8 @@ function getEmptyState() {
     activeNewSurahNum: null,
     surahNewProgress: {},
     surahAyahProgress: {},   // { [surahNum]: maxAyahReached }
-    completedSurahsSolid: [], // السور التي اكتملت من «تثبيت الجديد» وانتقلت لدورة التثبيت الدائمة
+    completedSurahsSolid: [],
+    solidTrash: [], // السور التي اكتملت من «تثبيت الجديد» وانتقلت لدورة التثبيت الدائمة
     juzList: [],
     schedule: [],
     weekArchives: [],
