@@ -50,14 +50,7 @@
 
       <div style="text-align:center; margin-bottom:10px;">
         <div class="brand-icon" style="width:58px; height:58px; margin:0 auto 10px; border-radius:16px;" aria-hidden="true">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H10a2.5 2.5 0 0 1 2 1 2.5 2.5 0 0 1 2-1h5.5A2.5 2.5 0 0 1 22 5.5v12a2.5 2.5 0 0 1-2.5 2.5H14a2.5 2.5 0 0 0-2 1 2.5 2.5 0 0 0-2-1H4.5A2.5 2.5 0 0 1 2 17.5v-12z" stroke="var(--accent-hi)" stroke-width="1.8" fill="var(--accent-soft)"/>
-            <line x1="12" y1="4" x2="12" y2="21" stroke="var(--accent-mid)" stroke-width="1.8"/>
-            <line x1="5.5" y1="8.5" x2="9" y2="8.5" stroke="var(--text-main)" stroke-width="1.5"/>
-            <line x1="5.5" y1="12" x2="9" y2="12" stroke="var(--accent-mid)" stroke-width="1.5"/>
-            <line x1="15" y1="8.5" x2="18.5" y2="8.5" stroke="var(--text-main)" stroke-width="1.5"/>
-            <line x1="15" y1="12" x2="18.5" y2="12" stroke="var(--accent-mid)" stroke-width="1.5"/>
-          </svg>
+          <img src="icon-192.png" alt="شعار رفيق التثبيت" class="brand-img" />
         </div>
         <h1 id="obMainHeading" style="margin:0; font-size:1.35rem; color:var(--accent-hi);">أهلاً بك في رفيق التثبيت</h1>
         <p class="muted-note" style="margin:4px 0 0;">إعداد سريع يبني خطتك وجدولك الحي بأسماء سورك وأجزائك الفعلية</p>
@@ -210,14 +203,7 @@
     <div class="header-inner">
       <div class="brand">
         <div class="brand-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H10a2.5 2.5 0 0 1 2 1 2.5 2.5 0 0 1 2-1h5.5A2.5 2.5 0 0 1 22 5.5v12a2.5 2.5 0 0 1-2.5 2.5H14a2.5 2.5 0 0 0-2 1 2.5 2.5 0 0 0-2-1H4.5A2.5 2.5 0 0 1 2 17.5v-12z" stroke="var(--accent-hi)" stroke-width="1.8" fill="var(--accent-soft)"/>
-            <line x1="12" y1="4" x2="12" y2="21" stroke="var(--accent-mid)" stroke-width="1.8"/>
-            <line x1="5.5" y1="8.5" x2="9" y2="8.5" stroke="var(--text-main)" stroke-width="1.5"/>
-            <line x1="5.5" y1="12" x2="9" y2="12" stroke="var(--accent-mid)" stroke-width="1.5"/>
-            <line x1="15" y1="8.5" x2="18.5" y2="8.5" stroke="var(--text-main)" stroke-width="1.5"/>
-            <line x1="15" y1="12" x2="18.5" y2="12" stroke="var(--accent-mid)" stroke-width="1.5"/>
-          </svg>
+          <img src="icon-192.png" alt="شعار رفيق التثبيت" class="brand-img" />
         </div>
         <div class="brand-text">
           <h1 id="headerUserTitle">رفيق التثبيت</h1>
@@ -252,6 +238,7 @@
         </div>
       </div>
       <div id="inAppReminderBanner"></div>
+      <div id="weekDueBanner"></div>
       <div id="firstTimeGuideBanner"></div>
       <div id="stabilizationAlert"></div>
 
@@ -441,6 +428,8 @@
             <span class="tag tag-success" id="solidCountBadge">0 أجزاء</span>
           </div>
           <p class="muted-note">كل جزء يكتمل يدخل هنا تلقائياً بأول مراجعة بعد يومين، ثم تتباعد الفترة حسب تقييمك الفعلي ومعامل الثبات.</p>
+          <div id="khatimCycleBanner"></div>
+          <div id="completedSurahsSolidList"></div>
           <div id="solidBoxList"></div>
         </div>
       </div>
@@ -453,6 +442,7 @@
             <span class="tag tag-gold" id="mutCountBadge">0 مواضع</span>
           </div>
           <p class="muted-note">يجمع تلقائياً كل الأجزاء والمقاطع الموسومة بـ «متشابهات» أو التي تحتوي على أوجه متفلتة مسجّلة أثناء المراجعة.</p>
+          <div class="mut-filter-bar" id="mutFilterBar"></div>
           <div id="mutashabihatList"></div>
         </div>
       </div>
@@ -530,6 +520,7 @@
             <button type="submit" class="btn btn-gold btn-sm">+ إضافة موعد</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="exportRemindersIcs()">📅 إضافة للتقويم (.ics)</button>
             <button type="button" class="btn btn-ghost btn-sm" onclick="testSmartNotification()">تجربة إشعار الآن</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="checkNotificationHealth()">🩺 فحص دعم الإشعارات</button>
           </div>
         </form>
 
@@ -586,7 +577,9 @@
           <button type="button" class="btn btn-outline btn-sm" onclick="openOnboarding(true)">تعديل ملفي / إعادة التشخيص</button>
           <button type="button" class="btn btn-outline btn-sm" onclick="handleSmartInstall()">📲 تثبيت التطبيق على الهاتف</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="openGlossaryModal()">📖 دليل المصطلحات</button>
-          <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة احتياطية (JSON)</button>
+          <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة (JSON)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="shareBackup()">📤 مشاركة النسخة الاحتياطية</button>
+          <button type="button" class="btn btn-info btn-sm" onclick="shareSheikhReport()">📋 تقرير الأسبوع للشيخ</button>
           <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
             استيراد نسخة احتياطية (v4/v5/v6/v7)
             <input type="file" accept=".json" onchange="importBackup(event)" style="display:none;" />
@@ -790,7 +783,7 @@
 
       <!-- Optional Weak Pages Tracker for Juz Reviews -->
       <div id="srWeakPagesWrap" style="display:none; margin-bottom:12px;">
-        <label class="field-label">هل توجد أوجه متفلتة تحتاج تركيزاً خاصاً؟ (اختياري)</label>
+        <label class="field-label">حدّد السور أو المواضع المتفلتة في هذا الجزء (اختياري):</label>
         <div class="weak-pages-grid" id="srWeakPagesGrid"></div>
       </div>
 
@@ -880,6 +873,8 @@
   <div class="toast" id="toastEl" role="status" aria-live="polite"></div>
 
   <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script src="storage.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

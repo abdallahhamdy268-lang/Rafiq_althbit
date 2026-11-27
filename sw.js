@@ -1,11 +1,14 @@
-// رفيق التثبيت v7.1 — Service Worker (Network-First + Cache-Fallback + كاش الخطوط)
-const CACHE_NAME = 'rafiq-altathbit-v7.1.0';
+// رفيق التثبيت v7.2.0 — Service Worker (Network-First 3s Timeout + Cache-Fallback)
+const APP_SW_VERSION = '7.2.0';
+const CACHE_NAME = 'rafiq-altathbit-v7.2.0';
 const FONT_CACHE = 'rafiq-altathbit-fonts-v1';
 const CORE_ASSETS = [
   './',
   './index.html',
   './style.css',
   './data.js',
+  './engine.js',
+  './storage.js',
   './app.js',
   './manifest.json',
   './icon-192.png',
@@ -15,7 +18,13 @@ const CORE_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then((cache) =>
+        Promise.allSettled(
+          CORE_ASSETS.map((url) =>
+            cache.add(url).catch((err) => console.warn('SW precache skip:', url, err))
+          )
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -23,20 +32,22 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME && key !== FONT_CACHE)
-            .map((key) => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: 'window' }))
-      .then((clients) => {
-        clients.forEach((client) => {
-          try { client.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME }); } catch (e) {}
-        });
+      .then((keys) => {
+        const oldCaches = keys.filter((k) => k !== CACHE_NAME && k !== FONT_CACHE);
+        return Promise.all(oldCaches.map((k) => caches.delete(k)))
+          .then(() => oldCaches.length > 0);
       })
+      .then((hadPreviousCache) =>
+        self.clients.claim().then(() => {
+          // لا نبث إشعار التحديث عند أول تثبيت إطلاقاً — فقط عند ترقية كاش سابق
+          if (!hadPreviousCache) return;
+          return self.clients.matchAll({ type: 'window' }).then((clients) => {
+            clients.forEach((client) => {
+              try { client.postMessage({ type: 'SW_UPDATED', version: APP_SW_VERSION }); } catch (e) {}
+            });
+          });
+        })
+      )
   );
 });
 
@@ -45,6 +56,15 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+function fetchWithTimeout(req, ms = 3000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    fetch(req)
+      .then((res) => { clearTimeout(timer); resolve(res); })
+      .catch((err) => { clearTimeout(timer); reject(err); });
+  });
+}
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -56,7 +76,6 @@ self.addEventListener('fetch', (event) => {
     url.origin === 'https://fonts.googleapis.com' ||
     url.origin === 'https://fonts.gstatic.com';
 
-  // Stale-While-Revalidate لخط Cairo لضمان العمل بدون إنترنت بعد أول تحميل
   if (isGoogleFonts) {
     event.respondWith(
       caches.open(FONT_CACHE).then((cache) =>
@@ -78,9 +97,9 @@ self.addEventListener('fetch', (event) => {
 
   if (!isSameOrigin) return;
 
-  // Network-First للملفات الأساسية حتى يظهر كل تحديث فوراً على التطبيق المثبّت
+  // Network-First بمهلة ٣ ثوانٍ ثم fallback للكاش عند بطء الشبكة أو انقطاعها
   event.respondWith(
-    fetch(req)
+    fetchWithTimeout(req, 3000)
       .then((networkRes) => {
         if (networkRes && networkRes.status === 200) {
           const resClone = networkRes.clone();
@@ -93,9 +112,7 @@ self.addEventListener('fetch', (event) => {
       .catch(() =>
         caches.match(req).then((cachedRes) => {
           if (cachedRes) return cachedRes;
-          if (req.mode === 'navigate') {
-            return caches.match('./index.html');
-          }
+          if (req.mode === 'navigate') return caches.match('./index.html');
           return new Response('', { status: 503, statusText: 'Offline' });
         })
       )

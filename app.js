@@ -1,11 +1,7 @@
 // ==========================================================================
-// رفيق التثبيت v7 — محرك الخطة الحية، SM-2-lite، سلامة البيانات، وإمكانية الوصول
+// رفيق التثبيت v7.2 — app.js (الواجهة، صندوق التثبيت بالكرة الثلجية، المؤقت)
+// يعتمد على: data.js + engine.js + storage.js
 // ==========================================================================
-
-const STORAGE_KEY = 'rafiq_altathbit_v7';
-const LEGACY_KEYS = ['rafiq_altathbit_v6', 'rafiq_altathbit_smart_v5', 'rafiq_altathbit_khatma_v4'];
-const SNAPSHOTS_KEY = 'rafiq_altathbit_v7_snapshots';
-const OB_DRAFT_KEY = 'rafiq_altathbit_v7_ob_draft';
 
 const CUSTOM_CSS_VARS = [
   '--bg-deep', '--bg-grad-1', '--bg-grad-2', '--bg-card', '--bg-card-end',
@@ -17,104 +13,7 @@ const CUSTOM_CSS_VARS = [
   '--ring-track', '--shadow-card'
 ];
 
-// ================= 1. LOCAL DATE ENGINE (ZERO UTC BUGS) =================
-function formatLocalDate(dateObj) {
-  const d = dateObj instanceof Date ? dateObj : new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function todayStr() {
-  return formatLocalDate(new Date());
-}
-
-function parseLocalDate(str) {
-  const parts = String(str || todayStr()).split('-').map(Number);
-  return new Date(parts[0] || 2026, (parts[1] || 1) - 1, parts[2] || 1, 12, 0, 0);
-}
-
-function addDaysStr(baseStr, days) {
-  const d = parseLocalDate(baseStr);
-  d.setDate(d.getDate() + Number(days || 0));
-  return formatLocalDate(d);
-}
-
-function diffDaysFromToday(targetDateStr, refTodayStr) {
-  if (!targetDateStr) return 0;
-  const a = parseLocalDate(refTodayStr || todayStr());
-  const b = parseLocalDate(targetDateStr);
-  return Math.round((b.getTime() - a.getTime()) / 86400000);
-}
-
-function formatNum(n) {
-  const v = Number(n) || 0;
-  return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, '');
-}
-
-function escapeHtml(str) {
-  return String(str ?? '').replace(/[&<>"']/g, (m) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[m]));
-}
-
-function escapeAttr(str) { return escapeHtml(str); }
-
-// ================= 2. SM-2-LITE SPACED REPETITION ENGINE =================
-function computeSM2(prevMeta, rating, overdueDays = 0) {
-  const cfg = SR_CONFIG;
-  let ease = Number(prevMeta && prevMeta.ease) || cfg.defaultEase;
-  let prevInterval = Number(prevMeta && prevMeta.intervalDays) || 1;
-  let reps = Number(prevMeta && prevMeta.reps) || 0;
-  let lapses = Number(prevMeta && prevMeta.lapses) || 0;
-
-  let nextInterval = 1;
-  const effectivePrev = (overdueDays > 0 && (rating === 'جيد جداً' || rating === 'ممتاز'))
-    ? prevInterval + Math.floor(overdueDays / 2)
-    : prevInterval;
-
-  if (rating === 'يحتاج إعادة') {
-    nextInterval = 1;
-    ease = Math.max(cfg.minEase, Number((ease - 0.2).toFixed(2)));
-    lapses += 1;
-    reps = 0;
-  } else if (rating === 'جيد') {
-    nextInterval = Math.max(2, Math.round(prevInterval * 1.2));
-    ease = Math.max(cfg.minEase, Number((ease - 0.05).toFixed(2)));
-    reps += 1;
-  } else if (rating === 'جيد جداً') {
-    nextInterval = reps === 0 ? 4 : Math.max(3, Math.round(effectivePrev * ease));
-    reps += 1;
-  } else {
-    // ممتاز
-    nextInterval = reps === 0 ? 7 : Math.max(5, Math.round(effectivePrev * ease * 1.3));
-    ease = Math.min(cfg.maxEase, Number((ease + 0.1).toFixed(2)));
-    reps += 1;
-  }
-
-  nextInterval = Math.max(cfg.minIntervalDays, Math.min(cfg.maxIntervalDays, nextInterval));
-  return { intervalDays: nextInterval, ease, reps, lapses };
-}
-
-// ================= 3. SINGLE SOURCE OF TRUTH FOR JUZ PROGRESS =================
-function recomputeJuzProgress(j) {
-  if (!j) return 0;
-  const surahs = Array.isArray(j.surahs) ? j.surahs : [];
-  const surahDonePages = surahs.reduce((sum, s) => sum + (s.done ? Number(s.pages || 0) : 0), 0);
-  const basePages = Number(j.basePages || 0);
-  const loggedPages = Number(j.loggedPages || 0);
-  const allSurahsDone = surahs.length > 0 && surahs.every((s) => s.done);
-  if (allSurahsDone && loggedPages >= 0) {
-    j.donePages = j.totalPages;
-    return j.donePages;
-  }
-  const combined = basePages + surahDonePages + loggedPages;
-  j.donePages = Math.max(0, Math.min(j.totalPages, Number(combined.toFixed(2))));
-  return j.donePages;
-}
-
-// ================= 4. COLOR & CONTRAST ENGINE =================
+// ================= COLOR & CONTRAST ENGINE =================
 function hexToRgb(hex) {
   const clean = String(hex || '#00112B').replace('#', '');
   const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean.padEnd(6, '0').slice(0, 6);
@@ -141,10 +40,7 @@ function rgbaStr(hex, alpha) {
 
 function getLuminance(hex) {
   const { r, g, b } = hexToRgb(hex);
-  const toLin = (c) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  };
+  const toLin = (c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
   return 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
 }
 
@@ -155,8 +51,7 @@ function getContrastRatio(hex1, hex2) {
 }
 
 function clearCustomCssVars() {
-  const root = document.documentElement;
-  CUSTOM_CSS_VARS.forEach((v) => root.style.removeProperty(v));
+  CUSTOM_CSS_VARS.forEach((v) => document.documentElement.style.removeProperty(v));
 }
 
 function applyCustomPalette(bgHex, accentHex) {
@@ -184,28 +79,20 @@ function applyCustomPalette(bgHex, accentHex) {
     '--bg-deep': bgHex,
     '--bg-grad-1': rgbaStr(safeAccent, isDark ? 0.13 : 0.09),
     '--bg-grad-2': rgbaStr(isDark ? '#FFFFFF' : safeAccent, 0.06),
-    '--bg-card': bgCard,
-    '--bg-card-end': bgCardEnd,
-    '--bg-card-2': bgCard2,
-    '--bg-hero-start': bgHeroStart,
-    '--bg-hero-end': bgHeroEnd,
+    '--bg-card': bgCard, '--bg-card-end': bgCardEnd, '--bg-card-2': bgCard2,
+    '--bg-hero-start': bgHeroStart, '--bg-hero-end': bgHeroEnd,
     '--bg-header': rgbaStr(bgHex, 0.94),
     '--bg-nav': rgbaStr(isDark ? mixHex('#000000', bgHex, 0.15) : bgCard, 0.97),
-    '--bg-input': bgInput,
-    '--bg-surface': rgbaStr(textMain, 0.045),
+    '--bg-input': bgInput, '--bg-surface': rgbaStr(textMain, 0.045),
     '--bg-surface-strong': rgbaStr(isDark ? '#000000' : textMain, isDark ? 0.44 : 0.07),
     '--border-subtle': rgbaStr(textMain, 0.18),
-    '--accent-hi': accentHi,
-    '--accent-mid': accentMid,
-    '--accent-deep': accentDeep,
+    '--accent-hi': accentHi, '--accent-mid': accentMid, '--accent-deep': accentDeep,
     '--accent-grad': `linear-gradient(135deg, ${accentHi} 0%, ${accentMid} 55%, ${accentDeep} 100%)`,
     '--accent-soft': rgbaStr(safeAccent, isDark ? 0.15 : 0.11),
     '--accent-border': rgbaStr(safeAccent, isDark ? 0.30 : 0.24),
     '--accent-border-strong': rgbaStr(accentHi, 0.56),
     '--btn-primary-text': btnPrimaryText,
-    '--text-main': textMain,
-    '--text-muted': textMuted,
-    '--text-dim': textDim,
+    '--text-main': textMain, '--text-muted': textMuted, '--text-dim': textDim,
     '--ring-track': rgbaStr(textMain, 0.12),
     '--shadow-card': isDark ? '0 10px 28px rgba(0, 0, 0, 0.45)' : '0 8px 22px rgba(0, 0, 0, 0.08)'
   };
@@ -228,64 +115,15 @@ function applyTheme(themeId, customColors) {
   if (meta) meta.setAttribute('content', t.meta);
 }
 
-// ================= 5. STATE, SAFE STORAGE & MIGRATION (v4/v5/v6 -> v7) =================
-function getEmptyState() {
-  return {
-    version: 7,
-    onboarded: false,
-    welcomeDismissed: false,
-    simpleMode: false,
-    progressExpanded: false,
-    lastBackupAt: '',
-    profile: {
-      name: '',
-      theme: 'royal',
-      customColors: { bg: '#00112B', accent: '#D0A151' },
-      mode: 'from_nas',
-      stopSurahNum: 78,
-      stopSurahCompleted: false,
-      beginnerDir: 'from_nas',
-      khatimStart: 'from_baqarah',
-      khatimSpecificJuz: [1, 2, 3],
-      scatteredSurahs: [],
-      scatteredContinue: 'org_nas',
-      revStartMode: 'auto',
-      revStartJuz: 30,
-      stability: 'weak',
-      dailyMin: 45,
-      studyStyle: 'solo',
-      maqraaDays: ['mon', 'thu'],
-      pagesPerSession: 1
-    },
-    activeRevJuzNum: null,
-    activeNewSurahNum: null,
-    surahNewProgress: {},
-    juzList: [],
-    schedule: [],
-    weekArchives: [],
-    solidMeta: {},
-    activeWird: null,
-    maqraaLogs: [],
-    newLinkingGroups: [],
-    reminders: [],
-    busyDayDate: '',
-    busyTasksDone: { t1: false, t2: false },
-    streak: { count: 0, lastDate: '', graceUsedDate: '' },
-    mapFilter: 'revision',
-    solidSubTab: 'new',
-    expandedJuz: {},
-    calcDailyMin: 45,
-    calcNewPages: 1
-  };
-}
-
+// ================= APP RUNTIME STATE =================
 let corruptBackupKey = null;
 let storageQuotaWarning = false;
 let editingDayId = null;
 let selectedRating = '';
 let selectedSrRating = '';
+let selectedWeakSurahs = [];
 let selectedWeakPages = [];
-let srTarget = null;
+let srTarget = null; // { kind: 'old'|'new'|'passage'|'surah_solid', id, passageId?, title, overdueDays }
 let surahSearchQuery = '';
 let quickFocusSearch = '';
 let newWirdFormOpen = false;
@@ -293,164 +131,17 @@ let obShowRevStartPicker = false;
 let lastFocusBeforeModal = null;
 
 let obDraft = {
-  step: 1,
-  isEditing: false,
-  theme: 'royal',
+  step: 1, isEditing: false, theme: 'royal',
   customColors: { bg: '#00112B', accent: '#D0A151' },
-  mode: 'from_nas',
-  stopSurahNum: 78,
-  stopSurahCompleted: false,
-  beginnerDir: 'from_nas',
-  khatimStart: 'from_baqarah',
-  khatimSpecificJuz: [1, 2, 3],
-  scatteredSurahs: [],
-  scatteredContinue: 'org_nas',
-  revStartMode: 'auto',
-  revStartJuz: 30,
-  stability: 'weak',
-  dailyMin: 45,
-  studyStyle: 'solo',
-  maqraaDays: ['mon', 'thu'],
-  pagesPerSession: 1,
-  remEnabled: false
+  level: 'intermediate', mode: 'from_nas',
+  stopSurahNum: 78, stopSurahCompleted: false,
+  beginnerDir: 'from_nas', khatimStart: 'from_baqarah',
+  khatimSpecificJuz: [1, 2, 3], khatimCycleDays: 60,
+  scatteredSurahs: [], scatteredContinue: 'org_nas',
+  revStartMode: 'auto', revStartJuz: 30, stability: 'weak',
+  dailyMin: 45, studyStyle: 'solo', maqraaDays: ['mon', 'thu'],
+  pagesPerSession: 1, remEnabled: false
 };
-
-// ترحيل آمن من أي نسخة سابقة (v4 / v5 / v6) إلى v7 دون فقدان أي تقدم أو مواعيد مراجعة
-function migrateState(old) {
-  const today = todayStr();
-  const base = getEmptyState();
-  if (!old || typeof old !== 'object') return base;
-
-  const oldProfile = old.profile || {};
-  const oldJuzMap = {};
-  (old.juzList || []).forEach((j) => { oldJuzMap[j.num] = j; });
-
-  const dir = oldProfile.mode === 'from_baqarah' ? 'from_baqarah' : 'from_nas';
-  const ordered = (old.juzList && old.juzList.length === 30)
-    ? old.juzList.map((j) => JUZ_DB.find((x) => x.num === j.num)).filter(Boolean)
-    : (dir === 'from_baqarah' ? [...JUZ_DB].sort((a, b) => a.num - b.num) : [...JUZ_DB].sort((a, b) => b.num - a.num));
-
-  const juzList = ordered.map((jRaw) => {
-    const prev = oldJuzMap[jRaw.num];
-    const jSurahs = getJuzSurahs(jRaw.num);
-    const jSurahsOrd = dir === 'from_nas' ? [...jSurahs].reverse() : [...jSurahs];
-    const prevDonePages = prev ? Math.min(jRaw.totalPages, Number(prev.donePages) || 0) : 0;
-    const isComplete = prevDonePages >= jRaw.totalPages - 0.01;
-    const prevSurahDoneMap = {};
-    ((prev && prev.surahs) || []).forEach((s) => {
-      if (s.done) prevSurahDoneMap[s.num || s.name] = true;
-    });
-    const jTrack = prev ? (prev.track || 'revision') : 'revision';
-
-    const surahs = jSurahsOrd.map((s) => {
-      const prevMatch = prev && prev.surahs ? prev.surahs.find((ps) => ps.num === s.num || ps.name === s.name) : null;
-      return {
-        num: s.num,
-        name: s.name,
-        pages: getSurahPagesInJuz(s, jRaw),
-        track: prevMatch && prevMatch.track ? prevMatch.track : jTrack,
-        wasMemorized: prevMatch ? !!prevMatch.wasMemorized : (jTrack === 'revision'),
-        done: isComplete || !!prevSurahDoneMap[s.num] || !!prevSurahDoneMap[s.name]
-      };
-    });
-
-    const surahDoneSum = surahs.reduce((sum, s) => sum + (s.done ? s.pages : 0), 0);
-    const basePages = prev ? Number(prev.basePages || 0) : 0;
-    const loggedPages = prev && typeof prev.loggedPages === 'number'
-      ? prev.loggedPages
-      : Math.max(0, Number((prevDonePages - Math.max(basePages, surahDoneSum)).toFixed(2)));
-
-    const juzObj = {
-      num: jRaw.num,
-      title: jRaw.title,
-      range: jRaw.range,
-      totalPages: jRaw.totalPages,
-      track: jTrack,
-      phase: prev ? (prev.phase || 'مسار المراجعة') : 'مسار المراجعة',
-      donePages: prevDonePages,
-      basePages,
-      loggedPages,
-      tags: Array.isArray(prev && prev.tags) ? prev.tags : [],
-      surahs,
-      note: prev ? (prev.note || '') : ''
-    };
-    recomputeJuzProgress(juzObj);
-    return juzObj;
-  });
-
-  const solidMeta = {};
-  if (old.solidMeta) {
-    Object.keys(old.solidMeta).forEach((k) => {
-      const m = old.solidMeta[k];
-      solidMeta[k] = {
-        reviews: m.reviews || 0,
-        reps: typeof m.reps === 'number' ? m.reps : (m.reviews || 0),
-        lapses: m.lapses || 0,
-        ease: Number(m.ease) || SR_CONFIG.defaultEase,
-        lastReviewed: m.lastReviewed || today,
-        rating: m.rating || '',
-        intervalDays: m.intervalDays || 4,
-        nextReviewDate: m.nextReviewDate || addDaysStr(m.lastReviewed || today, m.intervalDays || 4),
-        weakPages: Array.isArray(m.weakPages) ? m.weakPages : [],
-        addedAt: m.addedAt || today
-      };
-    });
-  }
-
-  const newLinkingGroups = (old.newLinkingGroups || []).map((g) => ({
-    ...g,
-    reps: typeof g.reps === 'number' ? g.reps : (g.linkCount || 0),
-    lapses: g.lapses || 0,
-    ease: Number(g.ease) || SR_CONFIG.defaultEase,
-    rating: g.rating || '',
-    intervalDays: g.intervalDays || 4,
-    nextReviewDate: g.nextReviewDate || addDaysStr(g.lastLinked || today, g.intervalDays || 4),
-    tags: Array.isArray(g.tags) ? g.tags : []
-  }));
-
-  const profile = {
-    ...base.profile,
-    ...oldProfile,
-    name: oldProfile.name || 'حافظ القرآن',
-    theme: THEMES.some((t) => t.id === oldProfile.theme) || oldProfile.theme === 'custom' ? oldProfile.theme : 'royal',
-    mode: ['from_nas', 'from_baqarah', 'beginner', 'khatim', 'scattered'].includes(oldProfile.mode)
-      ? oldProfile.mode
-      : (oldProfile.mode === 'custom' ? 'scattered' : 'from_nas'),
-    dailyMin: oldProfile.dailyMin || old.calcDailyMin || 45,
-    pagesPerSession: oldProfile.pagesPerSession || old.calcNewPages || 1
-  };
-
-  const actRev = resolveActiveRevJuz(juzList, old.activeRevJuzNum || null);
-  const actNew = resolveActiveNewSurah(profile, juzList, old.activeNewSurahNum || null);
-
-  return {
-    ...base,
-    version: 7,
-    onboarded: true,
-    welcomeDismissed: !!old.welcomeDismissed,
-    simpleMode: !!old.simpleMode,
-    lastBackupAt: old.lastBackupAt || today,
-    profile,
-    activeRevJuzNum: actRev ? actRev.num : null,
-    activeNewSurahNum: actNew ? actNew.num : null,
-    surahNewProgress: old.surahNewProgress || {},
-    juzList,
-    schedule: buildLiveSchedule(profile, juzList, actRev ? actRev.num : null, actNew ? actNew.num : null, old.schedule || null),
-    weekArchives: old.weekArchives || [],
-    solidMeta,
-    activeWird: old.activeWird || null,
-    maqraaLogs: old.maqraaLogs || [],
-    newLinkingGroups,
-    reminders: old.reminders || [],
-    streak: {
-      count: (old.streak && old.streak.count) || 0,
-      lastDate: (old.streak && old.streak.lastDate) || '',
-      graceUsedDate: (old.streak && old.streak.graceUsedDate) || ''
-    },
-    calcDailyMin: old.calcDailyMin || profile.dailyMin,
-    calcNewPages: old.calcNewPages ?? profile.pagesPerSession
-  };
-}
 
 function loadState() {
   try {
@@ -460,30 +151,14 @@ function loadState() {
       try {
         parsed = JSON.parse(raw);
       } catch (parseErr) {
-        console.warn('Corrupt v7 JSON detected in localStorage:', parseErr);
-        const backupKey = `${STORAGE_KEY}_corrupt_${Date.now()}`;
-        try { localStorage.setItem(backupKey, raw); } catch (e2) { console.warn('Failed saving corrupt copy', e2); }
-        corruptBackupKey = backupKey;
+        console.warn('Corrupt v7 JSON detected:', parseErr);
+        const bk = `${STORAGE_KEY}_corrupt_${Date.now()}`;
+        try { localStorage.setItem(bk, raw); } catch (e2) { console.warn(e2); }
+        corruptBackupKey = bk;
         return getEmptyState();
       }
-      const empty = getEmptyState();
-      const merged = {
-        ...empty,
-        ...parsed,
-        profile: {
-          ...empty.profile,
-          ...(parsed.profile || {}),
-          customColors: { ...empty.profile.customColors, ...((parsed.profile && parsed.profile.customColors) || {}) }
-        },
-        streak: { ...empty.streak, ...(parsed.streak || {}) },
-        surahNewProgress: parsed.surahNewProgress || {},
-        reminders: parsed.reminders || [],
-        busyTasksDone: parsed.busyTasksDone || { t1: false, t2: false }
-      };
-      return merged;
+      return normalizeV7State(parsed);
     }
-
-    // ترقية تلقائية صامتة وآمنة من v6 إذا وجدت
     const v6Raw = localStorage.getItem('rafiq_altathbit_v6');
     if (v6Raw) {
       const v6Parsed = JSON.parse(v6Raw);
@@ -501,397 +176,21 @@ function loadState() {
 
 let state = loadState();
 
-function saveAutoSnapshot(reason) {
-  try {
-    const raw = localStorage.getItem(SNAPSHOTS_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    const snap = {
-      at: new Date().toISOString(),
-      date: todayStr(),
-      reason: reason || 'تلقائي',
-      data: JSON.parse(JSON.stringify(state))
-    };
-    const filtered = list.filter((s) => !(reason === 'يومي' && s.date === snap.date));
-    filtered.unshift(snap);
-    localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(filtered.slice(0, 3)));
-  } catch (e) {
-    console.warn('saveAutoSnapshot failed:', e);
-  }
-}
-
-function getAutoSnapshots() {
-  try {
-    const raw = localStorage.getItem(SNAPSHOTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.warn('getAutoSnapshots failed:', e);
-    return [];
-  }
-}
-
-function restoreLastAutoSnapshot() {
-  const snaps = getAutoSnapshots();
-  if (!snaps.length) { showToast('لا توجد لقطات تلقائية محفوظة بعد'); return; }
-  const latest = snaps[0];
-  if (!confirm(`استعادة اللقطة المحفوظة بتاريخ ${latest.date} (${latest.reason})؟`)) return;
-  state = migrateState(latest.data);
-  saveState();
-  renderAll();
-  showToast('تمت استعادة آخر لقطة تلقائية بنجاح ✓');
-}
-
 function saveState() {
-  if (corruptBackupKey) return; // لا نكتب فوق بيانات تالفة حتى يقرّر المستخدم
+  if (corruptBackupKey) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     storageQuotaWarning = false;
-    // لقطة يومية تلقائية واحدة في اليوم
     const snaps = getAutoSnapshots();
     if (state.onboarded && (!snaps.length || snaps[0].date !== todayStr())) {
-      saveAutoSnapshot('يومي');
+      saveAutoSnapshot(state, 'يومي');
     }
   } catch (e) {
-    console.warn('saveState failed (quota or storage restricted):', e);
+    console.warn('saveState failed:', e);
     storageQuotaWarning = true;
     showToast('تعذّر الحفظ في ذاكرة المتصفح — يُنصح بتصدير نسخة احتياطية الآن');
-    renderStorageAlerts();
+    renderPriorityBanners();
   }
-}
-
-function requestPersistentStorage() {
-  if (navigator.storage && navigator.storage.persist) {
-    navigator.storage.persist().catch((e) => console.warn('storage.persist error:', e));
-  }
-}
-
-// ================= 6. DIAGNOSTIC & ACTIVE-TARGET ENGINE =================
-function getEffectiveDirection(profile) {
-  if (profile.mode === 'from_nas') return 'from_nas';
-  if (profile.mode === 'from_baqarah') return 'from_baqarah';
-  if (profile.mode === 'beginner') return profile.beginnerDir || 'from_nas';
-  if (profile.mode === 'khatim') return profile.khatimStart === 'from_nas' ? 'from_nas' : 'from_baqarah';
-  if (profile.mode === 'scattered') return profile.scatteredContinue === 'org_baqarah' ? 'from_baqarah' : 'from_nas';
-  return 'from_nas';
-}
-
-function getDiagnosedMemorizedSet(profile) {
-  const set = new Set();
-  if (profile.mode === 'khatim') { SURAHS_DB.forEach((s) => set.add(s.num)); return set; }
-  if (profile.mode === 'beginner') return set;
-  if (profile.mode === 'scattered') { (profile.scatteredSurahs || []).forEach((n) => set.add(Number(n))); return set; }
-  const stop = Number(profile.stopSurahNum) || (profile.mode === 'from_nas' ? 114 : 1);
-  const includeStop = profile.stopSurahCompleted === true;
-  if (profile.mode === 'from_nas') {
-    SURAHS_DB.forEach((s) => { if (s.num > stop || (includeStop && s.num === stop)) set.add(s.num); });
-  } else if (profile.mode === 'from_baqarah') {
-    SURAHS_DB.forEach((s) => { if (s.num < stop || (includeStop && s.num === stop)) set.add(s.num); });
-  }
-  return set;
-}
-
-function resolveActiveNewSurah(profile, juzList, preferredSurahNum) {
-  if (profile.mode === 'khatim') return null;
-
-  const isSurahDoneInMap = (num) => {
-    if (!juzList || juzList.length !== 30) return false;
-    const entries = [];
-    juzList.forEach((j) => { (j.surahs || []).forEach((s) => { if (s.num === num) entries.push(s); }); });
-    return entries.length > 0 && entries.every((e) => e.done);
-  };
-
-  if (preferredSurahNum) {
-    const pref = getSurahByNum(preferredSurahNum);
-    if (pref && !isSurahDoneInMap(pref.num)) return pref;
-  }
-
-  const dir = getEffectiveDirection(profile);
-  const orderedAll = dir === 'from_nas' ? [...SURAHS_DB].reverse() : [...SURAHS_DB];
-
-  if (juzList && juzList.length === 30) {
-    const surahStatus = new Map();
-    juzList.forEach((j) => {
-      (j.surahs || []).forEach((s) => {
-        const cur = surahStatus.get(s.num) || { hasNew: false, allDone: true };
-        if (s.track === 'new') cur.hasNew = true;
-        if (!s.done) cur.allDone = false;
-        surahStatus.set(s.num, cur);
-      });
-    });
-    const nextNew = orderedAll.find((s) => {
-      const st = surahStatus.get(s.num);
-      return st && st.hasNew && !st.allDone;
-    });
-    if (nextNew) return nextNew;
-  }
-
-  const memSet = getDiagnosedMemorizedSet(profile);
-  return orderedAll.find((s) => !memSet.has(s.num)) || null;
-}
-
-function resolveActiveRevJuz(juzList, preferredJuzNum) {
-  if (!juzList || juzList.length === 0) return null;
-  const revPending = juzList.filter((j) => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
-  if (revPending.length === 0) return null;
-  if (preferredJuzNum) {
-    const match = revPending.find((j) => j.num === Number(preferredJuzNum));
-    if (match) return match;
-  }
-  return revPending[0];
-}
-
-function summarizeDiagnostic(profile) {
-  const memSet = getDiagnosedMemorizedSet(profile);
-  let memPages = 0;
-  let completedJuzCount = 0;
-  JUZ_DB.forEach((j) => {
-    const jSurahs = getJuzSurahs(j.num);
-    const inJuz = jSurahs.filter((s) => memSet.has(s.num));
-    if (inJuz.length === jSurahs.length && jSurahs.length > 0) {
-      completedJuzCount++;
-      memPages += j.totalPages;
-    } else {
-      memPages += inJuz.reduce((sum, s) => sum + getSurahPagesInJuz(s, j), 0);
-    }
-  });
-  memPages = Math.min(604, Number(memPages.toFixed(1)));
-  const nextSurah = resolveActiveNewSurah(profile, null, null);
-  return {
-    memCount: memSet.size,
-    memPages,
-    completedJuzCount,
-    remPages: Math.max(0, Number((604 - memPages).toFixed(1))),
-    nextSurah
-  };
-}
-
-function orderJuzForRevision(juzList, profile) {
-  const revMode = profile.revStartMode || 'auto';
-  const dir = getEffectiveDirection(profile);
-
-  if (profile.mode === 'khatim' && profile.khatimStart === 'specific_juz') {
-    const pNums = (profile.khatimSpecificJuz || []).map(Number);
-    const pSet = new Set(pNums);
-    const first = pNums.map((n) => juzList.find((j) => j.num === n)).filter(Boolean);
-    const rest = juzList.filter((j) => !pSet.has(j.num));
-    return [...first, ...rest];
-  }
-
-  const revJuzs = juzList.filter((j) => j.track === 'revision');
-  const newJuzs = juzList.filter((j) => j.track === 'new');
-
-  if (revMode === 'from_baqarah') revJuzs.sort((a, b) => a.num - b.num);
-  else if (revMode === 'from_nas') revJuzs.sort((a, b) => b.num - a.num);
-  else if (revMode === 'custom_juz' && profile.revStartJuz) {
-    const startNum = Number(profile.revStartJuz);
-    revJuzs.sort((a, b) => (dir === 'from_baqarah' ? a.num - b.num : b.num - a.num));
-    const idx = revJuzs.findIndex((j) => j.num === startNum);
-    if (idx > 0) {
-      const rotated = [...revJuzs.slice(idx), ...revJuzs.slice(0, idx)];
-      revJuzs.length = 0;
-      revJuzs.push(...rotated);
-    }
-  } else {
-    revJuzs.sort((a, b) => (dir === 'from_baqarah' ? a.num - b.num : b.num - a.num));
-  }
-
-  newJuzs.sort((a, b) => (dir === 'from_baqarah' ? a.num - b.num : b.num - a.num));
-  return [...revJuzs, ...newJuzs];
-}
-
-function buildPersonalizedPlan(profile, prevSolidMeta = null) {
-  const memSet = getDiagnosedMemorizedSet(profile);
-  const dir = getEffectiveDirection(profile);
-  const stability = profile.mode === 'beginner' ? 'weak' : (profile.stability || 'weak');
-  const today = todayStr();
-  const solidMeta = {};
-
-  const rawList = JUZ_DB.map((jRaw) => {
-    const jSurahsRaw = getJuzSurahs(jRaw.num);
-    const jSurahsOrdered = dir === 'from_nas' ? [...jSurahsRaw].reverse() : [...jSurahsRaw];
-    const memInJuz = jSurahsOrdered.filter((s) => memSet.has(s.num));
-    const hasMemorized = profile.mode === 'khatim' || memInJuz.length > 0;
-    const juzTrack = hasMemorized ? 'revision' : 'new';
-
-    const surahs = jSurahsOrdered.map((s) => {
-      const pInJuz = getSurahPagesInJuz(s, jRaw);
-      const wasMem = memSet.has(s.num);
-      const sTrack = (profile.mode === 'khatim' || wasMem) ? 'revision' : 'new';
-      const done = wasMem && stability === 'solid';
-      return { num: s.num, name: s.name, pages: pInJuz, track: sTrack, wasMemorized: wasMem, done };
-    });
-
-    let basePages = 0;
-    if (juzTrack === 'revision' && stability === 'medium') {
-      const memPagesInJuz = Math.min(jRaw.totalPages, surahs.reduce((sum, s) => sum + (s.wasMemorized ? s.pages : 0), 0));
-      basePages = Number((memPagesInJuz * 0.5).toFixed(1));
-    }
-
-    const juzObj = {
-      num: jRaw.num,
-      title: jRaw.title,
-      range: jRaw.range,
-      totalPages: jRaw.totalPages,
-      track: juzTrack,
-      phase: '',
-      donePages: 0,
-      basePages,
-      loggedPages: 0,
-      tags: [],
-      surahs,
-      note: ''
-    };
-    recomputeJuzProgress(juzObj);
-    return juzObj;
-  });
-
-  const juzList = orderJuzForRevision(rawList, profile);
-
-  let revIdx = 0;
-  juzList.forEach((j) => {
-    if (j.track === 'revision') {
-      revIdx++;
-      if (j.donePages >= j.totalPages - 0.01) {
-        if (prevSolidMeta && prevSolidMeta[j.num]) {
-          solidMeta[j.num] = prevSolidMeta[j.num];
-        } else {
-          solidMeta[j.num] = {
-            reviews: 0,
-            reps: 0,
-            lapses: 0,
-            ease: SR_CONFIG.defaultEase,
-            lastReviewed: today,
-            rating: '',
-            intervalDays: SR_CONFIG.firstAutoReviewDays,
-            nextReviewDate: addDaysStr(today, ((revIdx - 1) % 7) + SR_CONFIG.firstAutoReviewDays),
-            weakPages: [],
-            addedAt: today
-          };
-        }
-      }
-      if (profile.mode === 'khatim') {
-        j.phase = (profile.khatimStart === 'specific_juz' && (profile.khatimSpecificJuz || []).includes(j.num))
-          ? 'الدورة الأولى: الأجزاء المختارة'
-          : (revIdx <= 10 ? 'المرحلة ١: الثلث الأول' : (revIdx <= 20 ? 'المرحلة ٢: الثلث الثاني' : 'المرحلة ٣: تمام الختمة'));
-      } else if (profile.mode === 'scattered') {
-        j.phase = 'مسار مراجعة السور المحفوظة';
-      } else {
-        j.phase = revIdx <= 5 ? 'المرحلة ١: البداية السريعة في المراجعة' : (revIdx <= 14 ? 'المرحلة ٢: التدرّج المتوازن' : 'المرحلة ٣: استكمال المراجعة');
-      }
-    } else {
-      j.phase = dir === 'from_baqarah' ? 'مسار الحفظ الجديد (من البقرة نحو الناس)' : 'مسار الحفظ الجديد (من الناس نحو البقرة)';
-    }
-  });
-
-  const initialActiveRev = resolveActiveRevJuz(juzList, profile.revStartMode === 'custom_juz' ? profile.revStartJuz : null);
-  const initialActiveNew = resolveActiveNewSurah(profile, juzList, null);
-
-  return {
-    juzList,
-    solidMeta,
-    activeRevJuzNum: initialActiveRev ? initialActiveRev.num : null,
-    activeNewSurahNum: initialActiveNew ? initialActiveNew.num : null
-  };
-}
-
-// ================= 7. LIVE REACTIVE SCHEDULE ENGINE =================
-function buildLiveSchedule(profile, juzList, activeRevJuzNum, activeNewSurahNum, existingSchedule = null) {
-  const daily = parseInt(profile.dailyMin, 10) || 45;
-  const mainMin = Math.round(daily * 0.65);
-  const secMin = Math.max(5, Math.round(daily * 0.17));
-  const solMin = Math.max(5, daily - mainMin - secMin);
-  const isKhatim = profile.mode === 'khatim';
-  const isBeginner = profile.mode === 'beginner';
-  const hasMaqraa = profile.studyStyle === 'maqraa';
-  const maqraaDays = hasMaqraa ? (profile.maqraaDays || ['mon', 'thu']) : [];
-  const pagesPerSess = parseFloat(profile.pagesPerSession) || 1;
-  const revPagesPerDay = Math.max(1, Math.round(mainMin / 13));
-
-  const activeRev = resolveActiveRevJuz(juzList, activeRevJuzNum);
-  const revPendingAll = (juzList || []).filter((j) => j.track === 'revision' && j.donePages < j.totalPages - 0.01);
-  const revOrdered = activeRev ? [activeRev, ...revPendingAll.filter((j) => j.num !== activeRev.num)] : revPendingAll;
-
-  const activeNewSurah = resolveActiveNewSurah(profile, juzList, activeNewSurahNum);
-  const nextSurahLabel = activeNewSurah ? `سورة ${activeNewSurah.name} (الجزء ${activeNewSurah.juz})` : 'الورد الجديد التالي';
-
-  const getRevLabelForDay = (dayIdx) => {
-    if (revOrdered.length === 0) return null;
-    const targetJuz = isKhatim ? revOrdered[dayIdx % revOrdered.length] : revOrdered[0];
-    const undoneSurahs = (targetJuz.surahs || []).filter((s) => !s.done && (isKhatim || s.track === 'revision'));
-    const names = (undoneSurahs.length > 0 ? undoneSurahs : (targetJuz.surahs || [])).slice(0, 3).map((s) => s.name).join('، ');
-    return `${targetJuz.title}${names ? ` (${names})` : ''}`;
-  };
-
-  const completedJuz = (juzList || []).filter((j) => j.donePages >= j.totalPages - 0.01);
-  const solidSample = completedJuz.length > 0
-    ? completedJuz.slice(0, 2).map((j) => j.title).join(' و')
-    : (activeNewSurah ? `ربط مقاطع سورة ${activeNewSurah.name}` : 'المستحق في صندوق التثبيت');
-
-  return DAYS_META.map((dm, idx) => {
-    const prev = existingSchedule ? existingSchedule.find((d) => d.id === dm.id) : null;
-    if (prev && prev.customEdited) return { ...prev };
-
-    const isMq = maqraaDays.includes(dm.id);
-    const nextDay = DAYS_META[(idx + 1) % 7];
-    const isPrepDay = !isKhatim && hasMaqraa && maqraaDays.includes(nextDay.id);
-    const revLabel = getRevLabelForDay(idx);
-
-    let mainText = '';
-    let secondText = '';
-    let solidText = '';
-
-    if (isKhatim) {
-      const kPages = Math.max(2, Math.round(mainMin / 6));
-      mainText = dm.id === 'fri'
-        ? `مراجعة شاملة لأوراد الأسبوع في ${revLabel || 'دورتك الحالية'} (${mainMin} د)`
-        : `مراجعة ${kPages} أوجه من ${revLabel || 'دورة المراجعة'} (${mainMin} د)`;
-      secondText = isMq
-        ? `تسميع ورد ${revLabel || 'المراجعة'} في المقرأة وتسجيل التقييم`
-        : `اختبار غيبي سريع وربط المتشابهات في ${revLabel || 'الجزء النشط'} (${secMin} د)`;
-      solidText = `صندوق التثبيت: سرد سريع لـ ${solidSample} (${solMin} د)`;
-    } else if (isBeginner || !revLabel) {
-      if (isMq) {
-        mainText = `مراجعة وتثبيت ${pagesPerSess} وجه من ${nextSurahLabel} قبل التسميع (${mainMin} د)`;
-        secondText = `تسميع ورد ${nextSurahLabel} وتسجيل التقييم`;
-      } else if (dm.id === 'fri') {
-        mainText = `مراجعة مجمّعة لما حُفظ خلال الأسبوع من ${nextSurahLabel} (${mainMin} د)`;
-        secondText = `تسميع ذاتي متصل لمقاطع ${nextSurahLabel} (${secMin} د)`;
-      } else {
-        mainText = `حفظ ${pagesPerSess} وجه جديد من ${nextSurahLabel} (${mainMin} د)`;
-        secondText = `تسميع غيبي وربط الورد بما قبله في ${nextSurahLabel} (${secMin} د)`;
-      }
-      solidText = `صندوق التثبيت: ${solidSample} (${solMin} د)`;
-    } else if (isMq) {
-      mainText = `مراجعة ${pagesPerSess} وجه من ${nextSurahLabel} + مراجعة وجهين من ${revLabel} (${mainMin} د)`;
-      secondText = `تسميع ورد ${nextSurahLabel} (${pagesPerSess} وجه) وتسجيل التقييم`;
-      solidText = `صندوق التثبيت: ${solidSample} (${solMin} د)`;
-    } else if (isPrepDay) {
-      mainText = `حفظ ${pagesPerSess} وجه جديد من ${nextSurahLabel} بتركيز (${mainMin} د)`;
-      secondText = `ربط الورد الجديد بالمقاطع السابقة في ${nextSurahLabel} (${secMin} د)`;
-      solidText = `صندوق التثبيت: سرد سريع لـ ${solidSample} (${solMin} د)`;
-    } else if (dm.id === 'fri') {
-      mainText = `مراجعة ${revPagesPerDay} أوجه من ${revLabel} أو تعويض ما فات بهدوء (${mainMin} د)`;
-      secondText = `مراجعة مجمّعة لمقاطع ${nextSurahLabel} خلال الأسبوع (${secMin} د)`;
-      solidText = `صندوق التثبيت: مراجعة المستحق اليوم من ${solidSample} (${solMin} د)`;
-    } else {
-      const soloNewDay = !hasMaqraa && (dm.id === 'sun' || dm.id === 'wed');
-      mainText = soloNewDay
-        ? `حفظ ${pagesPerSess} وجه جديد من ${nextSurahLabel} (${mainMin} د)`
-        : `مراجعة ${revPagesPerDay} أوجه من ${revLabel} (${mainMin} د)`;
-      secondText = soloNewDay
-        ? `تسميع ذاتي وربط ${nextSurahLabel} بالمقطع السابق (${secMin} د)`
-        : `اختبار غيبي سريع في ${revLabel} (${secMin} د)`;
-      solidText = `صندوق التثبيت: ${solidSample} (${solMin} د)`;
-    }
-
-    return {
-      id: dm.id, jsDay: dm.jsDay, name: dm.name, maqraa: isMq,
-      main: mainText, second: secondText, solid: solidText,
-      mDone: prev ? !!prev.mDone : false,
-      eDone: prev ? !!prev.eDone : false,
-      sDone: prev ? !!prev.sDone : false,
-      customEdited: false
-    };
-  });
 }
 
 function syncPlanAndScheduleLive() {
@@ -900,52 +199,18 @@ function syncPlanAndScheduleLive() {
   state.activeRevJuzNum = resolvedRev ? resolvedRev.num : null;
   const resolvedNew = resolveActiveNewSurah(state.profile, state.juzList, state.activeNewSurahNum);
   state.activeNewSurahNum = resolvedNew ? resolvedNew.num : null;
-  state.schedule = buildLiveSchedule(state.profile, state.juzList, state.activeRevJuzNum, state.activeNewSurahNum, state.schedule);
+  const hasLinkingItems = state.newLinkingGroups.some((g) => !g.archived && g.passages.length > 0);
+  state.schedule = buildLiveSchedule(
+    state.profile, state.juzList, state.activeRevJuzNum, state.activeNewSurahNum,
+    state.schedule, { hasLinkingItems }
+  );
 }
 
-// ================= 8. LEGACY IMPORT & EMERGENCY EXPORT =================
-function findLegacyStorageKey() {
-  for (const key of LEGACY_KEYS) {
-    if (localStorage.getItem(key)) return key;
-  }
-  return null;
-}
-
-function importLegacyFromStorage() {
-  const key = findLegacyStorageKey();
-  if (!key) { showToast('لا توجد بيانات محفوظة من النسخ السابقة على هذا الجهاز'); return; }
-  try {
-    saveAutoSnapshot('قبل استيراد نسخة سابقة');
-    const old = JSON.parse(localStorage.getItem(key));
-    state = migrateState(old);
-    applyTheme(state.profile.theme, state.profile.customColors);
-    saveState();
-    document.getElementById('onboardingOverlay').classList.remove('active');
-    renderAll();
-    showToast('تم استيراد بياناتك السابقة وترقيتها للنسخة السابعة بنجاح ✓');
-  } catch (e) {
-    console.warn('Legacy import failed:', e);
-    showToast('تعذّر قراءة بيانات النسخة السابقة — يمكنك البدء بالإعداد الجديد');
-  }
-}
-
-function emergencyExportRaw() {
-  const raw = localStorage.getItem(corruptBackupKey || STORAGE_KEY) || JSON.stringify(state);
-  const blob = new Blob([raw], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `rafiq_emergency_backup_${todayStr()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// ================= 9. THEMES UI (SINGLE REUSABLE RENDERER) =================
+// ================= THEMES UI =================
 function setTheme(themeId) {
   state.profile.theme = themeId;
   obDraft.theme = themeId;
-  const cc = state.onboarded ? state.profile.customColors : obDraft.customColors;
-  applyTheme(themeId, cc);
+  applyTheme(themeId, state.onboarded ? state.profile.customColors : obDraft.customColors);
   if (state.onboarded) saveState();
   renderThemeGrids();
 }
@@ -963,49 +228,30 @@ function updateCustomColor(field, value) {
 function renderThemeGrids() {
   const current = state.onboarded ? state.profile.theme : obDraft.theme;
   const cc = (state.onboarded ? state.profile.customColors : obDraft.customColors) || { bg: '#00112B', accent: '#D0A151' };
-
   const tilesHtml = THEMES.map((t) => `
     <button type="button" class="theme-tile ${current === t.id ? 'selected' : ''}" onclick="setTheme('${t.id}')">
-      <div class="theme-swatches">
-        ${t.swatches.map((c) => `<span class="swatch" style="background:${c};"></span>`).join('')}
-      </div>
+      <div class="theme-swatches">${t.swatches.map((c) => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
       <strong style="display:block; font-size:0.82rem; color:var(--text-main);">${t.name}</strong>
       <small style="font-size:0.74rem; color:var(--text-muted);">${t.desc}</small>
     </button>
   `).join('') + `
     <button type="button" class="theme-tile ${current === 'custom' ? 'selected' : ''}" onclick="setTheme('custom')">
-      <div class="theme-swatches">
-        <span class="swatch" style="background:${cc.bg};"></span>
-        <span class="swatch" style="background:${cc.accent};"></span>
-      </div>
+      <div class="theme-swatches"><span class="swatch" style="background:${cc.bg};"></span><span class="swatch" style="background:${cc.accent};"></span></div>
       <strong style="display:block; font-size:0.82rem; color:var(--text-main);">تخصيص حر</strong>
       <small style="font-size:0.74rem; color:var(--text-muted);">اختر ألوانك بتباين تلقائي</small>
-    </button>
-  `;
-
+    </button>`;
   const ratio = getContrastRatio(cc.bg, cc.accent);
-  const contrastMsg = ratio >= 4.5
-    ? `<span class="tag tag-success">تباين مريح (${ratio.toFixed(1)}:1)</span>`
-    : '<span class="tag tag-gold">تم ضبط تباين النصوص تلقائياً لراحة العين</span>';
-
   const customBoxHtml = current === 'custom' ? `
     <div class="custom-theme-box">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
         <strong style="font-size:0.84rem; color:var(--accent-hi);">إعدادات التخصيص الحر</strong>
-        ${contrastMsg}
+        <span class="tag ${ratio >= 4.5 ? 'tag-success' : 'tag-gold'}">${ratio >= 4.5 ? `تباين مريح (${ratio.toFixed(1)}:1)` : 'تم ضبط تباين النصوص تلقائياً'}</span>
       </div>
       <div class="color-picker-row">
-        <label class="color-input-wrap">
-          <input type="color" value="${cc.bg}" oninput="updateCustomColor('bg', this.value)" />
-          <div class="color-input-meta"><strong>لون الخلفية</strong><span>${cc.bg.toUpperCase()}</span></div>
-        </label>
-        <label class="color-input-wrap">
-          <input type="color" value="${cc.accent}" oninput="updateCustomColor('accent', this.value)" />
-          <div class="color-input-meta"><strong>اللون الأساسي</strong><span>${cc.accent.toUpperCase()}</span></div>
-        </label>
+        <label class="color-input-wrap"><input type="color" value="${cc.bg}" oninput="updateCustomColor('bg', this.value)" /><div class="color-input-meta"><strong>لون الخلفية</strong><span>${cc.bg.toUpperCase()}</span></div></label>
+        <label class="color-input-wrap"><input type="color" value="${cc.accent}" oninput="updateCustomColor('accent', this.value)" /><div class="color-input-meta"><strong>اللون الأساسي</strong><span>${cc.accent.toUpperCase()}</span></div></label>
       </div>
     </div>` : '';
-
   ['modal', 'settings'].forEach((prefix) => {
     const g = document.getElementById(prefix + 'ThemeGrid');
     const c = document.getElementById(prefix + 'CustomThemeContainer');
@@ -1014,12 +260,9 @@ function renderThemeGrids() {
   });
 }
 
-function openThemeModal() {
-  renderThemeGrids();
-  openModal('themeModal');
-}
+function openThemeModal() { renderThemeGrids(); openModal('themeModal'); }
 
-// ================= 10. SIMPLIFIED ONBOARDING (WITH AUTO-SAVE & QUICK SKIP) =================
+// ================= ONBOARDING =================
 function saveObDraft() {
   try {
     const nameEl = document.getElementById('obName');
@@ -1031,11 +274,7 @@ function saveObDraft() {
 function loadObDraft() {
   try {
     const raw = localStorage.getItem(OB_DRAFT_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      obDraft = { ...obDraft, ...parsed };
-      return true;
-    }
+    if (raw) { obDraft = { ...obDraft, ...JSON.parse(raw) }; return true; }
   } catch (e) { console.warn('loadObDraft error:', e); }
   return false;
 }
@@ -1044,62 +283,41 @@ function openOnboarding(isEditing = false) {
   obDraft.isEditing = isEditing;
   obShowRevStartPicker = false;
   surahSearchQuery = '';
-
   if (isEditing && state.profile) {
-    obDraft = {
-      ...obDraft,
-      ...JSON.parse(JSON.stringify(state.profile)),
-      step: 1,
-      isEditing: true,
-      remEnabled: state.reminders.length > 0
-    };
+    obDraft = { ...obDraft, ...JSON.parse(JSON.stringify(state.profile)), step: 1, isEditing: true, remEnabled: state.reminders.length > 0 };
     document.getElementById('obName').value = state.profile.name || '';
   } else {
     loadObDraft();
     document.getElementById('obName').value = obDraft.name || '';
   }
-
   document.getElementById('obDailyMin').value = obDraft.dailyMin || 45;
   document.getElementById('obTimeVal').textContent = (obDraft.dailyMin || 45) + ' دقيقة';
   document.getElementById('obPagesStepVal').textContent = `${formatNum(obDraft.pagesPerSession || 1)} وجه`;
-
   const closeBtn = document.getElementById('obCloseBtn');
   if (closeBtn) closeBtn.style.display = state.onboarded ? 'inline-flex' : 'none';
 
   const legacyKey = findLegacyStorageKey();
   const migBanner = document.getElementById('obMigrationBanner');
-  if (!isEditing && legacyKey) {
-    migBanner.innerHTML = `
-      <div class="alert-banner">
-        <div>
-          <strong>تم العثور على بياناتك المحفوظة من نسخة سابقة</strong>
-          يمكنك استيراد تقدمك وسجل تسميعك مباشرة دون فقدان أي بيانات.
-        </div>
-        <button type="button" class="btn btn-gold btn-sm" onclick="importLegacyFromStorage()">استيراد والمتابعة الآن</button>
-      </div>`;
-  } else {
-    migBanner.innerHTML = '';
-  }
+  migBanner.innerHTML = (!isEditing && legacyKey) ? `
+    <div class="alert-banner">
+      <div><strong>تم العثور على بياناتك المحفوظة من نسخة سابقة</strong> يمكنك استيراد تقدمك وسجل تسميعك مباشرة دون فقدان أي بيانات.</div>
+      <button type="button" class="btn btn-gold btn-sm" onclick="importLegacyFromStorage()">استيراد والمتابعة الآن</button>
+    </div>` : '';
 
-  renderObStep2();
-  renderObStep3();
-  renderObStep4();
+  renderObStep2(); renderObStep3(); renderObStep4();
   obNext(obDraft.step || 1);
   document.getElementById('onboardingOverlay').classList.add('active');
 }
 
 function closeOnboardingSafely() {
-  if (state.onboarded) {
-    document.getElementById('onboardingOverlay').classList.remove('active');
-  } else {
-    skipOnboardingQuick();
-  }
+  if (state.onboarded) document.getElementById('onboardingOverlay').classList.remove('active');
+  else skipOnboardingQuick();
 }
 
 function skipOnboardingQuick() {
-  const name = (document.getElementById('obName').value || '').trim() || 'حافظ القرآن';
-  obDraft.name = name;
+  obDraft.name = (document.getElementById('obName').value || '').trim() || 'حافظ القرآن';
   obDraft.mode = 'beginner';
+  obDraft.level = 'beginner';
   obDraft.beginnerDir = 'from_nas';
   obDraft.dailyMin = 30;
   obDraft.studyStyle = 'solo';
@@ -1119,31 +337,27 @@ function renderObStep2() {
   const modes = [
     { id: 'from_nas', title: 'بدأت الحفظ من الناس إلى البقرة (تصاعدياً)', sub: 'تحدد السورة التي تحفظ فيها الآن، وتختار بداية مراجعة القديم بحرية' },
     { id: 'from_baqarah', title: 'بدأت الحفظ من البقرة إلى الناس (تنازلياً)', sub: 'تحدد السورة التي تحفظ فيها الآن، وتختار بداية مراجعة القديم بحرية' },
-    { id: 'beginner', title: 'لم أحفظ شيئاً بعد (بداية من الصفر)', sub: 'نرشّح لك البداية من الناس للبقرة أو تختار البداية التي تناسبك' },
-    { id: 'khatim', title: 'خاتم للقرآن الكريم (٣٠ جزءاً) — مراجعة وتثبيت', sub: 'يُخفي قسم الحفظ الجديد وتختار نقطة بداية دورتك' },
+    { id: 'beginner', title: 'لم أحفظ شيئاً بعد (بداية من الصفر)', sub: 'نرشّح لك البداية من الناس للبقرة بوضع مبسّط وهادئ' },
+    { id: 'khatim', title: 'خاتم للقرآن الكريم (٣٠ جزءاً) — مراجعة وتثبيت', sub: 'يُخفي الحفظ الجديد ويركّز على دورة الختم (٣٠ / ٦٠ / ٩٠ يوماً)' },
     { id: 'scattered', title: 'حافظ سوراً متفرقة من المصحف', sub: 'تختار السور التي حفظتها فعلاً، ثم تقرر طريقة المتابعة' }
   ];
   document.getElementById('obModeOptions').innerHTML = modes.map((m) => `
     <button type="button" class="choice-card ${obDraft.mode === m.id ? 'selected' : ''}" onclick="selectObMode('${m.id}')">
       <span class="choice-radio"></span>
-      <span>
-        <strong style="display:block; font-size:0.88rem;">${m.title}</strong>
-        <small style="color:var(--text-muted); font-size:0.78rem;">${m.sub}</small>
-      </span>
+      <span><strong style="display:block; font-size:0.88rem;">${m.title}</strong><small style="color:var(--text-muted); font-size:0.78rem;">${m.sub}</small></span>
     </button>
   `).join('');
 }
 
 function selectObMode(modeId) {
   obDraft.mode = modeId;
+  obDraft.level = modeId === 'khatim' ? 'hafidh' : (modeId === 'beginner' ? 'beginner' : 'intermediate');
   surahSearchQuery = '';
   if (modeId === 'from_nas' && (!obDraft.stopSurahNum || obDraft.stopSurahNum < 1)) obDraft.stopSurahNum = 78;
   if (modeId === 'from_baqarah' && (!obDraft.stopSurahNum || obDraft.stopSurahNum > 114)) obDraft.stopSurahNum = 2;
   obDraft.revStartMode = 'auto';
   saveObDraft();
-  renderObStep2();
-  renderObStep3();
-  renderObStep4();
+  renderObStep2(); renderObStep3(); renderObStep4();
 }
 
 function renderObStep3() {
@@ -1165,34 +379,22 @@ function renderObStep3() {
     dyn.innerHTML = `
       <label class="field-label">اختر السورة التي تقف عندها (من ١١٤ سورة):</label>
       <div class="surah-picker-box">
-        <input type="text" placeholder="ابحث باسم السورة أو رقمها..." value="${escapeAttr(surahSearchQuery)}"
-          oninput="surahSearchQuery=this.value; renderObStep3();" />
+        <input type="text" placeholder="ابحث باسم السورة أو رقمها..." value="${escapeAttr(surahSearchQuery)}" oninput="surahSearchQuery=this.value; renderObStep3();" />
         <div class="surah-picker-grid">
-          ${filtered.map((s) => `
-            <button type="button" class="surah-pick-item ${obDraft.stopSurahNum === s.num ? 'selected' : ''}"
-              onclick="obDraft.stopSurahNum=${s.num}; saveObDraft(); renderObStep3();">
-              <span>${s.num}. ${s.name}</span>
-              <small>${formatNum(s.pages)} وجه</small>
-            </button>
-          `).join('')}
+          ${filtered.map((s) => `<button type="button" class="surah-pick-item ${obDraft.stopSurahNum === s.num ? 'selected' : ''}" onclick="obDraft.stopSurahNum=${s.num}; saveObDraft(); renderObStep3();"><span>${s.num}. ${s.name}</span><small>${formatNum(s.pages)} وجه</small></button>`).join('')}
         </div>
       </div>
-
       <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-        <button type="button" class="btn btn-sm ${!obDraft.stopSurahCompleted ? 'btn-gold' : 'btn-ghost'}"
-          onclick="obDraft.stopSurahCompleted=false; saveObDraft(); renderObStep3();">ما زلت أحفظ في سورة ${stopSurah.name}</button>
-        <button type="button" class="btn btn-sm ${obDraft.stopSurahCompleted ? 'btn-gold' : 'btn-ghost'}"
-          onclick="obDraft.stopSurahCompleted=true; saveObDraft(); renderObStep3();">أتممت سورة ${stopSurah.name} وسأبدأ بالتي بعدها</button>
+        <button type="button" class="btn btn-sm ${!obDraft.stopSurahCompleted ? 'btn-gold' : 'btn-ghost'}" onclick="obDraft.stopSurahCompleted=false; saveObDraft(); renderObStep3();">ما زلت أحفظ في سورة ${stopSurah.name}</button>
+        <button type="button" class="btn btn-sm ${obDraft.stopSurahCompleted ? 'btn-gold' : 'btn-ghost'}" onclick="obDraft.stopSurahCompleted=true; saveObDraft(); renderObStep3();">أتممت سورة ${stopSurah.name} وسأبدأ بالتي بعدها</button>
       </div>
-
       <div class="calc-preview-card">
         <strong>الحساب الفعلي لموضعك:</strong>
         <div style="margin-top:4px;">
           • المحفوظ السابق: <strong>${summary.memCount} سورة</strong> (${summary.completedJuzCount} جزء مكتمل • <strong>${formatNum(summary.memPages)}</strong> وجه من ٦٠٤).<br/>
           • سورة الحفظ الجديد النشطة: <strong>${summary.nextSurah ? `سورة ${summary.nextSurah.name} (الجزء ${summary.nextSurah.juz})` : 'أتممت المصحف!'}</strong>
         </div>
-      </div>
-    `;
+      </div>`;
 
     if (summary.memCount > 0) {
       const memSet = getDiagnosedMemorizedSet(obDraft);
@@ -1201,29 +403,19 @@ function renderObStep3() {
         obDraft.revStartJuz = obDraft.mode === 'from_nas' ? revJuzCandidates[revJuzCandidates.length - 1].num : revJuzCandidates[0].num;
       }
       revStartSec.innerHTML = `
-        <button type="button" class="btn btn-ghost btn-sm btn-block" style="justify-content:space-between;"
-          onclick="obShowRevStartPicker=!obShowRevStartPicker; renderObStep3();">
+        <button type="button" class="btn btn-ghost btn-sm btn-block" style="justify-content:space-between;" onclick="obShowRevStartPicker=!obShowRevStartPicker; renderObStep3();">
           <span>⚙️ تخصيص بداية مراجعة القديم (اختياري)</span>
           <span>${obShowRevStartPicker ? 'إخفاء ▲' : 'تخصيص ▼'}</span>
         </button>
         ${obShowRevStartPicker ? `
           <div style="margin-top:9px; padding:10px; border-radius:12px; background:var(--bg-surface); border:1px solid var(--border-subtle);">
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-              <button type="button" class="btn btn-sm ${obDraft.revStartMode === 'auto' || obDraft.revStartMode === 'from_nas' ? 'btn-gold' : 'btn-ghost'}"
-                onclick="obDraft.revStartMode='from_nas'; saveObDraft(); renderObStep3();">من الناس ← البقرة</button>
-              <button type="button" class="btn btn-sm ${obDraft.revStartMode === 'from_baqarah' ? 'btn-gold' : 'btn-ghost'}"
-                onclick="obDraft.revStartMode='from_baqarah'; saveObDraft(); renderObStep3();">من البقرة ← الناس</button>
-              <button type="button" class="btn btn-sm ${obDraft.revStartMode === 'custom_juz' ? 'btn-gold' : 'btn-ghost'}"
-                onclick="obDraft.revStartMode='custom_juz'; saveObDraft(); renderObStep3();">جزء محدد (مثلاً من المنتصف)</button>
+              <button type="button" class="btn btn-sm ${obDraft.revStartMode === 'auto' || obDraft.revStartMode === 'from_nas' ? 'btn-gold' : 'btn-ghost'}" onclick="obDraft.revStartMode='from_nas'; saveObDraft(); renderObStep3();">من الناس ← البقرة</button>
+              <button type="button" class="btn btn-sm ${obDraft.revStartMode === 'from_baqarah' ? 'btn-gold' : 'btn-ghost'}" onclick="obDraft.revStartMode='from_baqarah'; saveObDraft(); renderObStep3();">من البقرة ← الناس</button>
+              <button type="button" class="btn btn-sm ${obDraft.revStartMode === 'custom_juz' ? 'btn-gold' : 'btn-ghost'}" onclick="obDraft.revStartMode='custom_juz'; saveObDraft(); renderObStep3();">جزء محدد (مثلاً من المنتصف)</button>
             </div>
-            ${obDraft.revStartMode === 'custom_juz' ? `
-              <select onchange="obDraft.revStartJuz=Number(this.value); saveObDraft();">
-                ${revJuzCandidates.map((j) => `<option value="${j.num}" ${obDraft.revStartJuz === j.num ? 'selected' : ''}>${j.title} — ${j.range}</option>`).join('')}
-              </select>
-            ` : ''}
-          </div>
-        ` : ''}
-      `;
+            ${obDraft.revStartMode === 'custom_juz' ? `<select onchange="obDraft.revStartJuz=Number(this.value); saveObDraft();">${revJuzCandidates.map((j) => `<option value="${j.num}" ${obDraft.revStartJuz === j.num ? 'selected' : ''}>${j.title} — ${j.range}</option>`).join('')}</select>` : ''}
+          </div>` : ''}`;
     }
   } else if (obDraft.mode === 'beginner') {
     titleEl.textContent = '٣. من أين تفضّل بداية رحلة الحفظ؟';
@@ -1236,14 +428,11 @@ function renderObStep3() {
     dyn.innerHTML = bDirs.map((d) => `
       <button type="button" class="choice-card ${obDraft.beginnerDir === d.id ? 'selected' : ''}" onclick="obDraft.beginnerDir='${d.id}'; saveObDraft(); renderObStep3();">
         <span class="choice-radio"></span>
-        <span>
-          <strong style="display:block; font-size:0.88rem;">${d.title}</strong>
-          <small style="color:var(--text-muted); font-size:0.78rem;">${d.sub}</small>
-        </span>
+        <span><strong style="display:block; font-size:0.88rem;">${d.title}</strong><small style="color:var(--text-muted); font-size:0.78rem;">${d.sub}</small></span>
       </button>
     `).join('') + `<div class="calc-preview-card"><strong>نقطة الانطلاق:</strong> ستبدأ خطة الحفظ الجديد من <strong>${startSurah}</strong>.</div>`;
   } else if (obDraft.mode === 'khatim') {
-    titleEl.textContent = '٣. من أين تبدأ دورة مراجعة الـ ٣٠ جزءاً؟';
+    titleEl.textContent = '٣. إعداد دورة مراجعة الـ ٣٠ جزءاً';
     stabSec.style.display = 'block';
     const kOpts = [
       { id: 'from_baqarah', title: 'من البقرة إلى الناس (الجزء ١ ← ٣٠)', sub: 'دورة مراجعة متسلسلة من أول المصحف' },
@@ -1252,21 +441,20 @@ function renderObStep3() {
     ];
     let specHtml = '';
     if (obDraft.khatimStart === 'specific_juz') {
-      specHtml = `
-        <label class="field-label" style="margin-top:10px;">اختر الأجزاء التي تريد البدء بها (${obDraft.khatimSpecificJuz.length} أجزاء محددة):</label>
-        <div class="juz-pick-grid">
-          ${JUZ_DB.map((j) => `<button type="button" class="juz-pick-chip ${obDraft.khatimSpecificJuz.includes(j.num) ? 'selected' : ''}" onclick="toggleKhatimJuz(${j.num})">ج ${j.num}</button>`).join('')}
-        </div>`;
+      specHtml = `<label class="field-label" style="margin-top:10px;">اختر الأجزاء التي تريد البدء بها (${obDraft.khatimSpecificJuz.length} أجزاء):</label>
+        <div class="juz-pick-grid">${JUZ_DB.map((j) => `<button type="button" class="juz-pick-chip ${obDraft.khatimSpecificJuz.includes(j.num) ? 'selected' : ''}" onclick="toggleKhatimJuz(${j.num})">ج ${j.num}</button>`).join('')}</div>`;
     }
+    const cycleHtml = `
+      <label class="field-label" style="margin-top:12px;">هدف إنهاء دورة المراجعة الكاملة (٦٠٤ وجهاً):</label>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${[30, 60, 90].map((days) => `<button type="button" class="btn btn-sm ${(obDraft.khatimCycleDays || 60) === days ? 'btn-gold' : 'btn-ghost'}" onclick="obDraft.khatimCycleDays=${days}; saveObDraft(); renderObStep3();">${days} يوماً (${Math.ceil(604 / days)} وجه/يوم)</button>`).join('')}
+      </div>`;
     dyn.innerHTML = kOpts.map((k) => `
       <button type="button" class="choice-card ${obDraft.khatimStart === k.id ? 'selected' : ''}" onclick="obDraft.khatimStart='${k.id}'; saveObDraft(); renderObStep3();">
         <span class="choice-radio"></span>
-        <span>
-          <strong style="display:block; font-size:0.88rem;">${k.title}</strong>
-          <small style="color:var(--text-muted); font-size:0.78rem;">${k.sub}</small>
-        </span>
+        <span><strong style="display:block; font-size:0.88rem;">${k.title}</strong><small style="color:var(--text-muted); font-size:0.78rem;">${k.sub}</small></span>
       </button>
-    `).join('') + specHtml;
+    `).join('') + specHtml + cycleHtml;
   } else if (obDraft.mode === 'scattered') {
     titleEl.textContent = '٣. اختر السور التي حفظتها فعلاً';
     stabSec.style.display = 'block';
@@ -1279,32 +467,18 @@ function renderObStep3() {
       { id: 'org_baqarah', title: 'أنتظم بترتيب من البقرة إلى الناس', sub: 'استكمال السور غير المحفوظة تنازلياً' }
     ];
     dyn.innerHTML = `
-      <label class="field-label">حدّد السور التي حفظتها (من قائمة الـ ١١٤ سورة):</label>
+      <label class="field-label">حدّد السور التي حفظتها (من ١١٤ سورة):</label>
       <div class="surah-picker-box">
-        <div style="display:flex; gap:6px;">
-          <input type="text" placeholder="ابحث باسم السورة..." value="${escapeAttr(surahSearchQuery)}" oninput="surahSearchQuery=this.value; renderObStep3();" />
-          <button type="button" class="btn btn-ghost btn-sm" onclick="obDraft.scatteredSurahs=[]; saveObDraft(); renderObStep3();">مسح</button>
-        </div>
-        <div class="surah-picker-grid">
-          ${filtered.map((s) => {
-            const sel = obDraft.scatteredSurahs.includes(s.num);
-            return `<button type="button" class="surah-pick-item ${sel ? 'selected' : ''}" onclick="toggleScatteredSurah(${s.num})"><span>${sel ? '✓ ' : ''}${s.name}</span><small>${formatNum(s.pages)}</small></button>`;
-          }).join('')}
-        </div>
+        <div style="display:flex; gap:6px;"><input type="text" placeholder="ابحث باسم السورة..." value="${escapeAttr(surahSearchQuery)}" oninput="surahSearchQuery=this.value; renderObStep3();" /><button type="button" class="btn btn-ghost btn-sm" onclick="obDraft.scatteredSurahs=[]; saveObDraft(); renderObStep3();">مسح</button></div>
+        <div class="surah-picker-grid">${filtered.map((s) => { const sel = obDraft.scatteredSurahs.includes(s.num); return `<button type="button" class="surah-pick-item ${sel ? 'selected' : ''}" onclick="toggleScatteredSurah(${s.num})"><span>${sel ? '✓ ' : ''}${s.name}</span><small>${formatNum(s.pages)}</small></button>`; }).join('')}</div>
       </div>
       <div class="calc-preview-card"><strong>المحدد حالياً:</strong> ${summary.memCount} سورة بإجمالي <strong>${formatNum(summary.memPages)}</strong> وجهاً.</div>
       <label class="field-label" style="margin-top:12px;">كيف تفضّل المتابعة بعد ذلك؟</label>
-      ${contOpts.map((c) => `
-        <button type="button" class="choice-card ${obDraft.scatteredContinue === c.id ? 'selected' : ''}" onclick="obDraft.scatteredContinue='${c.id}'; saveObDraft(); renderObStep3();">
-          <span class="choice-radio"></span>
-          <span><strong style="display:block; font-size:0.86rem;">${c.title}</strong><small style="color:var(--text-muted); font-size:0.78rem;">${c.sub}</small></span>
-        </button>
-      `).join('')}
-    `;
+      ${contOpts.map((c) => `<button type="button" class="choice-card ${obDraft.scatteredContinue === c.id ? 'selected' : ''}" onclick="obDraft.scatteredContinue='${c.id}'; saveObDraft(); renderObStep3();"><span class="choice-radio"></span><span><strong style="display:block; font-size:0.86rem;">${c.title}</strong><small style="color:var(--text-muted); font-size:0.78rem;">${c.sub}</small></span></button>`).join('')}`;
   }
 
   const stabs = [
-    { id: 'weak', title: 'متفلت (يحتاج مراجعة وتنشيطاً)', sub: 'تبدأ الأجزاء المحفوظة بمسار المراجعة خطوة بخطوة ثم تدخل صندوق التثبيت' },
+    { id: 'weak', title: 'متفلت (يحتاج مراجعة وتنشيطاً)', sub: 'تبدأ الأجزاء المحفوظة بمسار المراجعة ثم تدخل صندوق التثبيت' },
     { id: 'medium', title: 'متوسط (أستحضره بالنظر السريع)', sub: 'يبدأ برصيد ٥٠٪ لتسريع إتمام المراجعة والدخول لصندوق التثبيت' },
     { id: 'solid', title: 'ثابت ومستقر (يحتاج دورة تثبيت فقط)', sub: 'تنتقل الأجزاء المكتملة مباشرةً لصندوق التثبيت بالتكرار المتباعد' }
   ];
@@ -1323,15 +497,13 @@ function toggleKhatimJuz(juzNum) {
     obDraft.khatimSpecificJuz.push(juzNum);
     obDraft.khatimSpecificJuz.sort((a, b) => a - b);
   }
-  saveObDraft();
-  renderObStep3();
+  saveObDraft(); renderObStep3();
 }
 
 function toggleScatteredSurah(surahNum) {
   if (obDraft.scatteredSurahs.includes(surahNum)) obDraft.scatteredSurahs = obDraft.scatteredSurahs.filter((n) => n !== surahNum);
   else obDraft.scatteredSurahs.push(surahNum);
-  saveObDraft();
-  renderObStep3();
+  saveObDraft(); renderObStep3();
 }
 
 function renderObStep4() {
@@ -1345,13 +517,9 @@ function renderObStep4() {
       <span><strong style="display:block; font-size:0.87rem;">${st.title}</strong><small style="color:var(--text-muted); font-size:0.78rem;">${st.sub}</small></span>
     </button>
   `).join('');
-
   document.getElementById('obMaqraaDaysWrap').style.display = obDraft.studyStyle === 'maqraa' ? 'block' : 'none';
   document.getElementById('obPagesPerSessionWrap').style.display = obDraft.mode === 'khatim' ? 'none' : 'block';
-  document.getElementById('obMaqraaDayChips').innerHTML = DAYS_META.map((d) => `
-    <button type="button" class="day-chip ${obDraft.maqraaDays.includes(d.id) ? 'active' : ''}" onclick="toggleObMaqraaDay('${d.id}')">${d.name}</button>
-  `).join('');
-
+  document.getElementById('obMaqraaDayChips').innerHTML = DAYS_META.map((d) => `<button type="button" class="day-chip ${obDraft.maqraaDays.includes(d.id) ? 'active' : ''}" onclick="toggleObMaqraaDay('${d.id}')">${d.name}</button>`).join('');
   document.getElementById('obRemToggleRow').classList.toggle('done', obDraft.remEnabled);
   document.getElementById('obRemCheck').textContent = obDraft.remEnabled ? '✓' : '';
   document.getElementById('obRemTimesWrap').style.display = obDraft.remEnabled ? 'block' : 'none';
@@ -1367,39 +535,40 @@ function setObMin(m) {
 function toggleObMaqraaDay(dayId) {
   if (obDraft.maqraaDays.includes(dayId)) {
     if (obDraft.maqraaDays.length > 1) obDraft.maqraaDays = obDraft.maqraaDays.filter((x) => x !== dayId);
-  } else {
-    obDraft.maqraaDays.push(dayId);
-  }
-  saveObDraft();
-  renderObStep4();
+  } else { obDraft.maqraaDays.push(dayId); }
+  saveObDraft(); renderObStep4();
 }
 
-function toggleObReminders() {
-  obDraft.remEnabled = !obDraft.remEnabled;
-  saveObDraft();
-  renderObStep4();
-}
+function toggleObReminders() { obDraft.remEnabled = !obDraft.remEnabled; saveObDraft(); renderObStep4(); }
 
 function renderObStep5Preview() {
   const tempProfile = { ...obDraft, dailyMin: parseInt(document.getElementById('obDailyMin').value, 10) || 45 };
   const summary = summarizeDiagnostic(tempProfile);
   const built = buildPersonalizedPlan(tempProfile);
-  const sched = buildLiveSchedule(tempProfile, built.juzList, built.activeRevJuzNum, built.activeNewSurahNum, null);
+  const sched = buildLiveSchedule(tempProfile, built.juzList, built.activeRevJuzNum, built.activeNewSurahNum, null, { hasLinkingItems: false });
   const actRevObj = built.juzList.find((j) => j.num === built.activeRevJuzNum);
   const actNewObj = built.activeNewSurahNum ? getSurahByNum(built.activeNewSurahNum) : null;
+
+  let khatimWarn = '';
+  if (tempProfile.mode === 'khatim') {
+    const reqPages = Math.ceil(604 / (tempProfile.khatimCycleDays || 60));
+    const reqMin = reqPages * SR_CONFIG.minutesPerRevPageByLevel.hafidh;
+    if (tempProfile.dailyMin < reqMin) {
+      khatimWarn = `<div style="color:var(--warn); margin-top:6px;">تنبيه: إنهاء الختمة في ${tempProfile.khatimCycleDays} يوماً يتطلب ~${reqMin} دقيقة يومياً (${reqPages} أوجه)؛ يمكنك زيادة وقتك أو اختيار دورة ٩٠ يوماً.</div>`;
+    }
+  }
 
   document.getElementById('obPlanPreviewBox').innerHTML = `
     <div style="font-weight:800; color:var(--accent-hi); margin-bottom:6px;">ملخص خطتك الفعلية المحسوبة:</div>
     <div style="line-height:1.8;">
       ${tempProfile.mode === 'khatim'
-        ? `• المسار: <strong>مراجعة وتثبيت ٣٠ جزءاً</strong> (قسم الحفظ الجديد مخفي).<br/>• بداية الدورة: <strong>${actRevObj ? actRevObj.title : 'الجزء ١'}</strong>.`
+        ? `• المسار: <strong>مراجعة وتثبيت ٣٠ جزءاً</strong> (هدف الدورة: ${tempProfile.khatimCycleDays || 60} يوماً).<br/>• بداية الدورة: <strong>${actRevObj ? actRevObj.title : 'الجزء ١'}</strong>.${khatimWarn}`
         : `• المحفوظ السابق: <strong>${summary.memCount} سورة</strong> (${formatNum(summary.memPages)} وجهاً من ٦٠٤).<br/>
            • سورة الحفظ الجديد النشطة: <strong>${actNewObj ? `سورة ${actNewObj.name} (الجزء ${actNewObj.juz})` : 'مكتمل'}</strong>.<br/>
            ${actRevObj ? `• الجزء النشط لبداية المراجعة: <strong>${actRevObj.title}</strong>.` : '• بداية تأسيسية صافية من الصفر.'}`
       }
       <br/>• مثال ليوم ${sched[0].name} في جدولك الحي: <strong>${escapeHtml(sched[0].main)}</strong>
-    </div>
-  `;
+    </div>`;
 }
 
 function obNext(step) {
@@ -1409,12 +578,8 @@ function obNext(step) {
   }
   obDraft.step = step;
   saveObDraft();
-  for (let i = 1; i <= 5; i++) {
-    document.getElementById('obStep' + i).classList.toggle('active', i === step);
-  }
-  document.querySelectorAll('#obProgressDots .ob-dot').forEach((dot, idx) => {
-    dot.classList.toggle('done', idx < step);
-  });
+  for (let i = 1; i <= 5; i++) document.getElementById('obStep' + i).classList.toggle('active', i === step);
+  document.querySelectorAll('#obProgressDots .ob-dot').forEach((dot, idx) => dot.classList.toggle('done', idx < step));
   if (step === 3) renderObStep3();
   if (step === 4) renderObStep4();
   if (step === 5) { renderObStep4(); renderObStep5Preview(); }
@@ -1422,47 +587,44 @@ function obNext(step) {
 }
 
 function handleFinishOnboardingClick() {
-  if (obDraft.isEditing && state.onboarded) {
-    openModal('rebuildChoiceModal');
-  } else {
-    completeOnboardingSave(true);
-  }
+  if (obDraft.isEditing && state.onboarded) openModal('rebuildChoiceModal');
+  else completeOnboardingSave(true);
 }
 
 function completeOnboardingSave(shouldRebuildJuz) {
   closeModal('rebuildChoiceModal');
-  if (state.onboarded) saveAutoSnapshot('قبل تعديل الملف');
+  if (state.onboarded) saveAutoSnapshot(state, 'قبل تعديل الملف');
 
   const name = (document.getElementById('obName').value || '').trim() || obDraft.name || 'حافظ القرآن';
   const dailyMin = parseInt(document.getElementById('obDailyMin').value, 10) || obDraft.dailyMin || 45;
   const pagesPerSession = obDraft.pagesPerSession || 1;
+  const level = obDraft.mode === 'khatim' ? 'hafidh' : (obDraft.mode === 'beginner' ? 'beginner' : 'intermediate');
 
   const newProfile = {
-    name,
-    theme: obDraft.theme,
+    name, theme: obDraft.theme,
     customColors: { ...(obDraft.customColors || { bg: '#00112B', accent: '#D0A151' }) },
-    mode: obDraft.mode,
-    stopSurahNum: obDraft.stopSurahNum,
-    stopSurahCompleted: obDraft.stopSurahCompleted,
-    beginnerDir: obDraft.beginnerDir,
-    khatimStart: obDraft.khatimStart,
+    level, mode: obDraft.mode,
+    stopSurahNum: obDraft.stopSurahNum, stopSurahCompleted: obDraft.stopSurahCompleted,
+    beginnerDir: obDraft.beginnerDir, khatimStart: obDraft.khatimStart,
     khatimSpecificJuz: [...(obDraft.khatimSpecificJuz || [1, 2, 3])],
+    khatimCycleDays: obDraft.khatimCycleDays || 60,
     scatteredSurahs: [...(obDraft.scatteredSurahs || [])],
     scatteredContinue: obDraft.scatteredContinue,
-    revStartMode: obDraft.revStartMode || 'auto',
-    revStartJuz: obDraft.revStartJuz || 30,
+    revStartMode: obDraft.revStartMode || 'auto', revStartJuz: obDraft.revStartJuz || 30,
     stability: obDraft.mode === 'beginner' ? 'weak' : obDraft.stability,
-    dailyMin,
-    studyStyle: obDraft.studyStyle,
+    dailyMin, studyStyle: obDraft.studyStyle,
     maqraaDays: [...(obDraft.maqraaDays || ['mon', 'thu'])],
     pagesPerSession
   };
 
   state.profile = newProfile;
   state.onboarded = true;
+  state.simpleMode = (newProfile.mode === 'beginner');
+  state.solidSubTab = newProfile.mode === 'khatim' ? 'old' : 'new';
   state.calcDailyMin = dailyMin;
   state.calcNewPages = newProfile.mode === 'khatim' ? 0 : pagesPerSession;
   if (!state.lastBackupAt) state.lastBackupAt = todayStr();
+  if (!state.weekStartedAt) state.weekStartedAt = todayStr();
 
   if (shouldRebuildJuz || state.juzList.length !== 30) {
     const built = buildPersonalizedPlan(newProfile, state.solidMeta);
@@ -1471,8 +633,9 @@ function completeOnboardingSave(shouldRebuildJuz) {
     state.activeRevJuzNum = built.activeRevJuzNum;
     state.activeNewSurahNum = built.activeNewSurahNum;
     state.surahNewProgress = {};
+    state.surahAyahProgress = {};
     state.mapFilter = newProfile.mode === 'beginner' ? 'new' : 'revision';
-    state.schedule = buildLiveSchedule(newProfile, state.juzList, state.activeRevJuzNum, state.activeNewSurahNum, null);
+    state.schedule = buildLiveSchedule(newProfile, state.juzList, state.activeRevJuzNum, state.activeNewSurahNum, null, { hasLinkingItems: false });
   } else {
     syncPlanAndScheduleLive();
   }
@@ -1481,8 +644,8 @@ function completeOnboardingSave(shouldRebuildJuz) {
     const tRev = document.getElementById('obRemRevTime').value || '09:00';
     const tSol = document.getElementById('obRemSolidTime').value || '20:00';
     state.reminders = [
-      { id: 'r1', time: tRev, type: newProfile.mode === 'beginner' ? 'new' : 'revision', enabled: true, lastTriggeredDate: '' },
-      { id: 'r2', time: tSol, type: 'solid', enabled: true, lastTriggeredDate: '' }
+      { id: 'r1', time: tRev, type: newProfile.mode === 'beginner' ? 'new' : 'revision', enabled: true, lastTriggeredDate: '', lastNotifiedDate: '' },
+      { id: 'r2', time: tSol, type: 'solid', enabled: true, lastTriggeredDate: '', lastNotifiedDate: '' }
     ];
     requestNotifPermission(true);
   } else if (!obDraft.isEditing) {
@@ -1500,36 +663,27 @@ function completeOnboardingSave(shouldRebuildJuz) {
   showToast(`أهلاً يا ${name}! خطتك وجدولك الحي جاهزان الآن ✓`);
 }
 
-// ================= 11. STREAK WITH GRACE DAY (1 EVERY 7 DAYS) =================
+// ================= STREAK WITH GRACE DAY =================
 function touchStreak() {
   const t = todayStr();
   if (state.streak.lastDate === t) return;
-  if (!state.streak.lastDate) {
-    state.streak.count = 1;
-    state.streak.lastDate = t;
-    return;
-  }
-  const diff = diffDaysFromToday(t, state.streak.lastDate); // positive days elapsed since lastDate
+  if (!state.streak.lastDate) { state.streak.count = 1; state.streak.lastDate = t; return; }
+  const diff = diffDaysFromToday(t, state.streak.lastDate);
   if (diff === 1) {
     state.streak.count += 1;
   } else if (diff === 2) {
-    // يوم سماح واحد كل ٧ أيام لا يكسر السلسلة
     const lastGrace = state.streak.graceUsedDate;
     const graceDiff = lastGrace ? diffDaysFromToday(t, lastGrace) : 99;
     if (graceDiff >= SR_CONFIG.streakGraceWindowDays) {
       state.streak.count += 1;
       state.streak.graceUsedDate = t;
       showToast('تم تفعيل «يوم سماح» تلقائياً للحفاظ على سلسلة التزامك 🛡️');
-    } else {
-      state.streak.count = 1;
-    }
-  } else {
-    state.streak.count = 1;
-  }
+    } else { state.streak.count = 1; }
+  } else { state.streak.count = 1; }
   state.streak.lastDate = t;
 }
 
-// ================= 12. ACCESSIBLE MODAL MANAGER (ESC + FOCUS RESTORE) =================
+// ================= ACCESSIBLE MODALS =================
 function openModal(id) {
   lastFocusBeforeModal = document.activeElement;
   const el = document.getElementById(id);
@@ -1550,24 +704,18 @@ function closeModal(id) {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   const openModals = document.querySelectorAll('.modal-backdrop.open');
-  if (openModals.length > 0) {
-    closeModal(openModals[openModals.length - 1].id);
-    return;
-  }
+  if (openModals.length > 0) { closeModal(openModals[openModals.length - 1].id); return; }
   const ob = document.getElementById('onboardingOverlay');
-  if (ob && ob.classList.contains('active') && state.onboarded) {
-    closeOnboardingSafely();
-  }
+  if (ob && ob.classList.contains('active') && state.onboarded) closeOnboardingSafely();
 });
 
-// ================= 13. QUICK FOCUS, GLOSSARY & SIMPLE MODE =================
+// ================= GLOSSARY, SIMPLE MODE & QUICK FOCUS =================
 function openGlossaryModal() {
   document.getElementById('glossaryList').innerHTML = GLOSSARY.map((g) => `
     <div class="log-item" style="flex-direction:column; gap:4px;">
       <strong style="color:var(--accent-hi); font-size:0.92rem;">${escapeHtml(g.term)}</strong>
       <div style="font-size:0.83rem; color:var(--text-main);">${escapeHtml(g.desc)}</div>
-    </div>
-  `).join('');
+    </div>`).join('');
   openModal('glossaryModal');
 }
 
@@ -1575,7 +723,7 @@ function toggleSimpleMode() {
   state.simpleMode = !state.simpleMode;
   saveState();
   renderAll();
-  showToast(state.simpleMode ? 'تم تفعيل الوضع البسيط (تركيز على مهام اليوم فقط)' : 'تم تفعيل الوضع المتقدم (عرض كامل البطاقات)');
+  showToast(state.simpleMode ? 'تم تفعيل الوضع المبسط (مهام اليوم والجدول والتثبيت فقط)' : 'تم تفعيل الوضع المتقدم (عرض كامل التبويبات والأدوات)');
 }
 
 function toggleProgressCard() {
@@ -1593,10 +741,7 @@ function renderProgressVisibility() {
 }
 
 function openQuickFocusModal(kind) {
-  if (kind === 'new' && state.profile.mode === 'khatim') {
-    showToast('أنت في وضع الخاتم — يمكنك تعديل ذلك من الإعدادات إن أردت');
-    return;
-  }
+  if (kind === 'new' && state.profile.mode === 'khatim') { showToast('أنت في وضع الخاتم — يمكنك تعديل ذلك من الإعدادات'); return; }
   quickFocusSearch = '';
   renderQuickFocusModal(kind);
   openModal('quickFocusModal');
@@ -1608,22 +753,10 @@ function renderQuickFocusModal(kind) {
   if (kind === 'rev') {
     titleEl.textContent = 'اختر الجزء الذي تريد مراجعته الآن';
     const pendingRev = state.juzList.filter((j) => j.donePages < j.totalPages - 0.01);
-    if (!pendingRev.length) {
-      bodyEl.innerHTML = '<div class="empty-state">ما شاء الله! جميع الأجزاء مكتملة في صندوق التثبيت.</div>';
-      return;
-    }
-    bodyEl.innerHTML = `
-      <p class="muted-note">اختر أي جزء تبدأ به الآن — سيتحدّث جدولك الأسبوعي وصفحتك الرئيسية فوراً بهذا الجزء.</p>
+    if (!pendingRev.length) { bodyEl.innerHTML = '<div class="empty-state">ما شاء الله! جميع الأجزاء مكتملة في صندوق التثبيت.</div>'; return; }
+    bodyEl.innerHTML = `<p class="muted-note">اختر أي جزء تبدأ به الآن — سيتحدّث جدولك الأسبوعي وصفحتك الرئيسية فوراً.</p>
       <div style="display:flex; flex-direction:column; gap:7px; max-height:55vh; overflow-y:auto;">
-        ${pendingRev.map((j) => `
-          <button type="button" class="choice-card ${state.activeRevJuzNum === j.num ? 'selected' : ''}" style="margin-bottom:0;" onclick="setActiveRevJuz(${j.num})">
-            <span class="choice-radio"></span>
-            <span style="flex:1;">
-              <strong style="display:block; font-size:0.88rem;">${j.title} <span class="tag ${j.track === 'new' ? 'tag-info' : 'tag-gold'}">${j.track === 'new' ? 'جديد' : 'مراجعة'}</span></strong>
-              <small style="color:var(--text-muted); font-size:0.78rem;">${j.range} • المنجز: ${formatNum(j.donePages)} / ${j.totalPages} وجهاً</small>
-            </span>
-          </button>
-        `).join('')}
+        ${pendingRev.map((j) => `<button type="button" class="choice-card ${state.activeRevJuzNum === j.num ? 'selected' : ''}" style="margin-bottom:0;" onclick="setActiveRevJuz(${j.num})"><span class="choice-radio"></span><span style="flex:1;"><strong style="display:block; font-size:0.88rem;">${j.title} <span class="tag ${j.track === 'new' ? 'tag-info' : 'tag-gold'}">${j.track === 'new' ? 'جديد' : 'مراجعة'}</span></strong><small style="color:var(--text-muted); font-size:0.78rem;">${j.range} • المنجز: ${formatNum(j.donePages)} / ${j.totalPages} وجهاً</small></span></button>`).join('')}
       </div>`;
   } else {
     titleEl.textContent = 'اختر السورة التي تحفظ فيها الآن';
@@ -1631,8 +764,7 @@ function renderQuickFocusModal(kind) {
     const dir = getEffectiveDirection(state.profile);
     const ordered = dir === 'from_nas' ? [...SURAHS_DB].reverse() : [...SURAHS_DB];
     const filtered = q ? ordered.filter((s) => s.name.includes(q) || String(s.num) === q) : ordered;
-    bodyEl.innerHTML = `
-      <p class="muted-note">اختر أي سورة من الـ ١١٤ سورة لتصبح سورة الحفظ الجديد النشطة وتظل ثابتة معك حتى تتمها.</p>
+    bodyEl.innerHTML = `<p class="muted-note">اختر أي سورة من الـ ١١٤ سورة لتصبح سورة الحفظ الجديد النشطة وتظل ثابتة معك حتى تتمها.</p>
       <input type="text" placeholder="ابحث باسم السورة أو رقمها..." value="${escapeAttr(quickFocusSearch)}" oninput="quickFocusSearch=this.value; renderQuickFocusModal('new');" style="margin-bottom:8px;" />
       <div class="surah-picker-grid" style="max-height:50vh;">
         ${filtered.map((s) => `<button type="button" class="surah-pick-item ${state.activeNewSurahNum === s.num ? 'selected' : ''}" onclick="setActiveNewSurah(${s.num})"><span>${s.num}. ${s.name}</span><small>ج ${s.juz}</small></button>`).join('')}
@@ -1645,10 +777,7 @@ function setActiveRevJuz(juzNum) {
   if (!j) return;
   if (j.track !== 'revision') j.track = 'revision';
   state.activeRevJuzNum = j.num;
-  syncPlanAndScheduleLive();
-  saveState();
-  closeModal('quickFocusModal');
-  renderAll();
+  syncPlanAndScheduleLive(); saveState(); closeModal('quickFocusModal'); renderAll();
   showToast(`أصبح ${j.title} هو الجزء النشط وتحدّث جدولك تلقائياً ✓`);
 }
 
@@ -1656,48 +785,65 @@ function setActiveNewSurah(surahNum) {
   const s = getSurahByNum(surahNum);
   if (!s) return;
   state.activeNewSurahNum = s.num;
-  syncPlanAndScheduleLive();
-  saveState();
-  closeModal('quickFocusModal');
-  renderAll();
+  syncPlanAndScheduleLive(); saveState(); closeModal('quickFocusModal'); renderAll();
   showToast(`أصبحت سورة ${s.name} هي سورة الحفظ النشطة وتحدّث جدولك تلقائياً ✓`);
 }
 
-// ================= 14. SPACED REPETITION DUE LIST & AUTO-REDISTRIBUTION =================
+// ================= SPACED REPETITION DUE LIST & REVIEW MODAL (A4 FIXED + SURAH NAMES + CRITICAL) =================
 function getDueItems() {
   const items = [];
   const today = todayStr();
 
+  // 1. تثبيت جديد (مقاطع السور الطويلة)
   state.newLinkingGroups.filter((g) => !g.archived).forEach((g) => {
     const nextDate = g.nextReviewDate || today;
     const diff = diffDaysFromToday(nextDate, today);
-    const hasUrgent = g.passages.some((p) => p.rating === 'يحتاج إعادة');
-    const needsMerge = g.passages.length >= 3 && g.linkCount < Math.floor(g.passages.length / 2);
-    if (diff <= 0 || hasUrgent || needsMerge) {
+    const hasUrgent = g.passages.some((p) => p.rating === 'يحتاج إعادة' || p.rating === 'نسيت تماماً');
+    const isCritical = g.critical || g.passages.some((p) => p.rating === 'نسيت تماماً');
+    if (diff <= 0 || hasUrgent) {
       const sumP = g.passages.reduce((s, p) => s + p.pages, 0);
       items.push({
         kind: 'new', id: g.id, title: g.surahName,
         subtitle: `${g.passages.length} مقاطع (${formatNum(sumP)} وجه) • تثبيت جديد وربط`,
         overdueDays: diff < 0 ? Math.abs(diff) : 0,
-        priority: hasUrgent ? 0 : (diff < 0 ? 1 : (needsMerge ? 2 : 3)),
-        badge: hasUrgent ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : (needsMerge ? 'تجميع ٣+ مقاطع' : 'مستحق اليوم'))
+        priority: isCritical ? -1 : (hasUrgent ? 0 : (diff < 0 ? 1 : 3)),
+        badge: isCritical ? 'موضع حرج' : (hasUrgent ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : 'مستحق اليوم'))
       });
     }
   });
 
+  // 2. السور المكتملة المرحلة من «تثبيت الجديد» إلى «تثبيت القديم»
+  (state.completedSurahsSolid || []).forEach((cs) => {
+    const diff = diffDaysFromToday(cs.nextReviewDate || today, today);
+    const isUrg = cs.rating === 'يحتاج إعادة' || cs.rating === 'نسيت تماماً';
+    if (diff <= 0 || isUrg) {
+      items.push({
+        kind: 'surah_solid', id: cs.id, title: cs.surahName,
+        subtitle: `سورة مكتملة (${formatNum(cs.pages)} وجه) • تثبيت دائم`,
+        overdueDays: diff < 0 ? Math.abs(diff) : 0,
+        priority: cs.rating === 'نسيت تماماً' ? -1 : (isUrg ? 0 : (diff < 0 ? 1 : 3)),
+        badge: cs.rating === 'نسيت تماماً' ? 'موضع حرج' : (isUrg ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : 'مستحق اليوم'))
+      });
+    }
+  });
+
+  // 3. الأجزاء المكتملة (تثبيت قديم)
   state.juzList.filter((j) => j.donePages >= j.totalPages - 0.01).forEach((j) => {
     const meta = state.solidMeta[j.num];
     if (!meta) return;
-    const nextDate = meta.nextReviewDate || today;
-    const diff = diffDaysFromToday(nextDate, today);
-    const hasWeakPages = Array.isArray(meta.weakPages) && meta.weakPages.length > 0;
-    if (diff <= 0 || meta.rating === 'يحتاج إعادة') {
+    const diff = diffDaysFromToday(meta.nextReviewDate || today, today);
+    const hasWeak = (Array.isArray(meta.weakSurahs) && meta.weakSurahs.length > 0) || (Array.isArray(meta.weakPages) && meta.weakPages.length > 0);
+    const isUrg = meta.rating === 'يحتاج إعادة' || meta.rating === 'نسيت تماماً';
+    if (diff <= 0 || isUrg) {
+      const weakLabel = (meta.weakSurahs && meta.weakSurahs.length)
+        ? ` • سور تحتاج تقوية: ${meta.weakSurahs.slice(0, 3).join('، ')}`
+        : (meta.weakPages && meta.weakPages.length ? ` • أوجه متفلتة: ص ${meta.weakPages.slice(0, 3).join('، ')}` : ' • تثبيت قديم');
       items.push({
         kind: 'old', id: j.num, title: j.title,
-        subtitle: `${j.range}${hasWeakPages ? ` • أوجه متفلتة: ${meta.weakPages.slice(0, 4).join('، ')}` : ' • تثبيت قديم'}`,
+        subtitle: `${j.range}${weakLabel}`,
         overdueDays: diff < 0 ? Math.abs(diff) : 0,
-        priority: meta.rating === 'يحتاج إعادة' ? 0 : (hasWeakPages ? 1 : (diff < 0 ? 2 : 3)),
-        badge: meta.rating === 'يحتاج إعادة' ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : 'مستحق اليوم')
+        priority: meta.rating === 'نسيت تماماً' ? -1 : (isUrg ? 0 : (hasWeak ? 1 : (diff < 0 ? 2 : 3))),
+        badge: meta.rating === 'نسيت تماماً' ? 'موضع حرج' : (isUrg ? 'أولوية إعادة' : (diff < 0 ? `متأخر ${Math.abs(diff)} يوم` : 'مستحق اليوم'))
       });
     }
   });
@@ -1710,20 +856,26 @@ function renderRatingButtons(containerId, currentVal, onSelectFnName) {
   document.getElementById(containerId).innerHTML = RATINGS.map((r) => `
     <button type="button" role="radio" aria-checked="${currentVal === r.id}"
       class="rating-choice ${currentVal === r.id ? r.btnClass : ''}"
+      style="${r.id === 'نسيت تماماً' ? 'grid-column: 1 / -1;' : ''}"
       onclick="${onSelectFnName}('${r.id}')">
       ${r.label}<small>${r.shortHint}</small>
     </button>
   `).join('');
 }
 
-function openSrReviewModal(kind, id, title, overdueDays = 0) {
-  srTarget = { kind, id, title, overdueDays: Number(overdueDays) || 0 };
+function openSrReviewModal(kind, id, title, overdueDays = 0, passageId = null) {
+  srTarget = { kind, id, passageId, title, overdueDays: Number(overdueDays) || 0 };
   selectedSrRating = '';
+  selectedWeakSurahs = [];
   selectedWeakPages = [];
+
+  const kindLabel = kind === 'passage' ? 'تقييم مقطع مستقل داخل السورة'
+    : (kind === 'surah_solid' ? 'صندوق التثبيت — سورة مكتملة (تثبيت دائم)'
+      : (kind === 'new' ? 'صندوق التثبيت — ربط وتثبيت السورة' : 'صندوق التثبيت — مراجعة جزء مكتمل'));
 
   document.getElementById('srReviewTargetInfo').innerHTML = `
     <strong style="color:var(--accent-hi);">${escapeHtml(title)}</strong>
-    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">${kind === 'new' ? 'صندوق التثبيت — تثبيت جديد (ربط السورة)' : 'صندوق التثبيت — تثبيت قديم (جزء مكتمل)'}</div>
+    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">${kindLabel}</div>
   `;
   renderRatingButtons('srRatingGrid', '', 'selectSrRating');
   const btn = document.getElementById('confirmSrBtn');
@@ -1734,33 +886,51 @@ function openSrReviewModal(kind, id, title, overdueDays = 0) {
   if (kind === 'old') {
     const jDb = JUZ_DB.find((x) => x.num === Number(id));
     const meta = state.solidMeta[id];
+    selectedWeakSurahs = meta && Array.isArray(meta.weakSurahs) ? [...meta.weakSurahs] : [];
     selectedWeakPages = meta && Array.isArray(meta.weakPages) ? [...meta.weakPages] : [];
     if (jDb) {
       wpWrap.style.display = 'block';
-      renderWeakPagesPicker(jDb.startPage, jDb.endPage);
-    } else {
-      wpWrap.style.display = 'none';
-    }
+      renderWeakSurahsAndPagesPicker(jDb);
+    } else { wpWrap.style.display = 'none'; }
   } else {
     wpWrap.style.display = 'none';
   }
   openModal('srReviewModal');
 }
 
-function renderWeakPagesPicker(startPage, endPage) {
+// عرض أسماء السور الفعلية في تثبيت القديم (مع أرقام الأوجه فقط للسور الطويلة > 5 أوجه)
+function renderWeakSurahsAndPagesPicker(jDb) {
+  const surahs = getJuzSurahs(jDb.num);
+  const hasLongSurah = surahs.some((s) => s.pages > 5);
   let html = '';
-  for (let p = startPage; p <= endPage; p++) {
-    const sel = selectedWeakPages.includes(p);
-    html += `<button type="button" class="weak-page-chip ${sel ? 'selected' : ''}" onclick="toggleWeakPage(${p}, ${startPage}, ${endPage})">ص ${p}</button>`;
+  if (surahs.length > 0) {
+    html += surahs.map((s) => {
+      const sel = selectedWeakSurahs.includes(s.name);
+      return `<button type="button" class="weak-page-chip ${sel ? 'selected' : ''}" style="padding:4px 8px; min-width:86px;" onclick="toggleWeakSurah('${escapeAttr(s.name)}', ${jDb.num})">${s.name}</button>`;
+    }).join('');
+  }
+  if (hasLongSurah) {
+    for (let p = jDb.startPage; p <= jDb.endPage; p++) {
+      const sel = selectedWeakPages.includes(p);
+      html += `<button type="button" class="weak-page-chip ${sel ? 'selected' : ''}" onclick="toggleWeakPage(${p}, ${jDb.num})">ص ${p}</button>`;
+    }
   }
   document.getElementById('srWeakPagesGrid').innerHTML = html;
 }
 
-function toggleWeakPage(pageNum, startPage, endPage) {
+function toggleWeakSurah(surahName, juzNum) {
+  if (selectedWeakSurahs.includes(surahName)) selectedWeakSurahs = selectedWeakSurahs.filter((x) => x !== surahName);
+  else selectedWeakSurahs.push(surahName);
+  const jDb = JUZ_DB.find((x) => x.num === juzNum);
+  if (jDb) renderWeakSurahsAndPagesPicker(jDb);
+}
+
+function toggleWeakPage(pageNum, juzNum) {
   if (selectedWeakPages.includes(pageNum)) selectedWeakPages = selectedWeakPages.filter((x) => x !== pageNum);
   else selectedWeakPages.push(pageNum);
   selectedWeakPages.sort((a, b) => a - b);
-  renderWeakPagesPicker(startPage, endPage);
+  const jDb = JUZ_DB.find((x) => x.num === juzNum);
+  if (jDb) renderWeakSurahsAndPagesPicker(jDb);
 }
 
 function selectSrRating(rate) {
@@ -1774,49 +944,212 @@ function selectSrRating(rate) {
 function confirmSrReview() {
   if (!srTarget || !selectedSrRating) return;
   const t = todayStr();
+  const level = getEffectiveLevel(state.profile);
+  const isCritical = selectedSrRating === 'نسيت تماماً';
+
   if (srTarget.kind === 'old') {
     const meta = state.solidMeta[srTarget.id] || { reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase, intervalDays: 2 };
-    const next = computeSM2(meta, selectedSrRating, srTarget.overdueDays);
-    // إذا كان التقييم جيد جداً فأعلى ولم يحدد المستخدم أوجه متفلتة، تُصفَّر الأوجه المتفلتة
-    const finalWeak = (selectedSrRating === 'ممتاز' && selectedWeakPages.length === 0) ? [] : [...selectedWeakPages];
+    const next = computeSM2(meta, selectedSrRating, srTarget.overdueDays, level);
+    const finalWeakSurahs = (selectedSrRating === 'ممتاز' && selectedWeakSurahs.length === 0) ? [] : [...selectedWeakSurahs];
+    const finalWeakPages = (selectedSrRating === 'ممتاز' && selectedWeakPages.length === 0) ? [] : [...selectedWeakPages];
     state.solidMeta[srTarget.id] = {
       ...meta,
       reviews: (meta.reviews || 0) + 1,
-      reps: next.reps,
-      lapses: next.lapses,
-      ease: next.ease,
-      lastReviewed: t,
-      rating: selectedSrRating,
-      intervalDays: next.intervalDays,
-      nextReviewDate: addDaysStr(t, next.intervalDays),
-      weakPages: finalWeak
+      reps: next.reps, lapses: next.lapses, ease: next.ease,
+      lastReviewed: t, rating: selectedSrRating, critical: isCritical,
+      intervalDays: next.intervalDays, nextReviewDate: addDaysStr(t, next.intervalDays),
+      weakSurahs: finalWeakSurahs, weakPages: finalWeakPages
     };
+    if (isCritical) {
+      const j = state.juzList.find((x) => x.num === Number(srTarget.id));
+      if (j) { j.tags = Array.isArray(j.tags) ? j.tags : []; if (!j.tags.includes('متشابهات')) j.tags.push('متشابهات'); }
+    }
     showToast(`تمت المراجعة (${selectedSrRating}) — الموعد القادم بعد ${next.intervalDays} يوم ✓`);
-  } else {
+  } else if (srTarget.kind === 'passage') {
+    // تقييم مقطع مستقل داخل «تثبيت الجديد»
     const g = state.newLinkingGroups.find((x) => x.id === srTarget.id);
     if (g) {
-      const next = computeSM2(g, selectedSrRating, srTarget.overdueDays);
-      g.linkCount = (g.linkCount || 0) + 1;
-      g.reps = next.reps;
-      g.lapses = next.lapses;
-      g.ease = next.ease;
-      g.lastLinked = t;
-      g.rating = selectedSrRating;
+      const p = g.passages.find((x) => x.id === srTarget.passageId);
+      if (p) {
+        p.rating = selectedSrRating;
+        p.lastReviewed = t;
+      }
+      if (isCritical) { g.tags = Array.isArray(g.tags) ? g.tags : []; if (!g.tags.includes('متشابهات')) g.tags.push('متشابهات'); g.critical = true; }
+      const next = computeSM2(g, selectedSrRating, srTarget.overdueDays, level);
       g.intervalDays = next.intervalDays;
       g.nextReviewDate = addDaysStr(t, next.intervalDays);
-      if (selectedSrRating === 'ممتاز' || selectedSrRating === 'جيد جداً') {
-        g.passages.forEach((p) => { if (p.rating === 'يحتاج إعادة') p.rating = 'جيد جداً'; });
+      showToast(`تم تحديث تقييم المقطع إلى (${selectedSrRating}) ✓`);
+    }
+  } else if (srTarget.kind === 'surah_solid') {
+    const cs = (state.completedSurahsSolid || []).find((x) => x.id === srTarget.id);
+    if (cs) {
+      const next = computeSM2(cs, selectedSrRating, srTarget.overdueDays, level);
+      cs.reviews = (cs.reviews || 0) + 1;
+      cs.reps = next.reps; cs.lapses = next.lapses; cs.ease = next.ease;
+      cs.lastReviewed = t; cs.rating = selectedSrRating; cs.critical = isCritical;
+      cs.intervalDays = next.intervalDays; cs.nextReviewDate = addDaysStr(t, next.intervalDays);
+      showToast(`تمت مراجعة ${cs.surahName} (${selectedSrRating}) — القادمة بعد ${next.intervalDays} يوم ✓`);
+    }
+  } else {
+    // kind === 'new' (تقييم ربط السورة بالكامل) — A4 FIXED: أي تقييم غير إعادة/نسيت يُخرجها من hasUrgent
+    const g = state.newLinkingGroups.find((x) => x.id === srTarget.id);
+    if (g) {
+      const next = computeSM2(g, selectedSrRating, srTarget.overdueDays, level);
+      g.linkCount = (g.linkCount || 0) + 1;
+      g.reps = next.reps; g.lapses = next.lapses; g.ease = next.ease;
+      g.lastLinked = t; g.rating = selectedSrRating; g.critical = isCritical;
+      g.intervalDays = next.intervalDays; g.nextReviewDate = addDaysStr(t, next.intervalDays);
+      if (selectedSrRating !== 'يحتاج إعادة' && selectedSrRating !== 'نسيت تماماً') {
+        g.passages.forEach((p) => {
+          if (p.rating === 'يحتاج إعادة' || p.rating === 'نسيت تماماً') p.rating = selectedSrRating;
+        });
       }
+      if (isCritical) { g.tags = Array.isArray(g.tags) ? g.tags : []; if (!g.tags.includes('متشابهات')) g.tags.push('متشابهات'); }
       showToast(`تم ربط ${g.surahName} (${selectedSrRating}) — الموعد القادم بعد ${next.intervalDays} يوم ✓`);
     }
   }
-  touchStreak();
-  saveState();
-  closeModal('srReviewModal');
-  renderAll();
+  touchStreak(); saveState(); closeModal('srReviewModal'); renderAll();
 }
 
-// ================= 15. CORE RENDER & DASHBOARD =================
+// ================= SNOWBALL MERGE & GRADUATE SURAH TO PERMANENT SOLID BOX =================
+function mergeGroupPassages(groupId) {
+  const g = state.newLinkingGroups.find((x) => x.id === groupId);
+  if (!g || g.passages.length < 2) return;
+  const totalPages = Number(g.passages.reduce((s, p) => s + Number(p.pages || 0), 0).toFixed(2));
+  const firstLabel = g.passages[0].passage;
+  const lastLabel = g.passages[g.passages.length - 1].passage;
+  const mergedLabel = `كتلة مدمجة (${firstLabel} ← ${lastLabel})`;
+  const hasWeak = g.passages.some((p) => p.rating === 'يحتاج إعادة' || p.rating === 'نسيت تماماً');
+  g.passages = [{
+    id: 'p_merged_' + Date.now(),
+    passage: mergedLabel,
+    pages: totalPages,
+    rating: hasWeak ? 'جيد' : (g.rating || 'جيد جداً'),
+    date: todayStr()
+  }];
+  g.linkCount = (g.linkCount || 0) + 1;
+  g.lastLinked = todayStr();
+  saveState(); renderAll();
+  showToast(`تم ربط ودمج مقاطع ${g.surahName} في كتلة واحدة (${formatNum(totalPages)} وجه) ✓`);
+}
+
+function graduateSurahToOldSolid(groupId) {
+  const g = state.newLinkingGroups.find((x) => x.id === groupId);
+  if (!g) return;
+  const totalPages = Number(g.passages.reduce((s, p) => s + Number(p.pages || 0), 0).toFixed(2));
+  const t = todayStr();
+  state.completedSurahsSolid = Array.isArray(state.completedSurahsSolid) ? state.completedSurahsSolid : [];
+  if (!state.completedSurahsSolid.some((x) => x.surahName === g.surahName)) {
+    state.completedSurahsSolid.unshift({
+      id: 'cs_' + Date.now(),
+      surahName: g.surahName,
+      pages: totalPages,
+      reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase,
+      lastReviewed: t, rating: '',
+      intervalDays: SR_CONFIG.firstAutoReviewDays,
+      nextReviewDate: addDaysStr(t, SR_CONFIG.firstAutoReviewDays),
+      addedAt: t
+    });
+  }
+  g.archived = true;
+  touchStreak(); saveState(); renderAll();
+  showToast(`مبارك! انتقلت ${g.surahName} كسورة مكتملة إلى «تثبيت القديم» بدورة مراجعة دائمة ✓`);
+}
+
+// ================= PRIORITY BANNER ROUTER (MAX 1 BANNER AT A TIME ON HOME) =================
+function renderPriorityBanners() {
+  const storageBox = document.getElementById('storageAlertBanner');
+  const remBox = document.getElementById('inAppReminderBanner');
+  const weekBox = document.getElementById('weekDueBanner');
+  const guideBox = document.getElementById('firstTimeGuideBanner');
+  const installBar = document.getElementById('smartInstallBar');
+
+  if (storageBox) storageBox.innerHTML = '';
+  if (remBox) remBox.innerHTML = '';
+  if (weekBox) weekBox.innerHTML = '';
+  if (guideBox) guideBox.innerHTML = '';
+  if (installBar) installBar.classList.remove('show');
+
+  // 1) أولوية قصوى: تلف التخزين أو امتلاء المساحة أو تذكير النسخ الاحتياطي
+  if (corruptBackupKey && storageBox) {
+    const hasSnap = getAutoSnapshots().length > 0;
+    storageBox.innerHTML = `
+      <div class="alert-banner alert-danger">
+        <div><strong>تم رصد تلف في البيانات المخزّنة — وحفظنا نسخة خام منها لحمايتها</strong></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${hasSnap ? '<button type="button" class="btn btn-gold btn-sm" onclick="restoreLastAutoSnapshot()">استعادة آخر لقطة</button>' : ''}
+          <button type="button" class="btn btn-outline btn-sm" onclick="emergencyExportRaw()">تصدير النسخة الخام</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openResetConfirmModal()">البدء من جديد</button>
+        </div>
+      </div>`;
+    return;
+  }
+  if (storageQuotaWarning && storageBox) {
+    storageBox.innerHTML = `
+      <div class="alert-banner alert-danger">
+        <div><strong>مساحة تخزين المتصفح ممتلئة</strong> يُنصح بتصدير نسخة احتياطية JSON الآن.</div>
+        <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة الآن</button>
+      </div>`;
+    return;
+  }
+  if (state.onboarded && state.lastBackupAt && diffDaysFromToday(todayStr(), state.lastBackupAt) >= SR_CONFIG.backupReminderDays && storageBox) {
+    storageBox.innerHTML = `
+      <div class="alert-banner">
+        <div><strong>تذكير النسخ الاحتياطي</strong> مرّ أكثر من أسبوعين دون حفظ نسخة احتياطية JSON.</div>
+        <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير JSON الآن</button>
+      </div>`;
+    return;
+  }
+
+  // 2) تذكير اليوم النشط داخل التطبيق
+  if (state.reminders.length && remBox) {
+    const now = new Date();
+    const nowHHMM = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    const activeDue = state.reminders.find((r) => r.enabled && r.time <= nowHHMM && r.lastTriggeredDate !== todayStr());
+    if (activeDue) {
+      remBox.innerHTML = `
+        <div class="alert-banner">
+          <div><strong>🔔 تذكير موعد ${activeDue.time}</strong>${escapeHtml(buildSmartMessage(activeDue.type))}</div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="dismissReminderToday('${activeDue.id}')">حسناً</button>
+        </div>`;
+      return;
+    }
+  }
+
+  // 3) اقتراح إغلاق الأسبوع بعد مرور 7 أيام
+  if (state.weekStartedAt && diffDaysFromToday(todayStr(), state.weekStartedAt) >= 7 && weekBox) {
+    weekBox.innerHTML = `
+      <div class="alert-banner">
+        <div><strong>أتممت أسبوعاً كاملاً!</strong> يمكنك أرشفة الأسبوع السابق والبدء بأسبوع جديد بضغطة واحدة.</div>
+        <button type="button" class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع الآن</button>
+      </div>`;
+    return;
+  }
+
+  // 4) الدليل الترحيبي لأول مرة
+  if (!state.welcomeDismissed && guideBox) {
+    guideBox.innerHTML = `
+      <div class="alert-banner">
+        <div style="flex:1; min-width:220px;">
+          <strong>دليل سريع في سطرين</strong>
+          <div style="font-size:0.81rem; color:var(--text-main); margin-top:3px;">
+            ١) <strong>المراجعة:</strong> راجع جزءك النشط وعند إتمامه يدخل <strong>صندوق التثبيت</strong> ويحل الجزء التالي مكانه تلقائياً.<br/>
+            ٢) <strong>الجديد:</strong> سجّل وردك بالآيات، وعند تسميعه ينتقل لـ «تثبيت الجديد» لتدمج مقاطعه حتى تكتمل السورة.
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="dismissWelcomeGuide()">فهمت، إخفاء</button>
+      </div>`;
+    return;
+  }
+
+  // 5) شريط التثبيت الذكي (لا يظهر إلا بعد إغلاق الدليل الترحيبي وعند عدم التثبيت)
+  const dismissedInstall = localStorage.getItem('rafiq_install_bar_dismissed') === '1';
+  if (installBar && !isRunningStandalone() && !dismissedInstall) {
+    installBar.classList.add('show');
+  }
+}
+
+// ================= CORE RENDER & DASHBOARD =================
 function showToast(msg) {
   const el = document.getElementById('toastEl');
   el.textContent = msg;
@@ -1829,18 +1162,11 @@ function syncSolidBoxMembership(juz) {
   const isComplete = juz.donePages >= juz.totalPages - 0.01;
   const t = todayStr();
   if (isComplete && !state.solidMeta[juz.num]) {
-    // عند اكتمال الجزء لأول مرة لا نفترض تقييماً: أول مراجعة بعد يومين
     state.solidMeta[juz.num] = {
-      reviews: 0,
-      reps: 0,
-      lapses: 0,
-      ease: SR_CONFIG.defaultEase,
-      lastReviewed: t,
-      rating: '',
-      intervalDays: SR_CONFIG.firstAutoReviewDays,
+      reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase,
+      lastReviewed: t, rating: '', intervalDays: SR_CONFIG.firstAutoReviewDays,
       nextReviewDate: addDaysStr(t, SR_CONFIG.firstAutoReviewDays),
-      weakPages: [],
-      addedAt: t
+      weakSurahs: [], weakPages: [], addedAt: t
     };
     syncPlanAndScheduleLive();
     const nextRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
@@ -1864,47 +1190,10 @@ function switchTab(tabId) {
   renderAll();
 }
 
-function renderStorageAlerts() {
-  const box = document.getElementById('storageAlertBanner');
-  if (!box) return;
-  let html = '';
-  if (corruptBackupKey) {
-    html += `
-      <div class="alert-banner alert-danger">
-        <div>
-          <strong>تم رصد تلف في البيانات المخزّنة — وحفظنا نسخة خام منها لحمايتها</strong>
-          يمكنك تصدير الملف الخام أو استيراد نسخة احتياطية سابقة دون فقدان بياناتك.
-        </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button type="button" class="btn btn-gold btn-sm" onclick="emergencyExportRaw()">تصدير النسخة الخام</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="corruptBackupKey=null; openOnboarding(false);">البدء من جديد</button>
-        </div>
-      </div>`;
-  }
-  if (storageQuotaWarning) {
-    html += `
-      <div class="alert-banner alert-danger">
-        <div><strong>مساحة تخزين المتصفح ممتلئة</strong> يُنصح بتصدير نسخة احتياطية JSON الآن لحفظ تقدمك.</div>
-        <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة الآن</button>
-      </div>`;
-  }
-  if (state.onboarded && state.lastBackupAt) {
-    const daysSince = diffDaysFromToday(todayStr(), state.lastBackupAt);
-    if (daysSince >= SR_CONFIG.backupReminderDays) {
-      html += `
-        <div class="alert-banner">
-          <div><strong>تذكير النسخ الاحتياطي</strong> مرّ ${daysSince} يوماً منذ آخر نسخة احتياطية — احفظ نسخة JSON على جهازك للأمان.</div>
-          <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير JSON الآن</button>
-        </div>`;
-    }
-  }
-  box.innerHTML = html;
-}
-
 function renderAll() {
   if (!state.onboarded) return;
   syncPlanAndScheduleLive();
-  renderStorageAlerts();
+  renderPriorityBanners();
   renderHeader();
   renderDashboard();
   renderSchedule();
@@ -1915,7 +1204,9 @@ function renderAll() {
   updateCalculator();
   populateManualLinkSurahSelect();
   renderProgressVisibility();
+  // الوضع المبسط للمبتدئين يخفي العناصر المتقدمة وتبويب الخريطة التفصيلية
   document.querySelectorAll('.adv-only').forEach((el) => el.classList.toggle('simple-mode-hidden', !!state.simpleMode));
+  document.querySelectorAll('[data-tab="map"]').forEach((el) => el.classList.toggle('simple-mode-hidden', !!state.simpleMode));
 }
 
 function renderHeader() {
@@ -1923,14 +1214,8 @@ function renderHeader() {
   const name = p.name || 'رفيق التثبيت';
   document.getElementById('headerUserTitle').textContent = `أهلاً يا ${name}`;
   const activeJuzCount = state.juzList.filter((j) => j.track === 'revision').length;
-  const modeNames = {
-    from_nas: 'الناس ← البقرة',
-    from_baqarah: 'البقرة ← الناس',
-    beginner: 'بداية جديدة',
-    khatim: 'خاتم ٣٠ جزءاً',
-    scattered: 'سور متفرقة'
-  };
-  const subCount = p.mode === 'khatim' ? '٣٠ جزءاً' : (activeJuzCount > 0 ? `${activeJuzCount} جزء مراجعة` : 'تأسيس جديد');
+  const modeNames = { from_nas: 'الناس ← البقرة', from_baqarah: 'البقرة ← الناس', beginner: 'بداية جديدة', khatim: 'خاتم ٣٠ جزءاً', scattered: 'سور متفرقة' };
+  const subCount = p.mode === 'khatim' ? `دورة #${state.khatimCycleNum || 1}` : (activeJuzCount > 0 ? `${activeJuzCount} جزء مراجعة` : 'تأسيس جديد');
   document.getElementById('headerUserSub').textContent = `${modeNames[p.mode] || 'خطتك'} • ${subCount} • ${p.dailyMin} د/يوم`;
 
   const graceActive = state.streak.graceUsedDate === todayStr();
@@ -1938,7 +1223,7 @@ function renderHeader() {
 
   const profLine = document.getElementById('profileSummaryLine');
   if (profLine) {
-    profLine.innerHTML = `المستخدم: <strong style="color:var(--accent-hi);">${escapeHtml(name)}</strong> • المسار: <strong>${modeNames[p.mode] || 'مرن'}</strong> • الوقت اليومي: <strong>${p.dailyMin} دقيقة</strong>`;
+    profLine.innerHTML = `المستخدم: <strong style="color:var(--accent-hi);">${escapeHtml(name)}</strong> • المسار: <strong>${modeNames[p.mode] || 'مرن'}</strong> • الإصدار: <strong>v${APP_VERSION}</strong>`;
   }
   const legacyBtn = document.getElementById('settingsLegacyImportBtn');
   if (legacyBtn) legacyBtn.style.display = findLegacyStorageKey() ? 'inline-flex' : 'none';
@@ -1948,6 +1233,7 @@ function renderHeader() {
 
 function renderDashboard() {
   const isKhatim = state.profile.mode === 'khatim';
+  const isBeginner = state.profile.mode === 'beginner';
   const revList = state.juzList.filter((j) => j.track === 'revision');
   const newList = state.juzList.filter((j) => j.track === 'new');
 
@@ -1964,6 +1250,7 @@ function renderDashboard() {
   const newTotalPages = newList.reduce((s, j) => s + j.totalPages, 0);
 
   const solidOldCount = revDoneJuz + newDoneJuz;
+  const compSurahsCount = (state.completedSurahsSolid || []).length;
   const activeLinkGroups = state.newLinkingGroups.filter((g) => !g.archived);
   const solidNewPassages = activeLinkGroups.reduce((s, g) => s + g.passages.length, 0);
 
@@ -1987,39 +1274,44 @@ function renderDashboard() {
     document.getElementById('newPagesDetail').textContent = `${formatNum(newDonePages)} من ${newTotalPages} وجهاً`;
   }
 
-  document.getElementById('solidProgressLabel').textContent = `${solidOldCount} أجزاء قديم • ${solidNewPassages} مقاطع جديد`;
+  document.getElementById('solidProgressLabel').textContent = `${solidOldCount} أجزاء • ${compSurahsCount} سور • ${solidNewPassages} مقاطع`;
   document.getElementById('solidProgressBar').style.width = `${(solidOldCount / 30 * 100).toFixed(1)}%`;
 
-  // Simple mode button label
   const smBtn = document.getElementById('homeSimpleModeBtn');
   if (smBtn) smBtn.textContent = state.simpleMode ? 'عرض متقدم' : 'وضع بسيط';
 
-  // Due Today (Anti-Overload daily cap = SR_CONFIG.dailyDueLimit)
+  // توجيه زر «▶ ابدأ الجلسة» للمبتدئ إلى وضع الربط/الحفظ بدلاً من ترميم القديم
+  const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
+  const startTimerBtn = document.querySelector('#todayCardWrapper button[onclick*="openTimerModal"]');
+  if (startTimerBtn) {
+    const defaultTimerMode = (isBeginner || !curRev) ? 'link' : 'doctor';
+    startTimerBtn.setAttribute('onclick', `openTimerModal('${defaultTimerMode}')`);
+  }
+
+  // Due Today (Anti-Overload daily cap)
   const allDue = getDueItems();
   const visibleDue = allDue.slice(0, SR_CONFIG.dailyDueLimit);
   const deferredCount = Math.max(0, allDue.length - visibleDue.length);
   document.getElementById('dueCountBadge').textContent = `${allDue.length} عناصر`;
   const dueListEl = document.getElementById('dueTodayList');
   if (allDue.length === 0) {
-    dueListEl.innerHTML = '<div style="font-size:0.83rem; color:var(--text-muted); padding:4px 2px;">يومك صافٍ من المراجعات المتأخرة — كل ورد تسمّعه أو جزء تنجزه سيُجدول هنا تلقائياً.</div>';
+    dueListEl.innerHTML = '<div style="font-size:0.83rem; color:var(--text-muted); padding:4px 2px;">يومك صافٍ من المراجعات المتأخرة — كل ورد تسمّعه أو جزء تنجزه يُجدول هنا تلقائياً.</div>';
   } else {
     dueListEl.innerHTML = visibleDue.map((item) => `
       <div class="log-item" style="align-items:center;">
         <div style="flex:1;">
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <strong style="font-size:0.9rem;">${escapeHtml(item.title)}</strong>
-            <span class="tag ${item.priority === 0 ? 'tag-danger' : (item.priority === 1 ? 'tag-warn' : 'tag-gold')}">${item.badge}</span>
+            <span class="tag ${item.priority <= 0 ? 'tag-danger' : (item.priority === 1 ? 'tag-warn' : 'tag-gold')}">${item.badge}</span>
           </div>
           <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(item.subtitle)}</div>
         </div>
         <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('${item.kind}', '${item.id}', '${escapeAttr(item.title)}', ${item.overdueDays})">راجعته ✓</button>
       </div>
     `).join('') + (deferredCount > 0
-      ? `<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-top:4px;">تم ترحيل ${deferredCount} عناصر إضافية تلقائياً للغد لمنع التراكم المرهق.</div>`
-      : '');
+      ? `<div style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-top:4px;">تم ترحيل ${deferredCount} عناصر إضافية تلقائياً للغد لمنع التراكم المرهق.</div>` : '');
   }
 
-  // New Memorization card on Home
   const nwCard = document.getElementById('homeNewWorkflowCard');
   if (isKhatim) nwCard.innerHTML = '';
   else renderHomeNewWorkflow();
@@ -2036,7 +1328,6 @@ function renderDashboard() {
   const todayObj = state.schedule.find((d) => d.jsDay === jsToday) || state.schedule[0];
   document.getElementById('todayDayTitle').textContent = todayObj ? (todayObj.name + (todayObj.maqraa ? ' • يوم التسميع' : '')) : 'اليوم';
 
-  const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
   const activeNewSurah = resolveActiveNewSurah(state.profile, state.juzList, state.activeNewSurahNum);
 
   if (isBusyToday) {
@@ -2049,26 +1340,31 @@ function renderDashboard() {
         <span class="check-circle">${state.busyTasksDone.t1 ? '✓' : ''}</span>
         <span class="task-text"><strong>حماية سريعة (٣ دقائق)</strong><small>مراجعة سريعة لـ: ${escapeHtml(weakest)}</small></span>
       </button>
-      <button type="button" class="task-row ${state.busyTasksDone.t2 ? 'done' : ''}" onclick="toggleBusyTask('t2')">
+      <button type="button" class="task-row ${state.busyTasksDone.t2 ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleBusyTask('t2')">
         <span class="check-circle">${state.busyTasksDone.t2 ? '✓' : ''}</span>
         <span class="task-text"><strong>تنشيط التثبيت (٤ دقائق)</strong><small>سرد وجهين فقط من أي جزء أو سورة منجزة — والباقي مُرحّل بهدوء</small></span>
-      </button>
-    `;
+      </button>`;
   } else if (todayObj) {
-    document.getElementById('todayTasksContainer').innerHTML = `
+    let tasksHtml = `
       <button type="button" class="task-row ${todayObj.mDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'mDone')">
         <span class="check-circle">${todayObj.mDone ? '✓' : ''}</span>
         <span class="task-text"><strong>١. الجلسة الأساسية (في أي وقت)</strong><small>${escapeHtml(todayObj.main)}</small></span>
-      </button>
-      <button type="button" class="task-row ${todayObj.eDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'eDone')">
-        <span class="check-circle">${todayObj.eDone ? '✓' : ''}</span>
-        <span class="task-text"><strong>٢. التسميع والربط (مرنة)</strong><small>${escapeHtml(todayObj.second)}</small></span>
-      </button>
-      <button type="button" class="task-row ${todayObj.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${todayObj.id}', 'sDone')">
-        <span class="check-circle">${todayObj.sDone ? '✓' : ''}</span>
-        <span class="task-text"><strong>٣. صندوق التثبيت</strong><small>${escapeHtml(todayObj.solid)}</small></span>
-      </button>
-    `;
+      </button>`;
+    if (todayObj.second) {
+      tasksHtml += `
+        <button type="button" class="task-row ${todayObj.eDone ? 'done' : ''}" onclick="toggleDayTask('${todayObj.id}', 'eDone')">
+          <span class="check-circle">${todayObj.eDone ? '✓' : ''}</span>
+          <span class="task-text"><strong>٢. التسميع والربط (مرنة)</strong><small>${escapeHtml(todayObj.second)}</small></span>
+        </button>`;
+    }
+    if (todayObj.solid) {
+      tasksHtml += `
+        <button type="button" class="task-row ${todayObj.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${todayObj.id}', 'sDone')">
+          <span class="check-circle">${todayObj.sDone ? '✓' : ''}</span>
+          <span class="task-text"><strong>٣. صندوق التثبيت</strong><small>${escapeHtml(todayObj.solid)}</small></span>
+        </button>`;
+    }
+    document.getElementById('todayTasksContainer').innerHTML = tasksHtml;
   }
 
   const quickRevBtn = document.getElementById('quickRevBtn');
@@ -2077,7 +1373,7 @@ function renderDashboard() {
     if (curRev) quickRevBtn.textContent = `+١ وجه في ${curRev.title}`;
   }
 
-  // Overview Stats
+  // Overview Stats (tailored for Khatim!)
   document.getElementById('statCurrentRev').textContent = revList.length === 0 ? 'بداية جديدة' : (curRev ? curRev.title : 'مكتمل ✓');
   document.getElementById('statCurrentRevSub').textContent = revList.length === 0 ? 'لا يوجد قديم بعد' : (curRev ? `${formatNum(curRev.donePages)} / ${curRev.totalPages} وجهاً` : 'كل القديم في التثبيت');
 
@@ -2087,30 +1383,28 @@ function renderDashboard() {
   const loggedInActiveSurah = activeNewSurah ? (state.surahNewProgress[activeNewSurah.num] || 0) : 0;
   document.getElementById('statCurrentNew').textContent = isKhatim ? 'خاتم ✓' : (activeNewSurah ? `سورة ${activeNewSurah.name}` : 'مكتمل ✓');
   document.getElementById('statCurrentNewSub').textContent = isKhatim
-    ? 'تثبيت ٣٠ جزءاً'
-    : (activeNewSurah ? `الجزء ${activeNewSurah.juz} • ${loggedInActiveSurah > 0 ? `${formatNum(loggedInActiveSurah)} / ` : ''}${formatNum(activeNewSurah.pages)} وجه` : 'ختمة مباركة');
+    ? `دورة ${state.profile.khatimCycleDays || 60} يوماً`
+    : (activeNewSurah ? `الجزء ${getSurahJuzForLoggedPages(activeNewSurah.num, loggedInActiveSurah)} • ${loggedInActiveSurah > 0 ? `${formatNum(loggedInActiveSurah)} / ` : ''}${formatNum(activeNewSurah.pages)} وجه` : 'ختمة مباركة');
 
-  document.getElementById('statSolidNewCount').textContent = `${solidNewPassages} مقاطع`;
-  document.getElementById('statSolidNewSub').textContent = activeLinkGroups.length > 0 ? `في ${activeLinkGroups.length} سورة للربط` : 'جاهز لأول ورد جديد';
+  const solidStatBtn = document.getElementById('statSolidNewCount').closest('button');
+  if (solidStatBtn) solidStatBtn.setAttribute('onclick', `switchTab('solid'); setSolidTab('${isKhatim ? 'old' : 'new'}');`);
+  document.getElementById('statSolidNewCount').textContent = isKhatim ? `${solidOldCount} أجزاء` : `${solidNewPassages} مقاطع`;
+  document.getElementById('statSolidNewSub').textContent = isKhatim ? 'في تثبيت القديم' : (activeLinkGroups.length > 0 ? `في ${activeLinkGroups.length} سورة للربط` : 'جاهز لأول ورد جديد');
 
-  let doneT = 0;
-  const totalT = state.schedule.length * 3;
-  state.schedule.forEach((d) => { if (d.mDone) doneT++; if (d.eDone) doneT++; if (d.sDone) doneT++; });
+  let doneT = 0, totalT = 0;
+  state.schedule.forEach((d) => {
+    totalT++; if (d.mDone) doneT++;
+    if (d.second) { totalT++; if (d.eDone) doneT++; }
+    if (d.solid) { totalT++; if (d.sDone) doneT++; }
+  });
   document.getElementById('statWeekPct').textContent = totalT ? Math.round(doneT / totalT * 100) + '%' : '0%';
   document.getElementById('statWeekSub').textContent = doneT === 0 ? 'ابدأ أول مهمة اليوم' : `${doneT} من ${totalT} مهمة`;
 
-  // Stabilization alert every 3 completed revision Juz
   const alertBox = document.getElementById('stabilizationAlert');
-  if (revDoneJuz > 0 && revDoneJuz % 3 === 0 && revDoneJuz < revList.length) {
-    alertBox.innerHTML = `
-      <div class="alert-banner">
-        <div><strong>تذكير أسبوع التثبيت (أتممت ${revDoneJuz} أجزاء)</strong> خصّص لفة سريعة للأجزاء الـ ${solidOldCount} في صندوق التثبيت قبل فتح الجزء التالي.</div>
-      </div>`;
-  } else {
-    alertBox.innerHTML = '';
-  }
+  alertBox.innerHTML = (revDoneJuz > 0 && revDoneJuz % 3 === 0 && revDoneJuz < revList.length)
+    ? `<div class="alert-banner"><div><strong>تذكير أسبوع التثبيت (أتممت ${revDoneJuz} أجزاء)</strong> خصّص لفة سريعة للأجزاء الـ ${solidOldCount} في صندوق التثبيت قبل فتح الجزء التالي.</div></div>`
+    : '';
 
-  // Active Juz Surahs Widget
   const activeJuz = curRev || newList.find((j) => j.donePages < j.totalPages - 0.01);
   const ajCard = document.getElementById('activeJuzSurahsCard');
   if (activeJuz && activeJuz.surahs && activeJuz.surahs.length > 0) {
@@ -2120,93 +1414,69 @@ function renderDashboard() {
       <button type="button" class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(${activeJuz.num}, ${idx})">
         <span>${s.done ? '✓' : '○'} ${escapeHtml(s.name)}</span>
         <small>${formatNum(s.pages)}</small>
-      </button>
-    `).join('');
-  } else {
-    ajCard.style.display = 'none';
-  }
-
-  // First-time Welcome Guide
-  const guideBox = document.getElementById('firstTimeGuideBanner');
-  if (guideBox) {
-    if (!state.welcomeDismissed) {
-      guideBox.innerHTML = `
-        <div class="alert-banner">
-          <div style="flex:1; min-width:220px;">
-            <strong>دليل سريع في سطرين</strong>
-            <div style="font-size:0.81rem; color:var(--text-main); margin-top:3px;">
-              ١) <strong>المراجعة:</strong> راجع جزءك النشط وعند إتمامه يدخل <strong>صندوق التثبيت</strong> ويحل الجزء التالي مكانه تلقائياً.<br/>
-              ٢) <strong>الجديد:</strong> سجّل وردك ثم اضغط «تم التسميع» ليُجدول تلقائياً بالتكرار المتباعد الذكي.
-            </div>
-          </div>
-          <button type="button" class="btn btn-outline btn-sm" onclick="dismissWelcomeGuide()">فهمت، إخفاء</button>
-        </div>`;
-    } else {
-      guideBox.innerHTML = '';
-    }
-  }
-  renderInAppReminderBanner();
+      </button>`).join('');
+  } else { ajCard.style.display = 'none'; }
 }
 
-function dismissWelcomeGuide() { state.welcomeDismissed = true; saveState(); renderDashboard(); }
+function dismissWelcomeGuide() { state.welcomeDismissed = true; saveState(); renderPriorityBanners(); }
 
 function toggleBusyDay() {
   const t = todayStr();
-  if (state.busyDayDate === t) {
-    state.busyDayDate = '';
-    showToast('عدنا إلى جدول اليوم العادي');
-  } else {
-    state.busyDayDate = t;
-    state.busyTasksDone = { t1: false, t2: false };
-    showToast('تم تفعيل وضع الحماية (٧ دقائق) — حافظ على استمراريتك بهدوء 🛡️');
-  }
-  saveState();
-  renderDashboard();
+  if (state.busyDayDate === t) { state.busyDayDate = ''; showToast('عدنا إلى جدول اليوم العادي'); }
+  else { state.busyDayDate = t; state.busyTasksDone = { t1: false, t2: false }; showToast('تم تفعيل وضع الحماية (٧ دقائق) 🛡️'); }
+  saveState(); renderDashboard();
 }
 
 function toggleBusyTask(key) {
   state.busyTasksDone[key] = !state.busyTasksDone[key];
   if (state.busyTasksDone[key]) touchStreak();
-  saveState();
-  renderDashboard();
+  saveState(); renderDashboard();
 }
 
-// ================= 16. NEW MEMORIZATION (2-STEP CYCLE WITH STEPPER) =================
+// ================= NEW MEMORIZATION (AUTO-PAGES FROM AYAH RANGE + SURAH PROGRESS BAR) =================
 function renderHomeNewWorkflow() {
   const container = document.getElementById('homeNewWorkflowCard');
   const activeSurah = resolveActiveNewSurah(state.profile, state.juzList, state.activeNewSurahNum);
   const dir = getEffectiveDirection(state.profile);
   const orderedSurahs = dir === 'from_nas' ? [...SURAHS_DB].reverse() : [...SURAHS_DB];
   const defaultNum = activeSurah ? activeSurah.num : orderedSurahs[0].num;
-  const defaultJuz = activeSurah ? activeSurah.juz : orderedSurahs[0].juz;
   const loggedInSurah = activeSurah ? (state.surahNewProgress[activeSurah.num] || 0) : 0;
+  const maxAyahReached = activeSurah ? (state.surahAyahProgress[activeSurah.num] || 0) : 0;
+  const defaultJuz = activeSurah ? getSurahJuzForLoggedPages(activeSurah.num, loggedInSurah) : orderedSurahs[0].juz;
+  const surahPct = activeSurah ? Math.min(100, Math.round(Math.max(loggedInSurah / activeSurah.pages, maxAyahReached / activeSurah.ayahs) * 100)) : 0;
 
   if (!state.activeWird) {
     if (!newWirdFormOpen) {
       container.innerHTML = `
         <div class="card">
-          <div class="card-title" style="margin-bottom:6px;">
+          <div class="card-title" style="margin-bottom:8px;">
             <h2>📖 الحفظ الجديد — ${activeSurah ? `سورة ${activeSurah.name}` : 'تسجيل الورد'}</h2>
-            ${activeSurah && loggedInSurah > 0 ? `<span class="tag tag-info">${formatNum(loggedInSurah)} / ${formatNum(activeSurah.pages)} وجه</span>` : ''}
+            ${activeSurah ? `<span class="tag tag-info">${surahPct}% من السورة</span>` : ''}
           </div>
-          <p class="muted-note">
-            ${activeSurah ? `سورتك النشطة: <strong>سورة ${activeSurah.name}</strong> (الجزء ${activeSurah.juz} • ${formatNum(activeSurah.pages)} وجهاً).` : 'ابدأ بتسجيل وردك الجديد الأول.'}
-          </p>
+          ${activeSurah ? `
+            <div style="margin-bottom:11px;">
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">
+                الجزء ${defaultJuz} • ${maxAyahReached > 0 ? `وصلت للآية ${maxAyahReached} من ${activeSurah.ayahs}` : `${activeSurah.ayahs} آية`} • ${formatNum(loggedInSurah)} / ${formatNum(activeSurah.pages)} وجهاً
+              </div>
+              <div class="bar-track"><div class="bar-fill-info" style="width:${surahPct}%"></div></div>
+            </div>` : ''}
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn btn-gold" style="flex:1;" onclick="toggleNewWirdForm(true)">+ تسجيل ورد جديد</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('new')">تغيير السورة</button>
             <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('solid'); setSolidTab('new');">صندوق التثبيت</button>
           </div>
-        </div>
-      `;
+        </div>`;
     } else {
       const surahOptions = orderedSurahs.map((s) =>
-        `<option value="${s.num}" ${s.num === defaultNum ? 'selected' : ''}>${s.num}. سورة ${s.name} (الجزء ${s.juz} • ${formatNum(s.pages)} وجه)</option>`
+        `<option value="${s.num}" ${s.num === defaultNum ? 'selected' : ''}>${s.num}. سورة ${s.name} (${s.ayahs} آية • ${formatNum(s.pages)} وجه)</option>`
       ).join('');
       const juzOptions = JUZ_DB.map((j) =>
         `<option value="${j.num}" ${j.num === defaultJuz ? 'selected' : ''}>${j.title} — ${j.range}</option>`
       ).join('');
-      const defPages = state.profile.pagesPerSession || 1;
+      const defFrom = activeSurah ? Math.min(activeSurah.ayahs, maxAyahReached + 1) : 1;
+      const defTo = activeSurah ? Math.min(activeSurah.ayahs, defFrom + Math.max(3, Math.round((state.profile.pagesPerSession || 1) / activeSurah.pages * activeSurah.ayahs)) - 1) : 10;
+      const defPages = activeSurah ? estimatePagesFromAyahs(activeSurah.num, defFrom, defTo) : (state.profile.pagesPerSession || 1);
+
       container.innerHTML = `
         <div class="card">
           <div class="card-title">
@@ -2220,11 +1490,14 @@ function renderHomeNewWorkflow() {
                 <select id="nwSurahSelect" onchange="onHomeSurahChange(this.value)" required>${surahOptions}</select>
               </div>
               <div>
-                <label class="field-label" for="nwPassage">المقطع / الآيات</label>
-                <input type="text" id="nwPassage" placeholder="مثلاً: آية ١ – ١٥ أو السورة كاملة" required />
+                <label class="field-label">نطاق الآيات (يحسب الأوجه تلقائياً)</label>
+                <div class="ayah-range-row">
+                  <input type="number" id="nwFromAyah" min="1" max="${activeSurah ? activeSurah.ayahs : 286}" value="${defFrom}" placeholder="من آية" oninput="autoCalcPagesFromAyahInputs()" required />
+                  <input type="number" id="nwToAyah" min="1" max="${activeSurah ? activeSurah.ayahs : 286}" value="${defTo}" placeholder="إلى آية" oninput="autoCalcPagesFromAyahInputs()" required />
+                </div>
               </div>
               <div>
-                <label class="field-label">عدد الأوجه</label>
+                <label class="field-label">عدد الأوجه (محسوب تلقائياً — قابل للتعديل)</label>
                 <div class="stepper-wrap">
                   <button type="button" class="stepper-btn" onclick="stepNwPages(-0.25)" aria-label="إنقاص ربع وجه">−</button>
                   <span class="stepper-val" id="nwPagesDisplay">${formatNum(defPages)} وجه</span>
@@ -2233,7 +1506,7 @@ function renderHomeNewWorkflow() {
                 <input type="hidden" id="nwPages" value="${defPages}" />
               </div>
               <div>
-                <label class="field-label" for="nwJuz">الجزء التابع له</label>
+                <label class="field-label" for="nwJuz">الجزء التابع له (يتحدث تلقائياً للسور الطويلة)</label>
                 <select id="nwJuz">${juzOptions}</select>
               </div>
             </div>
@@ -2244,8 +1517,7 @@ function renderHomeNewWorkflow() {
               <button type="submit" class="btn btn-gold btn-block">حفظ وتسجيل الورد الجديد</button>
             </div>
           </form>
-        </div>
-      `;
+        </div>`;
     }
   } else {
     const w = state.activeWird;
@@ -2260,29 +1532,29 @@ function renderHomeNewWorkflow() {
           <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">سُجّل في ${w.createdAt} ${w.note ? `• 📝 ${escapeHtml(w.note)}` : ''}</div>
         </div>
         <div style="margin-bottom:11px;">
-          <button type="button" class="task-row ${w.prepRead ? 'done' : ''}" onclick="toggleWirdPrep('prepRead')">
-            <span class="check-circle">${w.prepRead ? '✓' : ''}</span>
-            <span class="task-text"><strong>قراءة نظرية وفهم المعنى</strong></span>
-          </button>
-          <button type="button" class="task-row ${w.prepMem ? 'done' : ''}" onclick="toggleWirdPrep('prepMem')">
-            <span class="check-circle">${w.prepMem ? '✓' : ''}</span>
-            <span class="task-text"><strong>الحفظ والتسميع الذاتي غيباً</strong></span>
-          </button>
-          <button type="button" class="task-row ${w.prepLink ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleWirdPrep('prepLink')">
-            <span class="check-circle">${w.prepLink ? '✓' : ''}</span>
-            <span class="task-text"><strong>ربط الورد بالمقطع السابق في السورة</strong></span>
-          </button>
+          <button type="button" class="task-row ${w.prepRead ? 'done' : ''}" onclick="toggleWirdPrep('prepRead')"><span class="check-circle">${w.prepRead ? '✓' : ''}</span><span class="task-text"><strong>قراءة نظرية وفهم المعنى</strong></span></button>
+          <button type="button" class="task-row ${w.prepMem ? 'done' : ''}" onclick="toggleWirdPrep('prepMem')"><span class="check-circle">${w.prepMem ? '✓' : ''}</span><span class="task-text"><strong>الحفظ والتسميع الذاتي غيباً</strong></span></button>
+          <button type="button" class="task-row ${w.prepLink ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleWirdPrep('prepLink')"><span class="check-circle">${w.prepLink ? '✓' : ''}</span><span class="task-text"><strong>ربط الورد بالمقطع السابق في السورة</strong></span></button>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn-gold" style="flex:1;" onclick="openReciteModal()">✅ تم التسميع + التقييم</button>
           <button type="button" class="btn btn-danger btn-sm" onclick="cancelActiveWird()">تعديل / إلغاء</button>
         </div>
-      </div>
-    `;
+      </div>`;
   }
 }
 
 function toggleNewWirdForm(open) { newWirdFormOpen = !!open; renderHomeNewWorkflow(); }
+
+function autoCalcPagesFromAyahInputs() {
+  const sNum = parseInt(document.getElementById('nwSurahSelect').value, 10);
+  const a1 = parseInt(document.getElementById('nwFromAyah').value, 10);
+  const a2 = parseInt(document.getElementById('nwToAyah').value, 10);
+  if (!sNum || isNaN(a1) || isNaN(a2) || a2 < a1) return;
+  const est = estimatePagesFromAyahs(sNum, a1, a2);
+  document.getElementById('nwPages').value = est;
+  document.getElementById('nwPagesDisplay').textContent = `${formatNum(est)} وجه`;
+}
 
 function stepNwPages(delta) {
   const inp = document.getElementById('nwPages');
@@ -2297,11 +1569,9 @@ function onHomeSurahChange(surahNum) {
   const s = getSurahByNum(surahNum);
   if (!s) return;
   state.activeNewSurahNum = s.num;
-  const juzSel = document.getElementById('nwJuz');
-  if (juzSel) juzSel.value = String(s.juz);
   syncPlanAndScheduleLive();
   saveState();
-  renderHeader();
+  renderHomeNewWorkflow();
   renderSchedule();
 }
 
@@ -2310,20 +1580,20 @@ function registerNewWird(e) {
   const surahNum = parseInt(document.getElementById('nwSurahSelect').value, 10);
   const sObj = getSurahByNum(surahNum);
   const surahName = sObj ? `سورة ${sObj.name}` : 'سورة مختارة';
-  const passage = document.getElementById('nwPassage').value.trim();
+  const a1 = Math.max(1, parseInt(document.getElementById('nwFromAyah').value, 10) || 1);
+  const a2 = Math.max(a1, parseInt(document.getElementById('nwToAyah').value, 10) || (sObj ? sObj.ayahs : a1));
+  const passage = (sObj && a1 === 1 && a2 >= sObj.ayahs) ? `السورة كاملة (${sObj.ayahs} آية)` : `آية ${a1} – ${a2}`;
   const pages = parseFloat(document.getElementById('nwPages').value) || 1;
   const juzNum = parseInt(document.getElementById('nwJuz').value, 10) || (sObj ? sObj.juz : 1);
   const note = document.getElementById('nwNote').value.trim();
 
   if (sObj) state.activeNewSurahNum = sObj.num;
   state.activeWird = {
-    id: 'w_' + Date.now(), surahNum, surahName, passage, pages, juzNum, note,
+    id: 'w_' + Date.now(), surahNum, surahName, passage, fromAyah: a1, toAyah: a2, pages, juzNum, note,
     createdAt: todayStr(), prepRead: false, prepMem: false, prepLink: false
   };
   newWirdFormOpen = false;
-  syncPlanAndScheduleLive();
-  saveState();
-  renderAll();
+  syncPlanAndScheduleLive(); saveState(); renderAll();
   showToast(`تم تسجيل الورد الجديد: ${surahName} — ${passage}`);
 }
 
@@ -2331,15 +1601,12 @@ function toggleWirdPrep(field) {
   if (!state.activeWird) return;
   state.activeWird[field] = !state.activeWird[field];
   if (state.activeWird[field]) touchStreak();
-  saveState();
-  renderHomeNewWorkflow();
+  saveState(); renderHomeNewWorkflow();
 }
 
 function cancelActiveWird() {
   if (!confirm('هل تريد إلغاء الورد المسجّل حالياً لتسجيل ورد آخر؟')) return;
-  state.activeWird = null;
-  saveState();
-  renderAll();
+  state.activeWird = null; saveState(); renderAll();
 }
 
 function openReciteModal() {
@@ -2347,13 +1614,12 @@ function openReciteModal() {
   const w = state.activeWird;
   const sObj = getSurahByNum(w.surahNum);
   const prevLogged = sObj ? (state.surahNewProgress[sObj.num] || 0) : 0;
-  const willReachEnd = sObj ? (prevLogged + w.pages >= sObj.pages - 0.01) : false;
+  const willReachEnd = sObj ? ((w.toAyah && w.toAyah >= sObj.ayahs) || (prevLogged + w.pages >= sObj.pages - 0.01)) : false;
 
   selectedRating = '';
   document.getElementById('reciteModalSummary').innerHTML = `
     <strong style="color:var(--accent-hi);">${escapeHtml(w.surahName)} — ${escapeHtml(w.passage)}</strong>
-    <div style="color:var(--text-muted); font-size:0.8rem; margin-top:2px;">المقدار: ${formatNum(w.pages)} وجه • الجزء ${w.juzNum}</div>
-  `;
+    <div style="color:var(--text-muted); font-size:0.8rem; margin-top:2px;">المقدار: ${formatNum(w.pages)} وجه • الجزء ${w.juzNum}</div>`;
   renderRatingButtons('ratingGrid', '', 'selectRating');
   document.getElementById('reciteRepeatReason').style.display = 'none';
   document.getElementById('reciteSheikhNote').value = w.note || '';
@@ -2363,20 +1629,19 @@ function openReciteModal() {
   document.getElementById('reciteFinishSurah').checked = willReachEnd;
 
   const btn = document.getElementById('confirmReciteBtn');
-  btn.disabled = true;
-  btn.textContent = 'اختر التقييم أولاً لتأكيد التسميع';
+  btn.disabled = true; btn.textContent = 'اختر التقييم أولاً لتأكيد التسميع';
   openModal('reciteModal');
 }
 
 function selectRating(rate) {
   selectedRating = rate;
   renderRatingButtons('ratingGrid', rate, 'selectRating');
-  const isRepeat = rate === 'يحتاج إعادة';
-  document.getElementById('reciteAutoMap').checked = !isRepeat;
-  document.getElementById('reciteRepeatReason').style.display = isRepeat ? 'block' : 'none';
+  const isReset = rate === 'يحتاج إعادة' || rate === 'نسيت تماماً';
+  document.getElementById('reciteAutoMap').checked = !isReset;
+  document.getElementById('reciteRepeatReason').style.display = isReset ? 'block' : 'none';
+  if (rate === 'نسيت تماماً') document.getElementById('reciteTagMut').checked = true;
   const btn = document.getElementById('confirmReciteBtn');
-  btn.disabled = false;
-  btn.textContent = 'تأكيد التسميع وإتاحة تسجيل الورد التالي';
+  btn.disabled = false; btn.textContent = 'تأكيد التسميع وإتاحة تسجيل الورد التالي';
 }
 
 function confirmRecitation() {
@@ -2385,31 +1650,36 @@ function confirmRecitation() {
   const note = document.getElementById('reciteSheikhNote').value.trim();
   const autoMap = document.getElementById('reciteAutoMap').checked;
   const addToLink = document.getElementById('reciteAddToLink').checked;
-  const tagMut = document.getElementById('reciteTagMut').checked;
+  const tagMut = document.getElementById('reciteTagMut').checked || selectedRating === 'نسيت تماماً';
   const finishSurah = document.getElementById('reciteFinishSurah').checked;
   const today = todayStr();
 
   state.maqraaLogs.unshift({
     id: 'mq_' + Date.now(), surahName: w.surahName, passage: w.passage,
     pages: w.pages, juzNum: w.juzNum, date: today, rating: selectedRating, note,
-    tags: tagMut ? ['متشابهات'] : []
+    tags: tagMut ? ['متشابهات'] : [], mutDismissed: false
   });
 
   if (autoMap) {
-    const targetJuz = state.juzList.find((j) => j.num === w.juzNum);
-    if (targetJuz) {
-      targetJuz.loggedPages = Number(((targetJuz.loggedPages || 0) + w.pages).toFixed(2));
-      if (tagMut && !targetJuz.tags.includes('متشابهات')) targetJuz.tags.push('متشابهات');
-    }
+    const prevSurahLogged = w.surahNum ? (state.surahNewProgress[w.surahNum] || 0) : 0;
     if (w.surahNum) {
+      // توزيع الأوجه بدقة عبر الأجزاء إذا امتد الورد لأكثر من جزء
+      const affected = applyPagesAcrossJuzs(state.juzList, w.surahNum, w.pages, prevSurahLogged);
+      affected.forEach((j) => {
+        if (tagMut && !j.tags.includes('متشابهات')) j.tags.push('متشابهات');
+        syncSolidBoxMembership(j);
+      });
       const sObj = getSurahByNum(w.surahNum);
-      const nextLogged = Number(((state.surahNewProgress[w.surahNum] || 0) + w.pages).toFixed(2));
+      const nextLogged = Number((prevSurahLogged + w.pages).toFixed(2));
       state.surahNewProgress[w.surahNum] = sObj ? Math.min(sObj.pages, nextLogged) : nextLogged;
-
+      if (w.toAyah) {
+        state.surahAyahProgress[w.surahNum] = Math.max(state.surahAyahProgress[w.surahNum] || 0, w.toAyah);
+      }
       if (finishSurah || (sObj && nextLogged >= sObj.pages - 0.01)) {
         state.juzList.forEach((j) => {
           (j.surahs || []).forEach((s) => { if (s.num === w.surahNum) s.done = true; });
           recomputeJuzProgress(j);
+          syncSolidBoxMembership(j);
         });
         state.activeNewSurahNum = null;
         const nextS = resolveActiveNewSurah(state.profile, state.juzList, null);
@@ -2417,10 +1687,6 @@ function confirmRecitation() {
       } else {
         state.activeNewSurahNum = w.surahNum;
       }
-    }
-    if (targetJuz) {
-      recomputeJuzProgress(targetJuz);
-      syncSolidBoxMembership(targetJuz);
     }
   } else if (w.surahNum) {
     state.activeNewSurahNum = w.surahNum;
@@ -2431,11 +1697,7 @@ function confirmRecitation() {
   }
 
   state.activeWird = null;
-  touchStreak();
-  syncPlanAndScheduleLive();
-  saveState();
-  closeModal('reciteModal');
-  renderAll();
+  touchStreak(); syncPlanAndScheduleLive(); saveState(); closeModal('reciteModal'); renderAll();
 
   const curNew = state.activeNewSurahNum ? getSurahByNum(state.activeNewSurahNum) : null;
   showToast(
@@ -2445,12 +1707,13 @@ function confirmRecitation() {
   );
 }
 
-// ================= 17. SCHEDULE & WEEKLY SUMMARY =================
+// ================= SCHEDULE & WEEKLY ARCHIVE (NO DUPLICATE SAME-DAY ARCHIVE) =================
 function renderSchedule() {
   const jsToday = new Date().getDay();
   document.getElementById('scheduleList').innerHTML = state.schedule.map((d) => {
     const isToday = d.jsDay === jsToday;
-    const doneCount = (d.mDone ? 1 : 0) + (d.eDone ? 1 : 0) + (d.sDone ? 1 : 0);
+    const totalDayTasks = 1 + (d.second ? 1 : 0) + (d.solid ? 1 : 0);
+    const doneCount = (d.mDone ? 1 : 0) + (d.second && d.eDone ? 1 : 0) + (d.solid && d.sDone ? 1 : 0);
     return `
       <div class="week-day-row ${isToday ? 'today' : ''}">
         <div class="week-day-head">
@@ -2459,7 +1722,7 @@ function renderSchedule() {
             ${isToday ? '<span class="tag tag-gold">اليوم</span>' : ''}
             ${d.maqraa ? '<span class="tag tag-info">يوم التسميع</span>' : '<span class="tag tag-gold">وقت مرن</span>'}
             ${d.customEdited ? '<span class="tag tag-warn">معدّل يدوياً</span>' : ''}
-            ${doneCount === 3 ? '<span class="tag tag-success">✓ مكتمل</span>' : `<span style="font-size:0.78rem; color:var(--text-muted);">${doneCount}/3</span>`}
+            ${doneCount === totalDayTasks ? '<span class="tag tag-success">✓ مكتمل</span>' : `<span style="font-size:0.78rem; color:var(--text-muted);">${doneCount}/${totalDayTasks}</span>`}
           </div>
           <button type="button" class="btn btn-ghost btn-sm" onclick="openEditDay('${d.id}')">تعديل</button>
         </div>
@@ -2471,27 +1734,21 @@ function renderSchedule() {
               <span class="task-text"><strong>${escapeHtml(d.main)}</strong></span>
             </button>
           </div>
-          <div class="session-col">
-            <div class="session-col-title"><span>جلسة التسميع والتثبيت</span><span style="color:var(--text-dim); font-weight:600;">في أي وقت</span></div>
-            <button type="button" class="task-row ${d.eDone ? 'done' : ''}" onclick="toggleDayTask('${d.id}', 'eDone')">
-              <span class="check-circle">${d.eDone ? '✓' : ''}</span>
-              <span class="task-text"><strong style="font-size:0.83rem;">${escapeHtml(d.second)}</strong></span>
-            </button>
-            <button type="button" class="task-row ${d.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${d.id}', 'sDone')">
-              <span class="check-circle">${d.sDone ? '✓' : ''}</span>
-              <span class="task-text"><strong style="font-size:0.83rem;">${escapeHtml(d.solid)}</strong></span>
-            </button>
-          </div>
+          ${(d.second || d.solid) ? `
+            <div class="session-col">
+              <div class="session-col-title"><span>جلسة التسميع والتثبيت</span><span style="color:var(--text-dim); font-weight:600;">في أي وقت</span></div>
+              ${d.second ? `<button type="button" class="task-row ${d.eDone ? 'done' : ''}" onclick="toggleDayTask('${d.id}', 'eDone')"><span class="check-circle">${d.eDone ? '✓' : ''}</span><span class="task-text"><strong style="font-size:0.83rem;">${escapeHtml(d.second)}</strong></span></button>` : ''}
+              ${d.solid ? `<button type="button" class="task-row ${d.sDone ? 'done' : ''}" style="margin-bottom:0;" onclick="toggleDayTask('${d.id}', 'sDone')"><span class="check-circle">${d.sDone ? '✓' : ''}</span><span class="task-text"><strong style="font-size:0.83rem;">${escapeHtml(d.solid)}</strong></span></button>` : ''}
+            </div>` : ''}
         </div>
       </div>`;
   }).join('');
 
   document.getElementById('archiveCountTag').textContent = `${state.weekArchives.length} أسابيع`;
   const archEl = document.getElementById('weekArchiveList');
-  if (state.weekArchives.length === 0) {
-    archEl.innerHTML = '<div class="empty-state">اضغط «إغلاق الأسبوع وعرض الملخص» في نهاية أسبوعك لتوثيق التزامك هنا.</div>';
-  } else {
-    archEl.innerHTML = state.weekArchives.map((a) => `
+  archEl.innerHTML = state.weekArchives.length === 0
+    ? '<div class="empty-state">اضغط «إغلاق الأسبوع وعرض الملخص» في نهاية أسبوعك لتوثيق التزامك هنا.</div>'
+    : state.weekArchives.map((a) => `
       <div class="log-item">
         <div>
           <strong style="font-size:0.88rem;">أسبوع منتهٍ في ${a.date}</strong>
@@ -2499,7 +1756,6 @@ function renderSchedule() {
         </div>
         <span class="tag tag-success">${Math.round(a.doneTasks / (a.totalTasks || 21) * 100)}%</span>
       </div>`).join('');
-  }
 }
 
 function toggleDayTask(dayId, field) {
@@ -2507,8 +1763,7 @@ function toggleDayTask(dayId, field) {
   if (!d) return;
   d[field] = !d[field];
   if (d[field]) touchStreak();
-  saveState();
-  renderAll();
+  saveState(); renderAll();
 }
 
 function openEditDay(dayId) {
@@ -2526,32 +1781,34 @@ function saveDayEdit() {
   const d = state.schedule.find((x) => x.id === editingDayId);
   if (d) {
     d.main = document.getElementById('editMainText').value.trim() || d.main;
-    d.second = document.getElementById('editSecondText').value.trim() || d.second;
-    d.solid = document.getElementById('editSolidText').value.trim() || d.solid;
+    d.second = document.getElementById('editSecondText').value.trim();
+    d.solid = document.getElementById('editSolidText').value.trim();
     d.customEdited = true;
-    saveState();
-    renderAll();
-    showToast('تم حفظ تعديلك اليدوي على هذا اليوم ✓');
+    saveState(); renderAll(); showToast('تم حفظ تعديلك اليدوي على هذا اليوم ✓');
   }
   closeModal('editDayModal');
 }
 
 function resetDayToAuto() {
   const d = state.schedule.find((x) => x.id === editingDayId);
-  if (d) {
-    d.customEdited = false;
-    syncPlanAndScheduleLive();
-    saveState();
-    renderAll();
-    showToast('عاد اليوم للتحديث التلقائي حسب خطتك ✓');
-  }
+  if (d) { d.customEdited = false; syncPlanAndScheduleLive(); saveState(); renderAll(); showToast('عاد اليوم للتحديث التلقائي ✓'); }
   closeModal('editDayModal');
 }
 
 function archiveWeek() {
-  let doneT = 0;
-  const totalT = state.schedule.length * 3 || 21;
-  state.schedule.forEach((d) => { if (d.mDone) doneT++; if (d.eDone) doneT++; if (d.sDone) doneT++; });
+  const today = todayStr();
+  // منع تكرار أرشفة نفس الأسبوع في نفس اليوم
+  if (state.lastArchivedDate === today) {
+    showToast('تمت أرشفة هذا الأسبوع اليوم بالفعل ✓');
+    return;
+  }
+  let doneT = 0, totalT = 0;
+  state.schedule.forEach((d) => {
+    totalT++; if (d.mDone) doneT++;
+    if (d.second) { totalT++; if (d.eDone) doneT++; }
+    if (d.solid) { totalT++; if (d.sDone) doneT++; }
+  });
+  totalT = totalT || 7;
   const totalPages = state.juzList.reduce((s, j) => s + j.totalPages, 0) || 604;
   const donePages = state.juzList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
   const khatmaPct = Math.round(donePages / totalPages * 100);
@@ -2559,10 +1816,12 @@ function archiveWeek() {
   const nextRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
   const nextNew = resolveActiveNewSurah(state.profile, state.juzList, state.activeNewSurahNum);
 
-  state.weekArchives.unshift({ date: todayStr(), doneTasks: doneT, totalTasks: totalT, khatmaPct });
-  state.schedule = buildLiveSchedule(state.profile, state.juzList, state.activeRevJuzNum, state.activeNewSurahNum, null);
-  saveState();
-  renderAll();
+  state.weekArchives.unshift({ date: today, doneTasks: doneT, totalTasks: totalT, khatmaPct });
+  state.lastArchivedDate = today;
+  state.weekStartedAt = today;
+  const hasLinkingItems = state.newLinkingGroups.some((g) => !g.archived && g.passages.length > 0);
+  state.schedule = buildLiveSchedule(state.profile, state.juzList, state.activeRevJuzNum, state.activeNewSurahNum, null, { hasLinkingItems });
+  saveState(); renderAll();
 
   document.getElementById('weekSummaryBody').innerHTML = `
     <div class="calc-preview-card" style="margin-top:0;">
@@ -2572,16 +1831,15 @@ function archiveWeek() {
       • <strong>العناصر التي تحتاج تركيزاً:</strong> ${weakItems.length ? weakItems.map((w) => escapeHtml(w.title)).join('، ') : 'لا توجد عناصر متعثرة — أداء ممتاز!'}<br/>
       • <strong>تركيز الأسبوع القادم:</strong> ${nextRev ? nextRev.title : 'صندوق التثبيت'}${nextNew ? ` + سورة ${nextNew.name}` : ''}.
     </div>
-  `;
+    <div style="margin-top:12px;">
+      <button type="button" class="btn btn-gold btn-block" onclick="shareSheikhReport()">📋 مشاركة التقرير مع الشيخ / المعلّم</button>
+    </div>`;
   openModal('weekSummaryModal');
 }
 
-// ================= 18. SOLID BOX & MUTASHABIHAT BANK =================
-function setSolidTab(sub) {
-  state.solidSubTab = sub;
-  saveState();
-  renderSolidTab();
-}
+// ================= SOLID BOX (SNOWBALL NEW + SURAH-BASED OLD + FILTERED MUTASHABIHAT) =================
+function setSolidTab(sub) { state.solidSubTab = sub; saveState(); renderSolidTab(); }
+function setMutFilter(f) { state.mutFilter = f; renderSolidTab(); }
 
 function formatDueTag(nextDateStr) {
   const diff = diffDaysFromToday(nextDateStr);
@@ -2592,12 +1850,21 @@ function formatDueTag(nextDateStr) {
 
 function ratingBadgeHtml(r) {
   const found = RATINGS.find((x) => x.id === r);
-  if (found) return `<span class="tag ${found.tagClass}">${found.id}</span>`;
-  return '<span class="tag tag-gold">بانتظار التقييم</span>';
+  return found ? `<span class="tag ${found.tagClass}">${found.id}</span>` : '<span class="tag tag-gold">بانتظار التقييم</span>';
 }
 
 function renderSolidTab() {
-  const sub = state.solidSubTab || 'new';
+  const isKhatim = state.profile.mode === 'khatim';
+  const tabNewBtn = document.getElementById('solidTabNew');
+  const tabMutBtn = document.getElementById('solidTabMut');
+  if (tabNewBtn) tabNewBtn.style.display = isKhatim ? 'none' : 'block';
+  if (tabMutBtn) tabMutBtn.style.display = state.simpleMode ? 'none' : 'block';
+
+  let sub = state.solidSubTab || (isKhatim ? 'old' : 'new');
+  if (isKhatim && sub === 'new') sub = 'old';
+  if (state.simpleMode && sub === 'mutashabihat') sub = 'new';
+  state.solidSubTab = sub;
+
   ['New', 'Old', 'Mut', 'Logs'].forEach((k) => {
     const mapKey = k === 'Mut' ? 'mutashabihat' : k.toLowerCase();
     document.getElementById('solidTab' + k).classList.toggle('active', sub === mapKey);
@@ -2605,81 +1872,113 @@ function renderSolidTab() {
   });
 
   const completedList = state.juzList.filter((j) => j.donePages >= j.totalPages - 0.01);
+  const compSurahs = state.completedSurahsSolid || [];
   const activeGroups = state.newLinkingGroups.filter((g) => !g.archived);
   const archivedGroups = state.newLinkingGroups.filter((g) => g.archived);
   const totalNewPassages = activeGroups.reduce((s, g) => s + g.passages.length, 0);
 
-  document.getElementById('solidBoxOldSummary').textContent = `${completedList.length} أجزاء`;
-  document.getElementById('solidBoxNewSummary').textContent = `${totalNewPassages} مقاطع (${activeGroups.length} سورة)`;
+  document.getElementById('solidBoxOldSummary').textContent = `${completedList.length} أجزاء${compSurahs.length ? ` • ${compSurahs.length} سور` : ''}`;
+  document.getElementById('solidBoxNewSummary').textContent = isKhatim ? 'مخفي (خاتم)' : `${totalNewPassages} مقاطع (${activeGroups.length} سورة)`;
 
-  // تثبيت جديد
+  // 1. تثبيت جديد (نظام الكرة الثلجية: تقييم مستقل لكل مقطع + ربط ودمج + ترحيل السورة المكتملة)
   const linkContainer = document.getElementById('linkingGroupsContainer');
   const linkAlert = document.getElementById('linkingAlertBanner');
-  const dueGroup = activeGroups.find((g) => g.passages.length >= 3 && g.linkCount < Math.floor(g.passages.length / 2));
-  linkAlert.innerHTML = dueGroup ? `
+  const mergeCandidate = activeGroups.find((g) => g.passages.length >= 2);
+  linkAlert.innerHTML = mergeCandidate ? `
     <div class="alert-banner">
-      <div><strong>جلسة تجميع وربط مقترحة لـ ${escapeHtml(dueGroup.surahName)}</strong> جمّعت فيها ${dueGroup.passages.length} مقاطع — اسردها متصلة لتتلاحم السورة.</div>
+      <div><strong>جاهز للربط والدمج في ${escapeHtml(mergeCandidate.surahName)}</strong> لديك ${mergeCandidate.passages.length} مقاطع — راجع أي مقطع ضعيف لوحده ثم اضغط «ربط ودمج» لتتلاحم في كتلة واحدة.</div>
     </div>` : '';
 
   if (activeGroups.length === 0 && archivedGroups.length === 0) {
-    linkContainer.innerHTML = `
-      <div class="empty-state">
-        قسم <strong>تثبيت الجديد</strong> بانتظار أول ورد تسمّعه من الرئيسية.
-        <div style="margin-top:10px;"><button type="button" class="btn btn-gold btn-sm" onclick="switchTab('dashboard'); toggleNewWirdForm(true);">ابدأ الورد الأول</button></div>
-      </div>`;
+    linkContainer.innerHTML = isKhatim
+      ? '<div class="empty-state">أنت في وضع الخاتم — جميع أجزائك تُدار من تبويب «تثبيت قديم».</div>'
+      : `<div class="empty-state">قسم <strong>تثبيت الجديد</strong> بانتظار أول ورد تسمّعه من الرئيسية.
+          <div style="margin-top:10px;"><button type="button" class="btn btn-gold btn-sm" onclick="switchTab('dashboard'); toggleNewWirdForm(true);">ابدأ الورد الأول</button></div>
+         </div>`;
   } else {
     let html = '';
     activeGroups.forEach((g) => {
-      const sumPages = g.passages.reduce((s, p) => s + p.pages, 0);
-      const hasWeak = g.passages.some((p) => p.rating === 'جيد' || p.rating === 'يحتاج إعادة');
+      const sumPages = g.passages.reduce((s, p) => s + Number(p.pages || 0), 0);
       const isMut = Array.isArray(g.tags) && g.tags.includes('متشابهات');
       html += `
-        <div class="link-group-card ${hasWeak ? 'priority' : ''}">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+        <div class="link-group-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
             <div>
-              <strong style="font-size:0.97rem; color:var(--accent-hi);">${escapeHtml(g.surahName)} ${isMut ? '<span class="tag tag-warn">متشابهات</span>' : ''}</strong>
-              <div style="font-size:0.78rem; color:var(--text-muted);">
-                ${g.passages.length} مقاطع (${formatNum(sumPages)} وجه) • مرات التثبيت: <strong>${g.linkCount}</strong>
-                ${g.lastLinked ? ` • آخر تثبيت: ${g.lastLinked}` : ''}
-              </div>
+              <strong style="font-size:0.98rem; color:var(--accent-hi);">${escapeHtml(g.surahName)} ${isMut ? '<span class="tag tag-warn">متشابهات</span>' : ''}</strong>
+              <div style="font-size:0.78rem; color:var(--text-muted);">${g.passages.length} مقطع (${formatNum(sumPages)} وجه) • مرات الربط: <strong>${g.linkCount}</strong></div>
             </div>
             ${formatDueTag(g.nextReviewDate || todayStr())}
           </div>
-          <div class="passage-chain">
+          <div>
             ${g.passages.map((p, idx) => {
-              const weak = p.rating === 'جيد' || p.rating === 'يحتاج إعادة';
-              return `<span class="passage-pill ${weak ? 'needs-work' : ''}">
-                <span>${idx + 1}. ${escapeHtml(p.passage)} (${formatNum(p.pages)}) • ${escapeHtml(p.rating)}</span>
-                <button type="button" onclick="removeLinkPassage('${g.id}','${p.id}')" aria-label="حذف المقطع" style="background:none;border:none;color:inherit;cursor:pointer;padding:0 4px;font-weight:900;">×</button>
-              </span>`;
+              const isCrit = p.rating === 'نسيت تماماً';
+              const isWeak = p.rating === 'جيد' || p.rating === 'يحتاج إعادة';
+              return `
+                <div class="passage-card-row ${isCrit ? 'critical' : (isWeak ? 'needs-work' : '')}">
+                  <div>
+                    <strong style="font-size:0.86rem;">${idx + 1}. ${escapeHtml(p.passage)}</strong>
+                    <span style="font-size:0.77rem; color:var(--text-muted);"> (${formatNum(p.pages)} وجه) • ${ratingBadgeHtml(p.rating)}</span>
+                  </div>
+                  <div style="display:flex; gap:5px; align-items:center;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="openSrReviewModal('passage', '${g.id}', '${escapeAttr(g.surahName + ' — ' + p.passage)}', 0, '${p.id}')">مراجعة وتقييم</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="removeLinkPassage('${g.id}','${p.id}')" aria-label="حذف المقطع">×</button>
+                  </div>
+                </div>`;
             }).join('')}
           </div>
-          <div style="display:flex; gap:7px; flex-wrap:wrap; margin-top:8px;">
-            <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('new', '${g.id}', '${escapeAttr(g.surahName)}')">+ تمت المراجعة والربط</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="openTimerModal('link')">مؤقت الربط (٦ د)</button>
+          <div style="display:flex; gap:7px; flex-wrap:wrap; margin-top:10px;">
+            ${g.passages.length >= 2 ? `<button type="button" class="btn btn-gold btn-sm" onclick="mergeGroupPassages('${g.id}')">🔗 ربط ودمج المقاطع (${g.passages.length})</button>` : ''}
+            <button type="button" class="btn btn-outline btn-sm" onclick="openSrReviewModal('new', '${g.id}', '${escapeAttr(g.surahName)}')">تقييم السورة ككل</button>
+            <button type="button" class="btn btn-success btn-sm" onclick="graduateSurahToOldSolid('${g.id}')">اكتملت ← نقل للتثبيت الدائم ✓</button>
             <button type="button" class="btn btn-ghost btn-sm" onclick="toggleGroupMutTag('${g.id}')">${isMut ? 'إزالة المتشابهات' : '+ متشابهات'}</button>
-            <button type="button" class="btn btn-success btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">تم إتقان السورة ✓</button>
           </div>
         </div>`;
     });
     if (archivedGroups.length > 0) {
-      html += `<div style="margin-top:12px; font-size:0.83rem; font-weight:800; color:var(--success); margin-bottom:7px;">✓ سور تم إتقانها (${archivedGroups.length})</div>`;
+      html += `<div style="margin-top:12px; font-size:0.83rem; font-weight:800; color:var(--success); margin-bottom:7px;">✓ سور اكتملت وانتقلت للتثبيت الدائم (${archivedGroups.length})</div>`;
       archivedGroups.forEach((g) => {
-        html += `<div class="log-item"><div><strong style="font-size:0.9rem; color:var(--success);">${escapeHtml(g.surahName)}</strong><div style="font-size:0.78rem; color:var(--text-muted);">${g.passages.length} مقاطع • رُبطت ${g.linkCount} مرات</div></div><button type="button" class="btn btn-ghost btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">إعادة</button></div>`;
+        html += `<div class="log-item"><div><strong style="font-size:0.9rem; color:var(--success);">${escapeHtml(g.surahName)}</strong></div><button type="button" class="btn btn-ghost btn-sm" onclick="toggleArchiveLinkGroup('${g.id}')">إعادة للربط</button></div>`;
       });
     }
     linkContainer.innerHTML = html;
   }
 
-  // تثبيت قديم
+  // 2. تثبيت قديم (دورة الخاتم + السور المكتملة المرحلة + الأجزاء المكتملة)
+  const khatimBox = document.getElementById('khatimCycleBanner');
+  if (khatimBox) {
+    khatimBox.innerHTML = isKhatim ? `
+      <div class="calc-preview-card" style="margin-top:0; margin-bottom:12px;">
+        <strong>دورة الختم رقم ${state.khatimCycleNum || 1}</strong> (بدأت في ${state.khatimCycleStartedAt || todayStr()}) • الهدف: <strong>${state.profile.khatimCycleDays || 60} يوماً</strong> (${Math.ceil(604 / (state.profile.khatimCycleDays || 60))} وجه/يوم).
+      </div>` : '';
+  }
+
+  const csBox = document.getElementById('completedSurahsSolidList');
+  if (csBox) {
+    csBox.innerHTML = compSurahs.length > 0 ? `
+      <div style="font-size:0.84rem; font-weight:800; color:var(--accent-hi); margin-bottom:8px;">سور مكتملة في التثبيت الدائم (${compSurahs.length})</div>
+      ${compSurahs.map((cs) => `
+        <div class="log-item" style="align-items:center;">
+          <div>
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <strong style="font-size:0.92rem;">${escapeHtml(cs.surahName)}</strong>
+              ${formatDueTag(cs.nextReviewDate || todayStr())}
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">المراجعات: <strong>${cs.reviews}</strong> • التقييم: <strong>${cs.rating || 'أول مراجعة'}</strong></div>
+          </div>
+          <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('surah_solid', '${cs.id}', '${escapeAttr(cs.surahName)}')">+ راجعتها</button>
+        </div>`).join('')}
+    ` : '';
+  }
+
   document.getElementById('solidCountBadge').textContent = `${completedList.length} أجزاء`;
   const solidEl = document.getElementById('solidBoxList');
-  if (completedList.length === 0) {
-    solidEl.innerHTML = '<div class="empty-state">قسم <strong>تثبيت القديم</strong> بانتظار أول جزء تكتمل مراجعته من خريطة الـ ٣٠ جزءاً.</div>';
+  if (completedList.length === 0 && compSurahs.length === 0) {
+    solidEl.innerHTML = '<div class="empty-state">قسم <strong>تثبيت القديم</strong> بانتظار أول جزء مكتمل أو سورة تكتمل من «تثبيت الجديد».</div>';
   } else {
     solidEl.innerHTML = completedList.map((j) => {
-      const meta = state.solidMeta[j.num] || { reviews: 0, lastReviewed: '', rating: '', nextReviewDate: todayStr(), weakPages: [] };
-      const wp = Array.isArray(meta.weakPages) && meta.weakPages.length > 0 ? ` • أوجه متفلتة: ص ${meta.weakPages.join('، ')}` : '';
+      const meta = state.solidMeta[j.num] || { reviews: 0, lastReviewed: '', rating: '', nextReviewDate: todayStr(), weakSurahs: [], weakPages: [] };
+      const ws = Array.isArray(meta.weakSurahs) && meta.weakSurahs.length > 0 ? ` • سور للتقوية: ${meta.weakSurahs.join('، ')}` : '';
+      const wp = (!ws && Array.isArray(meta.weakPages) && meta.weakPages.length > 0) ? ` • أوجه متفلتة: ص ${meta.weakPages.join('، ')}` : '';
       return `
         <div class="log-item" style="align-items:center;">
           <div>
@@ -2688,7 +1987,7 @@ function renderSolidTab() {
               ${formatDueTag(meta.nextReviewDate || todayStr())}
             </div>
             <div style="font-size:0.78rem; color:var(--text-muted); margin-top:3px;">
-              المراجعات: <strong style="color:var(--accent-hi);">${meta.reviews}</strong> • التقييم: <strong>${meta.rating || 'أول مراجعة'}</strong>${wp}
+              المراجعات: <strong style="color:var(--accent-hi);">${meta.reviews}</strong> • التقييم: <strong>${meta.rating || 'أول مراجعة'}</strong>${ws}${wp}
             </div>
           </div>
           <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('old', ${j.num}, '${escapeAttr(j.title)}')">+ راجعته</button>
@@ -2696,75 +1995,80 @@ function renderSolidTab() {
     }).join('');
   }
 
-  // بنك المتشابهات (يشمل الأجزاء + مجموعات الربط + ملاحظات الشيخ والمقاطع الموسومة في سجل التسميع)
+  // 3. بنك المتشابهات وملاحظات التسميع (مفصولة بفلتر واضح + حماية log.note)
   const mutItems = [];
   state.juzList.forEach((j) => {
     const meta = state.solidMeta[j.num];
     const hasTag = Array.isArray(j.tags) && j.tags.includes('متشابهات');
-    const hasWeak = meta && Array.isArray(meta.weakPages) && meta.weakPages.length > 0;
+    const hasWeak = meta && ((Array.isArray(meta.weakSurahs) && meta.weakSurahs.length > 0) || (Array.isArray(meta.weakPages) && meta.weakPages.length > 0));
     if (hasTag || hasWeak || (j.note && j.note.includes('متشابه'))) {
-      const canReview = !!meta;
+      const weakTxt = (meta && meta.weakSurahs && meta.weakSurahs.length) ? `سور للتقوية: ${meta.weakSurahs.join('، ')}` : (meta && meta.weakPages && meta.weakPages.length ? `أوجه متفلتة: ص ${meta.weakPages.join('، ')}` : '');
       mutItems.push({
-        title: j.title,
-        sub: `${j.range}${hasWeak ? ` • أوجه متفلتة: ص ${meta.weakPages.join('، ')}` : ''}`,
-        note: j.note || '',
-        actionsHtml: `
-          ${canReview ? `<button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('old', ${j.num}, '${escapeAttr(j.title)}')">تقييم ✓</button>` : ''}
-          <button type="button" class="btn btn-ghost btn-sm" onclick="clearJuzMutAndWeak(${j.num})">${hasWeak ? 'تصفير المتفلت' : 'إزالة الوسم'}</button>
-        `
+        cat: 'mut', title: j.title, sub: `${j.range}${weakTxt ? ' • ' + weakTxt : ''}`, note: j.note || '',
+        badge: (meta && meta.critical) ? '<span class="tag tag-danger">موضع حرج</span>' : '<span class="tag tag-warn">متشابهات</span>',
+        actionsHtml: `${meta ? `<button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('old', ${j.num}, '${escapeAttr(j.title)}')">تقييم ✓</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm" onclick="clearJuzMutAndWeak(${j.num})">تصفير/إزالة</button>`
       });
     }
   });
   state.newLinkingGroups.forEach((g) => {
     if (Array.isArray(g.tags) && g.tags.includes('متشابهات')) {
       mutItems.push({
-        title: g.surahName,
-        sub: `${g.passages.length} مقاطع موسومة بالمتشابهات`,
-        note: '',
-        actionsHtml: `
-          <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('new', '${g.id}', '${escapeAttr(g.surahName)}')">تقييم الربط ✓</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleGroupMutTag('${g.id}')">إزالة الوسم</button>
-        `
+        cat: 'mut', title: g.surahName, sub: `${g.passages.length} مقاطع`, note: '',
+        badge: g.critical ? '<span class="tag tag-danger">موضع حرج</span>' : '<span class="tag tag-warn">متشابهات</span>',
+        actionsHtml: `<button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('new', '${g.id}', '${escapeAttr(g.surahName)}')">تقييم ✓</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleGroupMutTag('${g.id}')">إزالة الوسم</button>`
       });
     }
   });
   state.maqraaLogs.forEach((log) => {
+    if (log.mutDismissed) return;
     const isTagged = Array.isArray(log.tags) && log.tags.includes('متشابهات');
     const hasNote = !!(log.note && log.note.trim());
     if (isTagged || hasNote) {
       mutItems.push({
+        cat: isTagged ? 'mut' : 'notes',
         title: `${log.surahName} — ${log.passage}`,
-        sub: `ملاحظة تسميع • الجزء ${log.juzNum} • ${log.date}`,
+        sub: `الجزء ${log.juzNum} • ${log.date}`,
         note: log.note || 'موسوم ضمن بنك المتشابهات',
-        actionsHtml: `
-          <button type="button" class="btn btn-ghost btn-sm" onclick="clearLogMutAndNote('${log.id}')">إزالة من البنك</button>
-        `
+        badge: isTagged ? '<span class="tag tag-warn">متشابهات</span>' : '<span class="tag tag-info">ملاحظة تسميع</span>',
+        actionsHtml: `<button type="button" class="btn btn-ghost btn-sm" onclick="clearLogMutAndNote('${log.id}')">إخفاء من البنك</button>`
       });
     }
   });
-  document.getElementById('mutCountBadge').textContent = `${mutItems.length} مواضع`;
+
+  const curMutF = state.mutFilter || 'all';
+  const mutFilterBar = document.getElementById('mutFilterBar');
+  if (mutFilterBar) {
+    mutFilterBar.innerHTML = `
+      <button type="button" class="btn btn-sm ${curMutF === 'all' ? 'btn-gold' : 'btn-ghost'}" onclick="setMutFilter('all')">الكل (${mutItems.length})</button>
+      <button type="button" class="btn btn-sm ${curMutF === 'mut' ? 'btn-gold' : 'btn-ghost'}" onclick="setMutFilter('mut')">المتشابهات والمواضع الحرجة</button>
+      <button type="button" class="btn btn-sm ${curMutF === 'notes' ? 'btn-gold' : 'btn-ghost'}" onclick="setMutFilter('notes')">ملاحظات التسميع</button>`;
+  }
+  const visibleMut = curMutF === 'all' ? mutItems : mutItems.filter((x) => x.cat === curMutF);
+  document.getElementById('mutCountBadge').textContent = `${visibleMut.length} مواضع`;
   const mutEl = document.getElementById('mutashabihatList');
-  if (mutItems.length === 0) {
-    mutEl.innerHTML = '<div class="empty-state">لا توجد متشابهات أو ملاحظات مسجّلة بعد — أضف ملاحظة عند التسميع أو اضغط «+ متشابهات» على أي جزء لتجميعها هنا.</div>';
-  } else {
-    mutEl.innerHTML = mutItems.map((m) => `
+  mutEl.innerHTML = visibleMut.length === 0
+    ? '<div class="empty-state">لا توجد عناصر في هذا التصنيف حالياً.</div>'
+    : visibleMut.map((m) => `
       <div class="log-item" style="align-items:center; flex-wrap:wrap;">
         <div style="flex:1; min-width:200px;">
-          <strong style="color:var(--warn); font-size:0.92rem;">${escapeHtml(m.title)}</strong>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <strong style="color:var(--warn); font-size:0.92rem;">${escapeHtml(m.title)}</strong>
+            ${m.badge}
+          </div>
           <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(m.sub)}</div>
           ${m.note ? `<div style="font-size:0.8rem; margin-top:3px;">📝 ${escapeHtml(m.note)}</div>` : ''}
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">${m.actionsHtml}</div>
       </div>`).join('');
-  }
 
-  // سجل التسميع
+  // 4. سجل التسميع
   document.getElementById('maqraaCountTag').textContent = `${state.maqraaLogs.length} حصص`;
   const logEl = document.getElementById('maqraaLogList');
-  if (state.maqraaLogs.length === 0) {
-    logEl.innerHTML = '<div class="empty-state">سجل حصص التسميع والتقييمات سيظهر هنا فور تأكيد أول تسميع.</div>';
-  } else {
-    logEl.innerHTML = state.maqraaLogs.map((item) => `
+  logEl.innerHTML = state.maqraaLogs.length === 0
+    ? '<div class="empty-state">سجل حصص التسميع والتقييمات سيظهر هنا فور تأكيد أول تسميع.</div>'
+    : state.maqraaLogs.map((item) => `
       <div class="log-item">
         <div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -2776,65 +2080,55 @@ function renderSolidTab() {
         </div>
         <button type="button" class="btn btn-danger btn-sm" onclick="deleteMaqraaLog('${item.id}')">حذف</button>
       </div>`).join('');
-  }
 }
 
 function addPassageToLinkingGroup(surahName, passage, pages, rating, date, tagMut = false) {
   const cleanName = surahName.trim();
-  const next = computeSM2({ reps: 0, ease: SR_CONFIG.defaultEase, intervalDays: 1 }, rating, 0);
+  const level = getEffectiveLevel(state.profile);
+  const next = computeSM2({ reps: 0, ease: SR_CONFIG.defaultEase, intervalDays: 1 }, rating, 0, level);
   let group = state.newLinkingGroups.find((g) => g.surahName === cleanName && !g.archived);
   if (!group) {
     group = {
       id: 'lg_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       surahName: cleanName, archived: false, linkCount: 0,
-      reps: next.reps, lapses: next.lapses, ease: next.ease,
+      reps: next.reps, lapses: next.lapses, ease: next.ease, critical: rating === 'نسيت تماماً',
       lastLinked: date, rating, intervalDays: next.intervalDays,
       nextReviewDate: addDaysStr(date, next.intervalDays),
-      tags: tagMut ? ['متشابهات'] : [],
-      passages: []
+      tags: tagMut ? ['متشابهات'] : [], passages: []
     };
     state.newLinkingGroups.unshift(group);
   } else {
     const candidateDate = addDaysStr(date, next.intervalDays);
-    if (!group.nextReviewDate || candidateDate < group.nextReviewDate) {
-      group.nextReviewDate = candidateDate;
-      group.rating = rating;
-    }
+    if (!group.nextReviewDate || candidateDate < group.nextReviewDate) { group.nextReviewDate = candidateDate; group.rating = rating; }
+    if (rating === 'نسيت تماماً') group.critical = true;
     if (tagMut && !group.tags.includes('متشابهات')) group.tags.push('متشابهات');
   }
-  group.passages.push({
-    id: 'p_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-    passage: passage.trim(), pages: Number(pages) || 1, rating, date
-  });
+  group.passages.push({ id: 'p_' + Date.now() + '_' + Math.floor(Math.random() * 1000), passage: passage.trim(), pages: Number(pages) || 1, rating, date });
 }
 
 function toggleGroupMutTag(groupId) {
   const g = state.newLinkingGroups.find((x) => x.id === groupId);
   if (!g) return;
   g.tags = Array.isArray(g.tags) ? g.tags : [];
-  if (g.tags.includes('متشابهات')) g.tags = g.tags.filter((t) => t !== 'متشابهات');
+  if (g.tags.includes('متشابهات')) { g.tags = g.tags.filter((t) => t !== 'متشابهات'); g.critical = false; }
   else g.tags.push('متشابهات');
-  saveState();
-  renderAll();
+  saveState(); renderAll();
 }
 
 function clearJuzMutAndWeak(juzNum) {
   const j = state.juzList.find((x) => x.num === juzNum);
   if (j && Array.isArray(j.tags)) j.tags = j.tags.filter((t) => t !== 'متشابهات');
-  if (state.solidMeta[juzNum]) state.solidMeta[juzNum].weakPages = [];
-  saveState();
-  renderAll();
-  showToast('تم تنظيف الوسم والأوجه المتفلتة لهذا الجزء ✓');
+  if (state.solidMeta[juzNum]) { state.solidMeta[juzNum].weakSurahs = []; state.solidMeta[juzNum].weakPages = []; state.solidMeta[juzNum].critical = false; }
+  saveState(); renderAll(); showToast('تم تنظيف الوسم والمواضع المتفلتة لهذا الجزء ✓');
 }
 
+// حماية سجل التسميع: لا تمسح log.note أبداً، بل تضبط mutDismissed = true فقط
 function clearLogMutAndNote(logId) {
   const log = state.maqraaLogs.find((x) => x.id === logId);
   if (!log) return;
   log.tags = [];
-  log.note = '';
-  saveState();
-  renderAll();
-  showToast('تمت إزالة الملاحظة من بنك المتشابهات ✓');
+  log.mutDismissed = true;
+  saveState(); renderAll(); showToast('تم إخفاؤها من بنك المتشابهات مع حفظها في سجل التسميع ✓');
 }
 
 function populateManualLinkSurahSelect() {
@@ -2861,11 +2155,8 @@ function saveManualLinkPassage(e) {
     todayStr(),
     document.getElementById('mlTagMut').checked
   );
-  saveState();
-  closeModal('manualLinkModal');
-  document.getElementById('mlPassage').value = '';
-  renderAll();
-  showToast('أُضيف المقطع إلى صندوق التثبيت وجُدول تلقائياً ✓');
+  saveState(); closeModal('manualLinkModal'); document.getElementById('mlPassage').value = '';
+  renderAll(); showToast('أُضيف المقطع إلى صندوق التثبيت وجُدول تلقائياً ✓');
 }
 
 function removeLinkPassage(groupId, passageId) {
@@ -2873,22 +2164,19 @@ function removeLinkPassage(groupId, passageId) {
   if (!g) return;
   g.passages = g.passages.filter((p) => p.id !== passageId);
   if (g.passages.length === 0) state.newLinkingGroups = state.newLinkingGroups.filter((x) => x.id !== groupId);
-  saveState();
-  renderAll();
+  saveState(); renderAll();
 }
 
 function toggleArchiveLinkGroup(groupId) {
   const g = state.newLinkingGroups.find((x) => x.id === groupId);
   if (!g) return;
   g.archived = !g.archived;
-  saveState();
-  renderAll();
-  showToast(g.archived ? `تم توثيق إتقان ${g.surahName} ✓` : `أُعيدت ${g.surahName} للتثبيت النشط`);
+  saveState(); renderAll();
 }
 
 function deleteMaqraaLog(id) { state.maqraaLogs = state.maqraaLogs.filter((x) => x.id !== id); saveState(); renderAll(); }
 
-// ================= 19. 30-JUZ MAP (WITH MUTASHABIHAT FILTER) =================
+// ================= 30-JUZ MAP =================
 function setMapFilter(filter) { state.mapFilter = filter; saveState(); renderMap(); }
 
 function renderMap() {
@@ -2918,7 +2206,7 @@ function renderMap() {
     if (state.mapFilter === 'mutashabihat') {
       const meta = state.solidMeta[j.num];
       return (Array.isArray(j.tags) && j.tags.includes('متشابهات')) ||
-        (meta && Array.isArray(meta.weakPages) && meta.weakPages.length > 0) ||
+        (meta && ((meta.weakSurahs && meta.weakSurahs.length) || (meta.weakPages && meta.weakPages.length))) ||
         (j.note && j.note.includes('متشابه'));
     }
     return j.track === state.mapFilter;
@@ -2967,26 +2255,14 @@ function renderMap() {
             <button type="button" class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 0.5)">+٠.٥</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 1)">+١ وجه</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="adjustJuzPages(${j.num}, 3)">+٣</button>
-            ${!completed
-              ? `<button type="button" class="btn btn-success btn-sm" onclick="completeJuz(${j.num})">إتمام ✓</button>`
-              : `<button type="button" class="btn btn-ghost btn-sm" onclick="resetJuz(${j.num})">إعادة فتح</button>`
-            }
+            ${!completed ? `<button type="button" class="btn btn-success btn-sm" onclick="completeJuz(${j.num})">إتمام ✓</button>` : `<button type="button" class="btn btn-ghost btn-sm" onclick="resetJuz(${j.num})">إعادة فتح</button>`}
             ${!completed && !isActive ? `<button type="button" class="btn btn-gold btn-sm" onclick="setActiveRevJuz(${j.num})">ابدأ به الآن</button>` : ''}
             <button type="button" class="btn btn-ghost btn-sm" onclick="toggleJuzMutTag(${j.num})">${isMut ? 'إزالة المتشابهات' : '+ متشابهات'}</button>
             ${j.surahs && j.surahs.length > 0 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="toggleExpandJuz(${j.num})">${expanded ? 'السور ▲' : `السور (${j.surahs.length}) ▼`}</button>` : ''}
             <button type="button" class="btn btn-ghost btn-sm" onclick="flipJuzTrack(${j.num})">نقل لـ ${j.track === 'new' ? 'المراجعة' : 'الجديد'}</button>
           </div>
-          ${j.surahs && expanded ? `
-            <div class="surah-list">
-              ${j.surahs.map((s, idx) => `
-                <button type="button" class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(${j.num}, ${idx})">
-                  <span>${s.done ? '✓' : '○'} ${escapeHtml(s.name)}</span>
-                  <small>${formatNum(s.pages)}</small>
-                </button>`).join('')}
-            </div>` : ''}
-          <div style="margin-top:8px;">
-            <input type="text" value="${escapeAttr(j.note || '')}" placeholder="ملاحظة أو متشابهات..." onchange="updateJuzNote(${j.num}, this.value)" style="padding:8px 10px; font-size:0.82rem;" />
-          </div>
+          ${j.surahs && expanded ? `<div class="surah-list">${j.surahs.map((s, idx) => `<button type="button" class="surah-chip ${s.done ? 'done' : ''}" onclick="toggleSurah(${j.num}, ${idx})"><span>${s.done ? '✓' : '○'} ${escapeHtml(s.name)}</span><small>${formatNum(s.pages)}</small></button>`).join('')}</div>` : ''}
+          <div style="margin-top:8px;"><input type="text" value="${escapeAttr(j.note || '')}" placeholder="ملاحظة أو متشابهات..." onchange="updateJuzNote(${j.num}, this.value)" style="padding:8px 10px; font-size:0.82rem;" /></div>
         </div>`;
     });
   });
@@ -2999,8 +2275,7 @@ function toggleJuzMutTag(juzNum) {
   j.tags = Array.isArray(j.tags) ? j.tags : [];
   if (j.tags.includes('متشابهات')) j.tags = j.tags.filter((t) => t !== 'متشابهات');
   else j.tags.push('متشابهات');
-  saveState();
-  renderAll();
+  saveState(); renderAll();
 }
 
 function flipJuzTrack(juzNum) {
@@ -3009,9 +2284,7 @@ function flipJuzTrack(juzNum) {
   j.track = j.track === 'new' ? 'revision' : 'new';
   j.phase = j.track === 'new' ? 'مسار الحفظ الجديد' : 'مسار المراجعة';
   if (j.surahs) j.surahs.forEach((s) => { s.track = j.track; });
-  syncPlanAndScheduleLive();
-  saveState();
-  renderAll();
+  syncPlanAndScheduleLive(); saveState(); renderAll();
 }
 
 function adjustJuzPages(juzNum, delta) {
@@ -3020,14 +2293,10 @@ function adjustJuzPages(juzNum, delta) {
   const surahDonePages = (j.surahs || []).reduce((sum, s) => sum + (s.done ? Number(s.pages || 0) : 0), 0);
   const floorLogged = -(Number(j.basePages || 0) + surahDonePages);
   const ceilLogged = j.totalPages - (Number(j.basePages || 0) + surahDonePages);
-  const nextLogged = Number(((j.loggedPages || 0) + delta).toFixed(2));
-  j.loggedPages = Math.max(floorLogged, Math.min(ceilLogged, nextLogged));
+  j.loggedPages = Math.max(floorLogged, Math.min(ceilLogged, Number(((j.loggedPages || 0) + delta).toFixed(2))));
   recomputeJuzProgress(j);
   if (delta > 0) touchStreak();
-  syncSolidBoxMembership(j);
-  syncPlanAndScheduleLive();
-  saveState();
-  renderAll();
+  syncSolidBoxMembership(j); syncPlanAndScheduleLive(); saveState(); renderAll();
 }
 
 function completeJuz(juzNum) {
@@ -3035,42 +2304,28 @@ function completeJuz(juzNum) {
   if (!j) return;
   j.loggedPages = Math.max(0, Number(j.loggedPages || 0));
   if (j.surahs) j.surahs.forEach((s) => { s.done = true; });
-  recomputeJuzProgress(j);
-  touchStreak();
-  syncSolidBoxMembership(j);
-  syncPlanAndScheduleLive();
-  saveState();
-  renderAll();
+  recomputeJuzProgress(j); touchStreak(); syncSolidBoxMembership(j); syncPlanAndScheduleLive(); saveState(); renderAll();
 }
 
 function resetJuz(juzNum) {
   const j = state.juzList.find((x) => x.num === juzNum);
   if (!j) return;
-  j.loggedPages = 0;
-  j.basePages = 0;
+  j.loggedPages = 0; j.basePages = 0;
   if (j.surahs) j.surahs.forEach((s) => { s.done = false; });
-  recomputeJuzProgress(j);
-  syncSolidBoxMembership(j);
-  syncPlanAndScheduleLive();
-  saveState();
-  renderAll();
+  recomputeJuzProgress(j); syncSolidBoxMembership(j); syncPlanAndScheduleLive(); saveState(); renderAll();
 }
 
 function toggleSurah(juzNum, idx) {
   const j = state.juzList.find((x) => x.num === juzNum);
   if (!j || !j.surahs || !j.surahs[idx]) return;
   const s = j.surahs[idx];
-  // تأكيد عند تعليم سورة أكبر من ٥ أوجه لتجنب الضغط العارض
   if (!s.done && s.pages > 5) {
     if (!confirm(`سورة ${s.name} تبلغ ${formatNum(s.pages)} وجهاً في هذا الجزء — هل أتممتها بالكامل فعلاً؟`)) return;
   }
   s.done = !s.done;
   recomputeJuzProgress(j);
   if (s.done) touchStreak();
-  syncSolidBoxMembership(j);
-  syncPlanAndScheduleLive();
-  saveState();
-  renderAll();
+  syncSolidBoxMembership(j); syncPlanAndScheduleLive(); saveState(); renderAll();
 }
 
 function toggleExpandJuz(juzNum) { state.expandedJuz[juzNum] = !state.expandedJuz[juzNum]; saveState(); renderMap(); }
@@ -3080,50 +2335,48 @@ function quickAddRevPage() {
   const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
   if (!curRev) { showToast('ما شاء الله! جميع أجزاء المراجعة مكتملة في صندوق التثبيت'); return; }
   adjustJuzPages(curRev.num, 1);
-  if (curRev.donePages < curRev.totalPages - 0.01) {
-    showToast(`+١ وجه في ${curRev.title} (${formatNum(curRev.donePages)}/${curRev.totalPages})`);
-  }
+  if (curRev.donePages < curRev.totalPages - 0.01) showToast(`+١ وجه في ${curRev.title} (${formatNum(curRev.donePages)}/${curRev.totalPages})`);
 }
 
-// ================= 20. SMART REMINDERS (ANDROID SW SAFE + .ICS EXPORT) =================
+// ================= REMINDERS, HEALTH CHECK & 2-HOUR WINDOW (B5) =================
 function buildSmartMessage(type) {
   const name = state.profile.name || 'حافظ القرآن';
   const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
   const activeS = resolveActiveNewSurah(state.profile, state.juzList, state.activeNewSurahNum);
   const due = getDueItems();
-
-  if (type === 'revision') {
-    if (curRev) {
-      const rem = formatNum(curRev.totalPages - curRev.donePages);
-      return `يا ${name}، متبقّي ${rem} وجه وتتمّ ${curRev.title} — جلسة ١٢ دقيقة بمؤقت دكتور الصفحة تصنع فرقاً.`;
-    }
-    return `يا ${name}، جميع أجزاء المراجعة مكتملة — خصّص ١٠ دقائق لتثبيتها اليوم.`;
-  }
-  if (type === 'new') {
-    if (state.activeWird) return `يا ${name}، وردك الجديد المسجّل: ${state.activeWird.surahName} (${state.activeWird.passage}) — راجعه واستعد للتسميع.`;
-    return `يا ${name}، موعد وردك القادم في ${activeS ? `سورة ${activeS.name}` : 'الحفظ الجديد'} — سجّل مقطعك من الرئيسية.`;
-  }
-  if (due.length > 0) return `يا ${name}، لديك ${due.length} عناصر مستحقة في صندوق التثبيت اليوم — أهمها: ${due[0].title}.`;
-  return `يا ${name}، ١٠ دقائق سرد سريع من صندوق التثبيت تحفظ لك تعب شهور.`;
+  if (type === 'revision') return curRev ? `يا ${name}، متبقّي ${formatNum(curRev.totalPages - curRev.donePages)} وجه وتتمّ ${curRev.title}.` : `يا ${name}، خصّص ١٠ دقائق لتثبيت محفوظك اليوم.`;
+  if (type === 'new') return state.activeWird ? `يا ${name}، وردك الجديد: ${state.activeWird.surahName} (${state.activeWird.passage}).` : `يا ${name}، موعد وردك القادم في ${activeS ? `سورة ${activeS.name}` : 'الحفظ الجديد'}.`;
+  return due.length > 0 ? `يا ${name}، لديك ${due.length} عناصر مستحقة في صندوق التثبيت — أهمها: ${due[0].title}.` : `يا ${name}، ١٠ دقائق سرد سريع من صندوق التثبيت تحفظ لك تعب شهور.`;
 }
 
 function sendSafeSystemNotification(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return Promise.resolve(false);
   if ('serviceWorker' in navigator) {
     return navigator.serviceWorker.ready
-      .then((reg) => {
-        if (reg && typeof reg.showNotification === 'function') {
-          return reg.showNotification(title, { body, icon: 'icon-192.png', dir: 'rtl', lang: 'ar' }).then(() => true);
-        }
-        return false;
-      })
+      .then((reg) => (reg && typeof reg.showNotification === 'function')
+        ? reg.showNotification(title, { body, icon: 'icon-192.png', dir: 'rtl', lang: 'ar' }).then(() => true)
+        : false)
       .catch((err) => {
         console.warn('SW showNotification failed:', err);
         try { new Notification(title, { body, icon: 'icon-192.png' }); return true; } catch (e2) { console.warn(e2); return false; }
       });
   }
   try { new Notification(title, { body, icon: 'icon-192.png' }); return Promise.resolve(true); }
-  catch (e) { console.warn('Notification constructor failed:', e); return Promise.resolve(false); }
+  catch (e) { console.warn(e); return Promise.resolve(false); }
+}
+
+function checkNotificationHealth() {
+  if (!('Notification' in window)) {
+    showToast('متصفحك لا يدعم إشعارات النظام — ننصح بتصدير التقويم (.ics) لضمان التنبيه 📅');
+    return;
+  }
+  if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+    showToast('إشعاراتك مفعّلة وتعمل داخل التطبيق، وللتنبيه المؤكد عند الإغلاق استخدم تصدير (.ics) ✓');
+  } else if (Notification.permission === 'denied') {
+    showToast('متصفحك يمنع الإشعارات حالياً — ننصحك بزر «إضافة للتقويم (.ics)» لضمان التنبيه 📅');
+  } else {
+    showToast('لم يتم تفعيل إذن الإشعارات بعد — اضغط «تفعيل إشعارات الجهاز» أو صدّر للتقويم (.ics)');
+  }
 }
 
 function addReminder(e) {
@@ -3132,9 +2385,7 @@ function addReminder(e) {
   const type = document.getElementById('remTypeInput').value;
   if (!time) return;
   state.reminders.push({ id: 'rem_' + Date.now(), time, type, enabled: true, lastTriggeredDate: '', lastNotifiedDate: '' });
-  saveState();
-  renderRemindersUI();
-  showToast('تم حفظ موعد التذكير الذكي ✓');
+  saveState(); renderRemindersUI(); showToast('تم حفظ موعد التذكير الذكي ✓');
 }
 
 function toggleReminder(id) { const r = state.reminders.find((x) => x.id === id); if (r) { r.enabled = !r.enabled; saveState(); renderRemindersUI(); } }
@@ -3144,133 +2395,89 @@ function renderRemindersUI() {
   const el = document.getElementById('remindersList');
   if (!el) return;
   const typeLabels = { revision: 'مراجعة المحفوظ', new: 'حفظ جديد / تسميع', solid: 'صندوق التثبيت' };
-  if (state.reminders.length === 0) {
-    el.innerHTML = '<div class="empty-state">لا توجد مواعيد تذكير مفعّلة حالياً.</div>';
-    return;
-  }
-  el.innerHTML = state.reminders.map((r) => `
-    <div class="log-item">
-      <div style="flex:1;">
-        <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
-          <strong style="font-size:0.95rem; color:var(--accent-hi);">🔔 ${r.time}</strong>
-          <span class="tag tag-gold">${typeLabels[r.type] || r.type}</span>
-          ${r.enabled ? '<span class="tag tag-success">مفعّل</span>' : '<span class="tag tag-danger">متوقف</span>'}
+  el.innerHTML = state.reminders.length === 0
+    ? '<div class="empty-state">لا توجد مواعيد تذكير مفعّلة حالياً.</div>'
+    : state.reminders.map((r) => `
+      <div class="log-item">
+        <div style="flex:1;">
+          <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
+            <strong style="font-size:0.95rem; color:var(--accent-hi);">🔔 ${r.time}</strong>
+            <span class="tag tag-gold">${typeLabels[r.type] || r.type}</span>
+            ${r.enabled ? '<span class="tag tag-success">مفعّل</span>' : '<span class="tag tag-danger">متوقف</span>'}
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">معاينة: «${escapeHtml(buildSmartMessage(r.type))}»</div>
         </div>
-        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">معاينة: «${escapeHtml(buildSmartMessage(r.type))}»</div>
-      </div>
-      <div style="display:flex; gap:5px;">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReminder('${r.id}')">${r.enabled ? 'إيقاف' : 'تفعيل'}</button>
-        <button type="button" class="btn btn-danger btn-sm" onclick="deleteReminder('${r.id}')">حذف</button>
-      </div>
-    </div>`).join('');
+        <div style="display:flex; gap:5px;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReminder('${r.id}')">${r.enabled ? 'إيقاف' : 'تفعيل'}</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteReminder('${r.id}')">حذف</button>
+        </div>
+      </div>`).join('');
 }
 
 function requestNotifPermission(silent = false) {
-  if (!('Notification' in window)) {
-    if (!silent) showToast('المتصفح لا يدعم إشعارات النظام — ستظهر التذكيرات داخل التطبيق أو عبر ملف التقويم (.ics)');
-    return;
-  }
+  if (!('Notification' in window)) { if (!silent) showToast('استخدم زر «إضافة للتقويم (.ics)» للتنبيه الموثوق'); return; }
   Notification.requestPermission().then((res) => {
-    if (!silent) showToast(res === 'granted' ? 'تم تفعيل إشعارات الجهاز بنجاح ✓' : 'ستظهر التذكيرات داخل التطبيق، ويمكنك تصدير ملف التقويم (.ics)');
-  }).catch((e) => console.warn('Notification permission error:', e));
+    if (!silent) showToast(res === 'granted' ? 'تم تفعيل إشعارات الجهاز بنجاح ✓' : 'ستظهر التذكيرات داخل التطبيق، ويمكنك تصدير (.ics)');
+  }).catch((e) => console.warn(e));
 }
 
 function testSmartNotification() {
   const msg = buildSmartMessage(state.reminders[0] ? state.reminders[0].type : 'solid');
-  sendSafeSystemNotification('رفيق التثبيت', msg).then((sent) => {
-    showToast(sent ? 'تم إرسال إشعار تجريبي على جهازك 🔔' : msg);
-  });
+  sendSafeSystemNotification('رفيق التثبيت', msg).then((sent) => showToast(sent ? 'تم إرسال إشعار تجريبي على جهازك 🔔' : msg));
 }
 
 function exportRemindersIcs() {
   const active = state.reminders.filter((r) => r.enabled);
   const list = active.length > 0 ? active : [{ time: document.getElementById('remTimeInput').value || '09:00', type: document.getElementById('remTypeInput').value || 'revision' }];
   const todayCompact = todayStr().replace(/-/g, '');
-  const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Rafiq Al-Tathbit//v7//AR',
-    'CALSCALE:GREGORIAN'
-  ];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Rafiq Al-Tathbit//v7.2//AR', 'CALSCALE:GREGORIAN'];
   list.forEach((r, idx) => {
     const [hh, mm] = (r.time || '09:00').split(':');
     const startDT = `${todayCompact}T${hh.padStart(2, '0')}${mm.padStart(2, '0')}00`;
     const endH = String(Math.min(23, Number(hh) + (Number(mm) + 15 >= 60 ? 1 : 0))).padStart(2, '0');
     const endM = String((Number(mm) + 15) % 60).padStart(2, '0');
-    const endDT = `${todayCompact}T${endH}${endM}00`;
     const summary = r.type === 'solid' ? 'رفيق التثبيت — صندوق التثبيت' : (r.type === 'new' ? 'رفيق التثبيت — الحفظ الجديد' : 'رفيق التثبيت — مراجعة المحفوظ');
-    lines.push(
-      'BEGIN:VEVENT',
-      `UID:rafiq-${todayCompact}-${idx}@rafiq.local`,
-      `DTSTAMP:${todayCompact}T000000Z`,
-      `DTSTART:${startDT}`,
-      `DTEND:${endDT}`,
-      'RRULE:FREQ=DAILY',
-      `SUMMARY:${summary}`,
-      `DESCRIPTION:${buildSmartMessage(r.type).replace(/\n/g, ' ')}`,
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      'TRIGGER:PT0M',
-      `DESCRIPTION:${summary}`,
-      'END:VALARM',
-      'END:VEVENT'
-    );
+    lines.push('BEGIN:VEVENT', `UID:rafiq-${todayCompact}-${idx}@rafiq.local`, `DTSTAMP:${todayCompact}T000000Z`, `DTSTART:${startDT}`, `DTEND:${todayCompact}T${endH}${endM}00`, 'RRULE:FREQ=DAILY', `SUMMARY:${summary}`, `DESCRIPTION:${buildSmartMessage(r.type).replace(/\n/g, ' ')}`, 'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:PT0M', `DESCRIPTION:${summary}`, 'END:VALARM', 'END:VEVENT');
   });
   lines.push('END:VCALENDAR');
   const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `rafiq_reminders_${todayStr()}.ics`;
-  a.click();
+  const a = document.createElement('a'); a.href = url; a.download = `rafiq_reminders_${todayStr()}.ics`; a.click();
   URL.revokeObjectURL(url);
   showToast('تم تحميل ملف التقويم (.ics) — افتحه لإضافة التذكير اليومي لتقويم جهازك 📅');
 }
 
-function renderInAppReminderBanner() {
-  const box = document.getElementById('inAppReminderBanner');
-  if (!box || !state.reminders.length) { if (box) box.innerHTML = ''; return; }
-  const now = new Date();
-  const nowHHMM = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-  const activeDue = state.reminders.find((r) => r.enabled && r.time <= nowHHMM && r.lastTriggeredDate !== todayStr());
-  if (activeDue) {
-    box.innerHTML = `
-      <div class="alert-banner">
-        <div><strong>🔔 تذكير موعد ${activeDue.time}</strong>${escapeHtml(buildSmartMessage(activeDue.type))}</div>
-        <button type="button" class="btn btn-outline btn-sm" onclick="dismissReminderToday('${activeDue.id}')">حسناً</button>
-      </div>`;
-  } else {
-    box.innerHTML = '';
-  }
-}
-
 function dismissReminderToday(id) {
   const r = state.reminders.find((x) => x.id === id);
-  if (r) { r.lastTriggeredDate = todayStr(); saveState(); renderInAppReminderBanner(); }
+  if (r) { r.lastTriggeredDate = todayStr(); saveState(); renderPriorityBanners(); }
 }
 
 function checkDueRemindersNow() {
   if (!state.onboarded || !state.reminders.length) return;
   const now = new Date();
-  const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const nowMin = now.getHours() * 60 + now.getMinutes();
   const today = todayStr();
   let notifiedAny = false;
   state.reminders.forEach((r) => {
-    if (r.enabled && r.time <= hhmm && r.lastTriggeredDate !== today) {
-      if (r.lastNotifiedDate !== today) {
+    if (!r.enabled || r.lastTriggeredDate === today) return;
+    const [rh, rm] = (r.time || '09:00').split(':').map(Number);
+    const remMin = rh * 60 + rm;
+    const elapsedMin = nowMin - remMin;
+    if (elapsedMin >= 0) {
+      // B5: إشعار النظام يُرسل فقط خلال ساعتين من الموعد، وما بعدها بانر داخلي فقط
+      if (elapsedMin <= 120 && r.lastNotifiedDate !== today) {
         r.lastNotifiedDate = today;
         notifiedAny = true;
         sendSafeSystemNotification('رفيق التثبيت', buildSmartMessage(r.type));
       }
-      renderInAppReminderBanner();
+      renderPriorityBanners();
     }
   });
   if (notifiedAny) saveState();
 }
-
 setInterval(checkDueRemindersNow, 45000);
 
-// ================= 21. REAL-TIME TIMER (Date.now + WAKE LOCK + SINGLE AudioContext + VIBRATE) =================
+// ================= REAL-TIME TIMER (Date.now + WAKE LOCK + DYNAMIC TOAST) =================
 const TIMER_MODES = {
   doctor: {
     total: 12 * 60,
@@ -3281,55 +2488,34 @@ const TIMER_MODES = {
       { start: 600, end: 720, name: 'المرحلة ٤: القفلة النظيفة', hint: 'تسميعة أخيرة متصلة من أول الوجه لآخره ثم انتقل للوجه التالي (دقيقتان)' }
     ]
   },
-  link: {
-    total: 6 * 60,
-    phases: [{ start: 0, end: 360, name: 'تثبيت الجديد — ربط السورة الطويلة', hint: 'اسرد مقاطعك الجديدة متصلة مع التركيز على نهايات وبدايات الأوجه (٦ دقائق)' }]
-  },
-  solid: {
-    total: 10 * 60,
-    phases: [{ start: 0, end: 600, name: 'تثبيت القديم — سرد سريع', hint: 'اقرأ ٤ إلى ٥ أوجه غيباً بسرعة متوازنة لتنشيط الذاكرة طويلة المدى (١٠ دقائق)' }]
-  }
+  link: { total: 6 * 60, phases: [{ start: 0, end: 360, name: 'تثبيت الجديد — ربط المقاطع', hint: 'اسرد مقاطعك الجديدة متصلة مع التركيز على نهايات وبدايات الأوجه (٦ دقائق)' }] },
+  solid: { total: 10 * 60, phases: [{ start: 0, end: 600, name: 'تثبيت القديم — سرد سريع', hint: 'اقرأ ٤ إلى ٥ أوجه غيباً بسرعة متوازنة لتنشيط الذاكرة طويلة المدى (١٠ دقائق)' }] }
 };
 
-let timerMode = 'doctor';
-let timerRemaining = TIMER_MODES.doctor.total;
-let timerEndAt = null;
-let timerInterval = null;
-let lastPhaseIdx = 0;
-let sharedAudioCtx = null;
-let wakeLockSentinel = null;
+let timerMode = 'doctor', timerRemaining = TIMER_MODES.doctor.total, timerEndAt = null, timerInterval = null, lastPhaseIdx = 0;
+let sharedAudioCtx = null, wakeLockSentinel = null;
 
 function ensureAudioContext() {
   try {
-    if (!sharedAudioCtx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) sharedAudioCtx = new AC();
-    }
-    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-      sharedAudioCtx.resume().catch(() => {});
-    }
-  } catch (e) { console.warn('AudioContext init error:', e); }
+    if (!sharedAudioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) sharedAudioCtx = new AC(); }
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+  } catch (e) { console.warn(e); }
 }
 
 function playChime() {
   const toggle = document.getElementById('timerSoundToggle');
   if (toggle && !toggle.checked) return;
+  try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (e) {}
   try {
-    if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
-  } catch (e) {}
-  try {
-    ensureAudioContext();
-    if (!sharedAudioCtx) return;
-    const osc = sharedAudioCtx.createOscillator();
-    const gain = sharedAudioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(528, sharedAudioCtx.currentTime);
+    ensureAudioContext(); if (!sharedAudioCtx) return;
+    const osc = sharedAudioCtx.createOscillator(), gain = sharedAudioCtx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(528, sharedAudioCtx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(792, sharedAudioCtx.currentTime + 0.18);
     gain.gain.setValueAtTime(0.18, sharedAudioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.65);
     osc.connect(gain); gain.connect(sharedAudioCtx.destination);
     osc.start(); osc.stop(sharedAudioCtx.currentTime + 0.65);
-  } catch (e) { console.warn('playChime error:', e); }
+  } catch (e) { console.warn(e); }
 }
 
 async function acquireWakeLock() {
@@ -3337,34 +2523,24 @@ async function acquireWakeLock() {
     if ('wakeLock' in navigator && !wakeLockSentinel) {
       wakeLockSentinel = await navigator.wakeLock.request('screen');
       const lbl = document.getElementById('wakeLockStatus');
-      if (lbl) lbl.textContent = 'الشاشة مبقية مضاءة ✓';
+      if (lbl) lbl.textContent = 'الشاشة مضاءة ✓ (نغمة النهاية تتطلب بقاء الشاشة مفتوحة)';
       wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
     }
-  } catch (e) { console.warn('WakeLock unavailable:', e); }
+  } catch (e) { console.warn(e); }
 }
 
 function releaseWakeLock() {
   if (wakeLockSentinel) {
-    wakeLockSentinel.release().catch(() => {});
-    wakeLockSentinel = null;
-    const lbl = document.getElementById('wakeLockStatus');
-    if (lbl) lbl.textContent = '';
+    wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null;
+    const lbl = document.getElementById('wakeLockStatus'); if (lbl) lbl.textContent = '';
   }
 }
 
-function openTimerModal(mode = 'doctor') {
-  if (!timerInterval) setTimerMode(mode);
-  openModal('timerModal');
-}
+function openTimerModal(mode = 'doctor') { if (!timerInterval) setTimerMode(mode); openModal('timerModal'); }
 
 function setTimerMode(mode) {
-  clearInterval(timerInterval);
-  timerInterval = null;
-  timerEndAt = null;
-  releaseWakeLock();
-  timerMode = mode;
-  timerRemaining = TIMER_MODES[mode].total;
-  lastPhaseIdx = 0;
+  clearInterval(timerInterval); timerInterval = null; timerEndAt = null; releaseWakeLock();
+  timerMode = mode; timerRemaining = TIMER_MODES[mode].total; lastPhaseIdx = 0;
   document.getElementById('modeDoctor').classList.toggle('active', mode === 'doctor');
   document.getElementById('modeLink').classList.toggle('active', mode === 'link');
   document.getElementById('modeSolid').classList.toggle('active', mode === 'solid');
@@ -3374,20 +2550,34 @@ function setTimerMode(mode) {
   renderTimer();
 }
 
+function updateTimerDoneActionUI() {
+  const wrap = document.getElementById('timerDoneActionWrap');
+  const btn = document.getElementById('timerDoneActionBtn');
+  if (!wrap || !btn) return;
+  if (timerMode === 'doctor') {
+    const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
+    if (curRev) { btn.textContent = `اعتماد الوجه (+١ وجه في ${curRev.title}) ✓`; wrap.style.display = 'block'; }
+    else { wrap.style.display = 'none'; }
+  } else if (timerMode === 'link') {
+    btn.textContent = 'تقييم ربط السورة في صندوق التثبيت ✓'; wrap.style.display = 'block';
+  } else {
+    btn.textContent = 'تقييم مراجعة جزء من صندوق التثبيت ✓'; wrap.style.display = 'block';
+  }
+}
+
 function tickTimer() {
   if (!timerEndAt) return;
   const secsLeft = Math.max(0, Math.ceil((timerEndAt - Date.now()) / 1000));
   timerRemaining = secsLeft;
   if (secsLeft <= 0) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-    timerEndAt = null;
-    releaseWakeLock();
+    clearInterval(timerInterval); timerInterval = null; timerEndAt = null; releaseWakeLock();
     document.getElementById('timerStartBtn').textContent = 'ابدأ من جديد';
     updateTimerDoneActionUI();
     playChime();
-    sendSafeSystemNotification('رفيق التثبيت', 'انتهت جلسة المؤقت بنجاح! بارك الله في وقتك.');
-    showToast('انتهت الجلسة بنجاح! يمكنك اعتماد الوجه الآن ✓');
+    const doneMsg = timerMode === 'doctor' ? 'انتهت جلسة مراجعة الوجه! يمكنك اعتماده الآن ✓'
+      : (timerMode === 'link' ? 'انتهت جلسة ربط الجديد! يمكنك تقييمها في صندوق التثبيت ✓' : 'انتهت جلسة تثبيت القديم! بارك الله في وقتك ✓');
+    sendSafeSystemNotification('رفيق التثبيت', doneMsg);
+    showToast(doneMsg);
   }
   renderTimer();
 }
@@ -3395,11 +2585,7 @@ function tickTimer() {
 function toggleTimer() {
   ensureAudioContext();
   if (timerInterval) {
-    tickTimer();
-    clearInterval(timerInterval);
-    timerInterval = null;
-    timerEndAt = null;
-    releaseWakeLock();
+    tickTimer(); clearInterval(timerInterval); timerInterval = null; timerEndAt = null; releaseWakeLock();
     document.getElementById('timerStartBtn').textContent = 'استكمال';
   } else {
     if (timerRemaining <= 0) timerRemaining = TIMER_MODES[timerMode].total;
@@ -3413,65 +2599,29 @@ function toggleTimer() {
 }
 
 function resetTimer() {
-  clearInterval(timerInterval);
-  timerInterval = null;
-  timerEndAt = null;
-  releaseWakeLock();
-  timerRemaining = TIMER_MODES[timerMode].total;
-  lastPhaseIdx = 0;
+  clearInterval(timerInterval); timerInterval = null; timerEndAt = null; releaseWakeLock();
+  timerRemaining = TIMER_MODES[timerMode].total; lastPhaseIdx = 0;
   document.getElementById('timerDoneActionWrap').style.display = 'none';
   document.getElementById('timerStartBtn').textContent = 'ابدأ الجلسة';
   renderTimer();
 }
 
-function updateTimerDoneActionUI() {
-  const wrap = document.getElementById('timerDoneActionWrap');
-  const btn = document.getElementById('timerDoneActionBtn');
-  if (!wrap || !btn) return;
-  if (timerMode === 'doctor') {
-    const curRev = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
-    if (curRev) {
-      btn.textContent = `اعتماد الوجه (+١ وجه في ${curRev.title}) ✓`;
-      wrap.style.display = 'block';
-    } else {
-      wrap.style.display = 'none';
-    }
-  } else if (timerMode === 'link') {
-    btn.textContent = 'تقييم ربط السورة في صندوق التثبيت ✓';
-    wrap.style.display = 'block';
-  } else {
-    btn.textContent = 'تقييم مراجعة جزء من صندوق التثبيت ✓';
-    wrap.style.display = 'block';
-  }
-}
-
 function approveTimerPage() {
   document.getElementById('timerDoneActionWrap').style.display = 'none';
   closeModal('timerModal');
-  if (timerMode === 'doctor') {
-    quickAddRevPage();
-  } else if (timerMode === 'link') {
+  if (timerMode === 'doctor') { quickAddRevPage(); }
+  else if (timerMode === 'link') {
     const dueLink = getDueItems().find((i) => i.kind === 'new');
     const firstGroup = state.newLinkingGroups.find((g) => !g.archived);
-    if (dueLink) {
-      openSrReviewModal('new', dueLink.id, dueLink.title, dueLink.overdueDays);
-    } else if (firstGroup) {
-      openSrReviewModal('new', firstGroup.id, firstGroup.surahName, 0);
-    } else {
-      switchTab('solid');
-      setSolidTab('new');
-    }
+    if (dueLink) openSrReviewModal('new', dueLink.id, dueLink.title, dueLink.overdueDays);
+    else if (firstGroup) openSrReviewModal('new', firstGroup.id, firstGroup.surahName, 0);
+    else { switchTab('solid'); setSolidTab('new'); }
   } else {
     const dueOld = getDueItems().find((i) => i.kind === 'old');
     const firstComp = state.juzList.find((j) => j.donePages >= j.totalPages - 0.01);
-    if (dueOld) {
-      openSrReviewModal('old', dueOld.id, dueOld.title, dueOld.overdueDays);
-    } else if (firstComp) {
-      openSrReviewModal('old', firstComp.num, firstComp.title, 0);
-    } else {
-      switchTab('solid');
-      setSolidTab('old');
-    }
+    if (dueOld) openSrReviewModal('old', dueOld.id, dueOld.title, dueOld.overdueDays);
+    else if (firstComp) openSrReviewModal('old', firstComp.num, firstComp.title, 0);
+    else { switchTab('solid'); setSolidTab('old'); }
   }
 }
 
@@ -3498,32 +2648,24 @@ function renderTimer() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    if (timerInterval && timerEndAt) {
-      tickTimer();
-      acquireWakeLock();
-    }
+    if (timerInterval && timerEndAt) { tickTimer(); acquireWakeLock(); }
     checkDueRemindersNow();
   }
 });
 window.addEventListener('focus', checkDueRemindersNow);
 
-// ================= 22. FLEXIBLE CALCULATOR (LINKED TO ACTUAL maqraaDays) =================
+// ================= CALCULATOR, SHEIKH REPORT, BACKUP & PWA =================
 function updateCalculator() {
   const isKhatim = state.profile.mode === 'khatim';
   const newBlock = document.getElementById('calcNewPagesBlock');
   if (newBlock) newBlock.style.display = isKhatim ? 'none' : 'block';
-
-  const sessionsPerWeek = state.profile.studyStyle === 'maqraa'
-    ? Math.max(1, (state.profile.maqraaDays || []).length)
-    : 2;
+  const sessionsPerWeek = state.profile.studyStyle === 'maqraa' ? Math.max(1, (state.profile.maqraaDays || []).length) : 2;
   const sessLbl = document.getElementById('calcSessionsLabel');
   if (sessLbl) sessLbl.textContent = `مقدار الجديد في الجلسة (${sessionsPerWeek} جلسات/أسبوع)`;
 
   const daily = parseInt(document.getElementById('calcDailyMin').value, 10) || 45;
-  const newPerSession = isKhatim ? 0 : parseFloat(document.getElementById('calcNewPages').value);
-  const nps = isNaN(newPerSession) ? 1 : newPerSession;
-  state.calcDailyMin = daily;
-  state.calcNewPages = nps;
+  const nps = isKhatim ? 0 : (isNaN(parseFloat(document.getElementById('calcNewPages').value)) ? 1 : parseFloat(document.getElementById('calcNewPages').value));
+  state.calcDailyMin = daily; state.calcNewPages = nps;
 
   document.getElementById('calcMinVal').textContent = `${daily} دقيقة (${daily * 7} د/أسبوع)`;
   document.getElementById('calcNewPagesVal').textContent = `${nps} وجه/جلسة (${formatNum(nps * sessionsPerWeek)} وجه/أسبوع)`;
@@ -3531,10 +2673,8 @@ function updateCalculator() {
   const weeklyTotal = daily * 7;
   const newMin = nps * sessionsPerWeek * 45;
   const revPool = Math.max(0, weeklyTotal - newMin);
-  const restoreMin = revPool * 0.75;
-  const solidMin = revPool * 0.25;
+  const restoreMin = revPool * 0.75, solidMin = revPool * 0.25;
   const netRevPages = restoreMin / 15;
-
   const remRevPages = state.juzList.filter((j) => j.track === 'revision').reduce((s, j) => s + Math.max(0, j.totalPages - j.donePages), 0);
   const remNewPages = state.juzList.filter((j) => j.track === 'new').reduce((s, j) => s + Math.max(0, j.totalPages - j.donePages), 0);
 
@@ -3544,80 +2684,110 @@ function updateCalculator() {
   document.getElementById('calcNewMonths').textContent = (isKhatim || remNewPages <= 0) ? 'مكتمل ✓' : (nps > 0 ? `${(remNewPages / (nps * sessionsPerWeek * 4.33)).toFixed(1)} شهر` : 'متوقف');
 
   const denom = Math.max(weeklyTotal, newMin) || 1;
-  const pNew = (Math.min(newMin, weeklyTotal) / denom) * 100;
-  const pRes = (restoreMin / denom) * 100;
-  const pSol = (solidMin / denom) * 100;
-  const pDef = newMin > weeklyTotal ? ((newMin - weeklyTotal) / denom) * 100 : 0;
+  document.getElementById('calcDistBar').innerHTML = `<div style="width:${(Math.min(newMin, weeklyTotal) / denom) * 100}%; background:var(--info);"></div><div style="width:${(restoreMin / denom) * 100}%; background:var(--accent-grad);"></div><div style="width:${(solidMin / denom) * 100}%; background:var(--success);"></div>`;
+  document.getElementById('calcDistLegend').innerHTML = `<span><i class="dot" style="background:var(--info)"></i>الجديد: ${Math.round(newMin)} د</span><span><i class="dot" style="background:var(--accent-mid)"></i>المراجعة: ${Math.round(restoreMin)} د</span><span><i class="dot" style="background:var(--success)"></i>التثبيت: ${Math.round(solidMin)} د</span>`;
+  document.getElementById('calcModeBadge').textContent = weeklyTotal < newMin ? 'عجز وقت' : (netRevPages < 3 ? 'حماية فقط' : (netRevPages < 8 ? 'متوازن' : 'إنجاز سريع'));
+  document.getElementById('calcAdviceBox').innerHTML = weeklyTotal < newMin ? '⚠️ وقتك اليومي أقل من المطلوب للجديد — قلّل مقدار الجديد أو زوّد الوقت اليومي.' : (netRevPages < 3 ? '🛡️ وضع الحماية: ركّز على تثبيت ما في صندوق التثبيت.' : '⚖️ إيقاع متوازن ومستقر يجمع بين التقدم في الجديد ومراجعة القديم.');
+}
 
-  document.getElementById('calcDistBar').innerHTML = `
-    <div style="width:${pNew}%; background:var(--info);"></div>
-    <div style="width:${pRes}%; background:var(--accent-grad);"></div>
-    <div style="width:${pSol}%; background:var(--success);"></div>
-    ${pDef > 0 ? `<div style="width:${pDef}%; background:var(--danger);"></div>` : ''}`;
-  document.getElementById('calcDistLegend').innerHTML = `
-    <span><i class="dot" style="background:var(--info)"></i>الجديد: ${Math.round(newMin)} د</span>
-    <span><i class="dot" style="background:var(--accent-mid)"></i>المراجعة: ${Math.round(restoreMin)} د</span>
-    <span><i class="dot" style="background:var(--success)"></i>التثبيت: ${Math.round(solidMin)} د</span>`;
+// تقرير أسبوعي جاهز للمشاركة مع الشيخ أو المعلّم (C5)
+function shareSheikhReport() {
+  const name = state.profile.name || 'طالب القرآن';
+  const totalPages = state.juzList.reduce((s, j) => s + j.totalPages, 0) || 604;
+  const donePages = state.juzList.reduce((s, j) => s + Math.min(j.donePages, j.totalPages), 0);
+  const recentLogs = state.maqraaLogs.slice(0, 5).map((l) => `- ${l.surahName} (${l.passage}): ${l.rating}${l.note ? ` [${l.note}]` : ''}`).join('\n');
+  const weakList = [];
+  Object.keys(state.solidMeta).forEach((k) => {
+    const m = state.solidMeta[k];
+    if (m && ((m.weakSurahs && m.weakSurahs.length) || (m.weakPages && m.weakPages.length))) {
+      weakList.push(`الجزء ${k}: ${(m.weakSurahs || []).join('، ')} ${(m.weakPages || []).map((p) => 'ص ' + p).join('، ')}`.trim());
+    }
+  });
+  const text = [
+    `📋 تقرير أسبوعي — رفيق التثبيت`,
+    `الاسم: ${name} | التاريخ: ${todayStr()}`,
+    `إجمالي الإنجاز: ${formatNum(donePages)} / ${totalPages} وجهاً (${Math.round(donePages / totalPages * 100)}%)`,
+    `سلسلة الالتزام: ${state.streak.count} أيام`,
+    recentLogs ? `\nآخر حصص التسميع:\n${recentLogs}` : '',
+    weakList.length ? `\nمواضع تحتاج تقوية:\n- ${weakList.join('\n- ')}` : ''
+  ].filter(Boolean).join('\n');
 
-  const badge = document.getElementById('calcModeBadge');
-  const advice = document.getElementById('calcAdviceBox');
-  if (weeklyTotal < newMin) {
-    badge.textContent = 'عجز وقت';
-    advice.innerHTML = '⚠️ وقتك اليومي أقل من المطلوب للجديد — قلّل مقدار الجديد أو زوّد الوقت اليومي.';
-  } else if (netRevPages < 3) {
-    badge.textContent = 'حماية فقط';
-    advice.innerHTML = '🛡️ وضع الحماية: ركّز على تثبيت ما في صندوق التثبيت واستخدم وضع «وقتي مضغوط اليوم» عند الانشغال.';
-  } else if (netRevPages < 8) {
-    badge.textContent = 'متوازن';
-    advice.innerHTML = '⚖️ إيقاع متوازن ومستقر يجمع بين التقدم في الجديد ومراجعة القديم.';
+  if (navigator.share) {
+    navigator.share({ title: 'تقرير رفيق التثبيت الأسبوعي', text }).catch(() => {});
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showToast('تم نسخ تقرير الأسبوع — يمكنك لصقه للشيخ الآن ✓')).catch(() => showToast(text));
   } else {
-    badge.textContent = 'إنجاز سريع';
-    advice.innerHTML = '🚀 إيقاع ممتاز يتيح تقدماً سريعاً مع تثبيت متين ومستقر.';
+    showToast('التقرير جاهز في السجل');
   }
 }
 
-// ================= 23. JSON BACKUP, DOUBLE-CONFIRM RESET & PWA LIFECYCLE =================
 function exportBackup() {
-  state.lastBackupAt = todayStr();
-  saveState();
-  renderStorageAlerts();
+  state.lastBackupAt = todayStr(); saveState(); renderPriorityBanners();
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `rafiq_altathbit_v7_${todayStr()}.json`;
-  a.click();
+  const a = document.createElement('a'); a.href = url; a.download = `rafiq_altathbit_v7_${todayStr()}.json`; a.click();
   URL.revokeObjectURL(url);
   showToast('تم تحميل النسخة الاحتياطية (JSON) بنجاح ✓');
 }
 
+function shareBackup() {
+  state.lastBackupAt = todayStr(); saveState();
+  const file = new File([JSON.stringify(state, null, 2)], `rafiq_altathbit_v7_${todayStr()}.json`, { type: 'application/json' });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ title: 'نسخة احتياطية — رفيق التثبيت', files: [file] }).catch(() => exportBackup());
+  } else {
+    exportBackup();
+  }
+}
+
 function importBackup(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
-      if (!data || typeof data !== 'object' || (!Array.isArray(data.juzList) && !data.profile)) {
-        throw new Error('بنية الملف غير صالحة');
-      }
+      if (!data || typeof data !== 'object' || (!Array.isArray(data.juzList) && !data.profile)) throw new Error('بنية الملف غير صالحة');
       if (!confirm('سيتم استبدال البيانات الحالية بمحتوى النسخة الاحتياطية (مع حفظ لقطة احتياطية تلقائية قبل ذلك). هل تريد المتابعة؟')) return;
-      saveAutoSnapshot('قبل الاستيراد');
+      saveAutoSnapshot(state, 'قبل الاستيراد');
       corruptBackupKey = null;
       state = migrateState(data);
       syncPlanAndScheduleLive();
       applyTheme(state.profile.theme || 'royal', state.profile.customColors);
-      saveState();
-      document.getElementById('onboardingOverlay').classList.remove('active');
-      renderAll();
-      showToast('تم استعادة بياناتك بالكامل بنجاح ✓');
-    } catch (err) {
-      console.warn('importBackup error:', err);
-      showToast('الملف غير صالح — اختر ملف نسخة احتياطية لرفيق التثبيت');
-    }
+      saveState(); document.getElementById('onboardingOverlay').classList.remove('active');
+      renderAll(); showToast('تمت استعادة بياناتك بالكامل بنجاح ✓');
+    } catch (err) { console.warn('importBackup error:', err); showToast('الملف غير صالح — اختر ملف نسخة احتياطية لرفيق التثبيت'); }
   };
-  reader.readAsText(file);
-  e.target.value = '';
+  reader.readAsText(file); e.target.value = '';
+}
+
+function restoreLastAutoSnapshot() {
+  const snaps = getAutoSnapshots();
+  if (!snaps.length) { showToast('لا توجد لقطات تلقائية محفوظة بعد'); return; }
+  const latest = snaps[0];
+  if (!confirm(`استعادة اللقطة المحفوظة بتاريخ ${latest.date} (${latest.reason})؟`)) return;
+  corruptBackupKey = null;
+  state = migrateState(latest.data);
+  saveState(); renderAll(); showToast('تمت استعادة آخر لقطة تلقائية بنجاح ✓');
+}
+
+function importLegacyFromStorage() {
+  const key = findLegacyStorageKey();
+  if (!key) { showToast('لا توجد بيانات محفوظة من النسخ السابقة'); return; }
+  try {
+    saveAutoSnapshot(state, 'قبل استيراد نسخة سابقة');
+    state = migrateState(JSON.parse(localStorage.getItem(key)));
+    applyTheme(state.profile.theme, state.profile.customColors);
+    saveState(); document.getElementById('onboardingOverlay').classList.remove('active');
+    renderAll(); showToast('تم استيراد بياناتك السابقة وترقيتها بنجاح ✓');
+  } catch (e) { console.warn(e); showToast('تعذّر قراءة بيانات النسخة السابقة'); }
+}
+
+function emergencyExportRaw() {
+  const raw = localStorage.getItem(corruptBackupKey || STORAGE_KEY) || JSON.stringify(state);
+  const blob = new Blob([raw], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `rafiq_emergency_backup_${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 function openResetConfirmModal() {
@@ -3627,17 +2797,14 @@ function openResetConfirmModal() {
 }
 
 function executeResetAllData() {
-  saveAutoSnapshot('قبل المسح الكامل');
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(OB_DRAFT_KEY);
-  corruptBackupKey = null;
-  state = getEmptyState();
-  closeModal('resetConfirmModal');
-  openOnboarding(false);
+  saveAutoSnapshot(state, 'قبل المسح الكامل');
+  localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(OB_DRAFT_KEY);
+  corruptBackupKey = null; state = getEmptyState();
+  closeModal('resetConfirmModal'); openOnboarding(false);
   showToast('تم مسح البيانات — يمكنك بدء إعداد جديد الآن');
 }
 
-// Offline / Online banner
+// Offline / Online + Smart PWA Install
 function updateOnlineStatus() {
   const b = document.getElementById('offlineBanner');
   if (b) b.classList.toggle('show', !navigator.onLine);
@@ -3645,90 +2812,31 @@ function updateOnlineStatus() {
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 
-// Smart PWA Install Handler (Chrome + WhatsApp/Telegram In-App + iOS Safari)
 let deferredPrompt = null;
-
 function isRunningStandalone() {
-  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-    window.navigator.standalone === true;
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
 }
-
-function updateSmartInstallBar() {
-  const bar = document.getElementById('smartInstallBar');
-  if (!bar) return;
-  const dismissed = localStorage.getItem('rafiq_install_bar_dismissed') === '1';
-  bar.classList.toggle('show', !isRunningStandalone() && !dismissed);
-}
-
 function dismissInstallBar() {
   try { localStorage.setItem('rafiq_install_bar_dismissed', '1'); } catch (e) {}
-  updateSmartInstallBar();
+  renderPriorityBanners();
 }
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  updateSmartInstallBar();
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredPrompt = null;
-  const bar = document.getElementById('smartInstallBar');
-  if (bar) bar.classList.remove('show');
-  showToast('تم تثبيت «رفيق التثبيت» على هاتفك بنجاح ✓');
-});
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; renderPriorityBanners(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; renderPriorityBanners(); showToast('تم تثبيت «رفيق التثبيت» على هاتفك بنجاح ✓'); });
 
 function handleSmartInstall() {
-  if (isRunningStandalone()) {
-    showToast('التطبيق مثبّت بالفعل على جهازك ✓');
-    return;
-  }
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(() => { deferredPrompt = null; updateSmartInstallBar(); });
-    return;
-  }
+  if (isRunningStandalone()) { showToast('التطبيق مثبّت بالفعل على جهازك ✓'); return; }
+  if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; renderPriorityBanners(); }); return; }
   const ua = navigator.userAgent || '';
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
   const isInApp = /FBAN|FBAV|Instagram|WhatsApp|Telegram|Line|Snapchat/i.test(ua);
-  let bodyHtml = '';
-  if (isInApp) {
-    bodyHtml = `
-      <div class="calc-preview-card" style="margin-top:0;">
-        <strong>أنت تفتح الرابط من متصفح داخلي (مثل واتساب أو تليجرام)</strong>
-        <p style="margin:6px 0 0;">لتثبيت التطبيق بضغطة واحدة:</p>
-      </div>
-      <ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;">
-        <li>اضغط على الثلاث نقاط <strong>(⋮)</strong> أو أيقونة المتصفح أعلى الشاشة.</li>
-        <li>اختر <strong>«فتح في Chrome»</strong> (أو Safari على آيفون).</li>
-        <li>اضغط زر <strong>«تثبيت»</strong> ليضاف التطبيق لشاشة هاتفك الرئيسية.</li>
-      </ol>`;
-  } else if (isIOS) {
-    bodyHtml = `
-      <div class="calc-preview-card" style="margin-top:0;">
-        <strong>تثبيت التطبيق على آيفون (Safari)</strong>
-      </div>
-      <ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;">
-        <li>اضغط على زر <strong>المشاركة</strong> (المربع الذي فيه سهم لأعلى) أسفل الشاشة.</li>
-        <li>مرّر للأسفل واختر <strong>«إضافة إلى الشاشة الرئيسية»</strong> (Add to Home Screen).</li>
-        <li>اضغط <strong>«إضافة»</strong> وسيظهر التطبيق بأيقونته على شاشتك.</li>
-      </ol>`;
-  } else {
-    bodyHtml = `
-      <div class="calc-preview-card" style="margin-top:0;">
-        <strong>تثبيت التطبيق على أندرويد أو الكمبيوتر</strong>
-      </div>
-      <ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;">
-        <li>اضغط على قائمة المتصفح <strong>(⋮)</strong> أعلى الشاشة.</li>
-        <li>اختر <strong>«تثبيت التطبيق»</strong> أو <strong>«إضافة إلى الشاشة الرئيسية»</strong>.</li>
-        <li>اضغط <strong>«تثبيت»</strong> ليعمل التطبيق بحرية ودون إنترنت.</li>
-      </ol>`;
-  }
-  document.getElementById('installGuideBody').innerHTML = bodyHtml;
+  document.getElementById('installGuideBody').innerHTML = isInApp
+    ? `<div class="calc-preview-card" style="margin-top:0;"><strong>أنت تفتح الرابط من متصفح داخلي (واتساب/تليجرام)</strong></div><ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;"><li>اضغط الثلاث نقاط <strong>(⋮)</strong> أعلى الشاشة.</li><li>اختر <strong>«فتح في Chrome»</strong> (أو Safari على آيفون).</li><li>اضغط زر <strong>«تثبيت»</strong> لإضافته لشاشة هاتفك.</li></ol>`
+    : (isIOS
+      ? `<div class="calc-preview-card" style="margin-top:0;"><strong>تثبيت التطبيق على آيفون (Safari)</strong></div><ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;"><li>اضغط زر <strong>المشاركة</strong> (المربع الذي فيه سهم لأعلى) أسفل الشاشة.</li><li>اختر <strong>«إضافة إلى الشاشة الرئيسية»</strong> ثم <strong>«إضافة»</strong>.</li></ol>`
+      : `<div class="calc-preview-card" style="margin-top:0;"><strong>تثبيت التطبيق على أندرويد أو الكمبيوتر</strong></div><ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;"><li>اضغط قائمة المتصفح <strong>(⋮)</strong> أعلى الشاشة.</li><li>اختر <strong>«تثبيت التطبيق»</strong> أو <strong>«إضافة إلى الشاشة الرئيسية»</strong>.</li></ol>`);
   openModal('installGuideModal');
 }
 
-// Service Worker registration + Update banner
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('SW register failed:', err));
@@ -3741,28 +2849,21 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   });
 }
 
-// Global fatal error shield
 window.onerror = function (msg) {
   console.warn('Global error caught:', msg);
   const fb = document.getElementById('fatalErrorFallback');
-  if (fb) {
-    fb.style.display = 'block';
-    const m = document.getElementById('fatalErrorMsg');
-    if (m) m.textContent = 'حدث خطأ تقني بسيط؛ يمكنك إعادة تحميل التطبيق أو تصدير بياناتك المحفوظة بأمان.';
-  }
+  if (fb) fb.style.display = 'block';
 };
 
-// Export pure core helpers for automated testing (tests.html & Node)
 window.RafiqCore = {
-  formatLocalDate, todayStr, addDaysStr, diffDaysFromToday,
-  computeSM2, recomputeJuzProgress, migrateState,
-  buildPersonalizedPlan, buildLiveSchedule,
-  resolveActiveRevJuz, resolveActiveNewSurah
+  APP_VERSION, formatLocalDate, todayStr, addDaysStr, diffDaysFromToday,
+  computeSM2, recomputeJuzProgress, applyPagesAcrossJuzs, migrateState, normalizeV7State,
+  buildPersonalizedPlan, buildLiveSchedule, resolveActiveRevJuz, resolveActiveNewSurah,
+  estimatePagesFromAyahs, getSurahJuzForLoggedPages
 };
 
 // ================= BOOT =================
 updateOnlineStatus();
-updateSmartInstallBar();
 applyTheme(state.profile.theme || 'royal', state.profile.customColors);
 if (!state.onboarded) {
   openOnboarding(false);
