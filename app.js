@@ -2019,10 +2019,10 @@ function renderSolidTab() {
   const archivedGroups = state.newLinkingGroups.filter((g) => g.archived);
   const totalNewPassages = activeGroups.reduce((s, g) => s + g.passages.length, 0);
 
-  const tabNewBtn = document.getElementById('solidTabNew');
-  const tabOldBtn = document.getElementById('solidTabOld');
-  if (tabNewBtn) tabNewBtn.textContent = `تثبيت جديد (${totalNewPassages})`;
-  if (tabOldBtn) tabOldBtn.textContent = `تثبيت قديم (${completedList.length + compSurahs.length})`;
+  const solidTabNewEl = document.getElementById('solidTabNew');
+  const solidTabOldEl = document.getElementById('solidTabOld');
+  if (solidTabNewEl) solidTabNewEl.textContent = `تثبيت جديد (${totalNewPassages})`;
+  if (solidTabOldEl) solidTabOldEl.textContent = `تثبيت قديم (${completedList.length + compSurahs.length})`;
 
   // 1. تثبيت جديد (نظام الكرة الثلجية: تقييم مستقل لكل مقطع + ربط ودمج + ترحيل السورة المكتملة)
   const linkContainer = document.getElementById('linkingGroupsContainer');

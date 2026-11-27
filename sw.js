@@ -1,15 +1,15 @@
 // رفيق التثبيت v7.2.0 — Service Worker (Network-First 3s Timeout + Cache-Fallback)
-const APP_SW_VERSION = '7.2.0';
-const CACHE_NAME = 'rafiq-altathbit-v7.5.0';
+const APP_SW_VERSION = '7.5.1';
+const CACHE_NAME = 'rafiq-altathbit-v7.5.1';
 const FONT_CACHE = 'rafiq-altathbit-fonts-v1';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './style.css?v=7.5.0',
-  './data.js?v=7.5.0',
-  './engine.js?v=7.5.0',
-  './storage.js?v=7.5.0',
-  './app.js?v=7.5.0',
+  './style.css?v=7.5.1',
+  './data.js?v=7.5.1',
+  './engine.js?v=7.5.1',
+  './storage.js?v=7.5.1',
+  './app.js?v=7.5.1',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
