@@ -3645,25 +3645,87 @@ function updateOnlineStatus() {
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 
-// PWA Install Button + Installed State
+// Smart PWA Install Handler (Chrome + WhatsApp/Telegram In-App + iOS Safari)
 let deferredPrompt = null;
+
+function isRunningStandalone() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true;
+}
+
+function updateSmartInstallBar() {
+  const bar = document.getElementById('smartInstallBar');
+  if (!bar) return;
+  const dismissed = localStorage.getItem('rafiq_install_bar_dismissed') === '1';
+  bar.classList.toggle('show', !isRunningStandalone() && !dismissed);
+}
+
+function dismissInstallBar() {
+  try { localStorage.setItem('rafiq_install_bar_dismissed', '1'); } catch (e) {}
+  updateSmartInstallBar();
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  const btn = document.getElementById('installPwaBtn');
-  if (btn) { btn.style.display = 'inline-flex'; btn.textContent = 'تثبيت'; }
+  updateSmartInstallBar();
 });
 
 window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
-  const btn = document.getElementById('installPwaBtn');
-  if (btn) { btn.style.display = 'inline-flex'; btn.textContent = '✓ مثبّت'; btn.disabled = true; }
+  const bar = document.getElementById('smartInstallBar');
+  if (bar) bar.classList.remove('show');
+  showToast('تم تثبيت «رفيق التثبيت» على هاتفك بنجاح ✓');
 });
 
-function promptInstall() {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+function handleSmartInstall() {
+  if (isRunningStandalone()) {
+    showToast('التطبيق مثبّت بالفعل على جهازك ✓');
+    return;
+  }
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; updateSmartInstallBar(); });
+    return;
+  }
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isInApp = /FBAN|FBAV|Instagram|WhatsApp|Telegram|Line|Snapchat/i.test(ua);
+  let bodyHtml = '';
+  if (isInApp) {
+    bodyHtml = `
+      <div class="calc-preview-card" style="margin-top:0;">
+        <strong>أنت تفتح الرابط من متصفح داخلي (مثل واتساب أو تليجرام)</strong>
+        <p style="margin:6px 0 0;">لتثبيت التطبيق بضغطة واحدة:</p>
+      </div>
+      <ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;">
+        <li>اضغط على الثلاث نقاط <strong>(⋮)</strong> أو أيقونة المتصفح أعلى الشاشة.</li>
+        <li>اختر <strong>«فتح في Chrome»</strong> (أو Safari على آيفون).</li>
+        <li>اضغط زر <strong>«تثبيت»</strong> ليضاف التطبيق لشاشة هاتفك الرئيسية.</li>
+      </ol>`;
+  } else if (isIOS) {
+    bodyHtml = `
+      <div class="calc-preview-card" style="margin-top:0;">
+        <strong>تثبيت التطبيق على آيفون (Safari)</strong>
+      </div>
+      <ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;">
+        <li>اضغط على زر <strong>المشاركة</strong> (المربع الذي فيه سهم لأعلى) أسفل الشاشة.</li>
+        <li>مرّر للأسفل واختر <strong>«إضافة إلى الشاشة الرئيسية»</strong> (Add to Home Screen).</li>
+        <li>اضغط <strong>«إضافة»</strong> وسيظهر التطبيق بأيقونته على شاشتك.</li>
+      </ol>`;
+  } else {
+    bodyHtml = `
+      <div class="calc-preview-card" style="margin-top:0;">
+        <strong>تثبيت التطبيق على أندرويد أو الكمبيوتر</strong>
+      </div>
+      <ol style="padding-right:20px; font-size:0.86rem; line-height:1.9;">
+        <li>اضغط على قائمة المتصفح <strong>(⋮)</strong> أعلى الشاشة.</li>
+        <li>اختر <strong>«تثبيت التطبيق»</strong> أو <strong>«إضافة إلى الشاشة الرئيسية»</strong>.</li>
+        <li>اضغط <strong>«تثبيت»</strong> ليعمل التطبيق بحرية ودون إنترنت.</li>
+      </ol>`;
+  }
+  document.getElementById('installGuideBody').innerHTML = bodyHtml;
+  openModal('installGuideModal');
 }
 
 // Service Worker registration + Update banner
@@ -3700,6 +3762,7 @@ window.RafiqCore = {
 
 // ================= BOOT =================
 updateOnlineStatus();
+updateSmartInstallBar();
 applyTheme(state.profile.theme || 'royal', state.profile.customColors);
 if (!state.onboarded) {
   openOnboarding(false);

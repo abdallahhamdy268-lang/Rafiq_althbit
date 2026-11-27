@@ -1,5 +1,5 @@
-// رفيق التثبيت v7.0 — Service Worker (Network-First + Cache-Fallback + كاش الخطوط)
-const CACHE_NAME = 'rafiq-altathbit-v7.0.2';
+// رفيق التثبيت v7.1 — Service Worker (Network-First + Cache-Fallback + كاش الخطوط)
+const CACHE_NAME = 'rafiq-altathbit-v7.1.0';
 const FONT_CACHE = 'rafiq-altathbit-fonts-v1';
 const CORE_ASSETS = [
   './',

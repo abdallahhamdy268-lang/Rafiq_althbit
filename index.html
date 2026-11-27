@@ -225,8 +225,6 @@
         </div>
       </div>
       <div class="header-badges">
-        <button type="button" id="installPwaBtn" class="install-btn" onclick="promptInstall()">تثبيت</button>
-        <button type="button" class="icon-btn" onclick="openGlossaryModal()" aria-label="شرح المصطلحات">؟</button>
         <div class="pill-badge" id="streakBadge" title="سلسلة الالتزام">🔥 0 أيام</div>
       </div>
     </div>
@@ -246,6 +244,13 @@
     <!-- ================= TAB 1: HOME (ACTION-FIRST) ================= -->
     <section id="tab-dashboard" class="tab-panel active">
       <div id="storageAlertBanner"></div>
+      <div id="smartInstallBar" class="install-pill-bar">
+        <span>📲 ثبّت «رفيق التثبيت» كتطبيق على هاتفك للعمل دون إنترنت</span>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button type="button" class="btn btn-gold btn-sm" id="installPwaBtn" onclick="handleSmartInstall()">تثبيت</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="dismissInstallBar()" aria-label="إخفاء شريط التثبيت">✕</button>
+        </div>
+      </div>
       <div id="inAppReminderBanner"></div>
       <div id="firstTimeGuideBanner"></div>
       <div id="stabilizationAlert"></div>
@@ -579,6 +584,8 @@
         <div style="font-size:0.84rem; color:var(--text-muted); margin-bottom:11px;" id="profileSummaryLine"></div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
           <button type="button" class="btn btn-outline btn-sm" onclick="openOnboarding(true)">تعديل ملفي / إعادة التشخيص</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="handleSmartInstall()">📲 تثبيت التطبيق على الهاتف</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openGlossaryModal()">📖 دليل المصطلحات</button>
           <button type="button" class="btn btn-gold btn-sm" onclick="exportBackup()">تصدير نسخة احتياطية (JSON)</button>
           <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
             استيراد نسخة احتياطية (v4/v5/v6/v7)
@@ -856,6 +863,17 @@
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('weekSummaryModal')">حسناً</button>
       </div>
       <div id="weekSummaryBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Smart Install Guide (for WhatsApp in-app browser, iOS Safari, Firefox) -->
+  <div class="modal-backdrop" id="installGuideModal" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle" onclick="if(event.target===this) closeModal('installGuideModal')">
+    <div class="modal-box">
+      <div class="card-title">
+        <h2 id="installGuideTitle">📲 تثبيت التطبيق على هاتفك</h2>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('installGuideModal')">إغلاق</button>
+      </div>
+      <div id="installGuideBody"></div>
     </div>
   </div>
 
