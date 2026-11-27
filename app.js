@@ -2129,6 +2129,7 @@ function renderSolidTab() {
       const weakSurahs = Array.isArray(meta.weakSurahs) ? meta.weakSurahs : [];
       const isDue = diffDaysFromToday(meta.nextReviewDate || todayStr()) <= 0;
       const isOpen = expandedSolidJuzs[j.num] !== undefined ? expandedSolidJuzs[j.num] : (idx === 0 && (isDue || cycleDone > 0));
+      const jDb = JUZ_DB.find((x) => x.num === j.num);
       return `
         <div class="solid-old-card">
           <div class="solid-old-head">
@@ -2137,37 +2138,38 @@ function renderSolidTab() {
                 <strong class="solid-old-title">${escapeHtml(j.title)}</strong>
                 ${formatDueTag(meta.nextReviewDate || todayStr())}
               </div>
-              <div class="solid-old-sub">${escapeHtml(j.range || '')} • متبقّي ${remaining.length} من ${surahs.length} سورة</div>
+              <div class="solid-old-sub">${escapeHtml(j.range || '')} • ${cycleDone > 0 ? `راجعت ${cycleDone} من ${surahs.length} سورة` : `${surahs.length} سورة`}</div>
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button type="button" class="btn btn-gold btn-sm" onclick="quickCompleteFullJuz(${j.num})">✓ راجعت الجزء كله</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSolidJuzExpand(${j.num})">${isOpen ? 'إخفاء السور ▲' : 'تحديد السور ▾'}</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSolidJuzExpand(${j.num}, ${isOpen ? 'true' : 'false'})">${isOpen ? 'إخفاء السور ▲' : 'تحديد السور ▾'}</button>
             </div>
           </div>
           ${cycleDone > 0 ? `
             <div class="solid-cycle-box">
               <div class="progress-block-head" style="font-size:0.78rem; margin-bottom:4px;">
-                <span>أنجزت ${cycleDone} من ${surahs.length} سورة في هذه الدورة (${cyclePct}%)</span>
-                <button type="button" class="inline-undo-btn" onclick="resetJuzCycle(${j.num})">تراجع ↺</button>
+                <span>تقدّم الدورة الحالية: ${cycleDone} من ${surahs.length} سورة (${cyclePct}%)</span>
+                <button type="button" class="inline-undo-btn" onclick="resetJuzCycle(${j.num})">تصفير ↺</button>
               </div>
               <div class="bar-track" style="height:7px;"><div class="bar-fill-success" style="width:${cyclePct}%"></div></div>
             </div>` : ''}
           ${isOpen ? `
-            <div class="inline-surah-hint">اضغط على السورة فور مراجعتها (✓ تمام)، أو اضغط <strong>⚠</strong> إن احتاجت تظبيطاً:</div>
+            <div class="inline-surah-hint">اضغط على السورة لتحديدها كـ «مُراجعة ✓» (أو اضغط مجدداً للإلغاء)، واضغط <strong>⚠</strong> إن احتاجت تظبيطاً:</div>
             <div class="surah-review-grid inline-surah-grid">
-              ${remaining.map((s) => {
-                const jDb = JUZ_DB.find((x) => x.num === j.num);
+              ${surahs.map((s) => {
+                const isDone = doneNames.includes(s.name);
+                const isWeak = weakSurahs.includes(s.name);
                 const pCount = jDb ? formatNum(getSurahPagesInJuz(s, jDb)) : formatNum(s.pages);
                 return `
-                  <div class="surah-review-card">
-                    <button type="button" class="surah-review-main" onclick="quickReviewSurahInJuz(${j.num}, '${escapeAttr(s.name)}', false)">
-                      <span class="sr-check-dot" aria-hidden="true"></span>
+                  <div class="surah-review-card ${isDone ? 'reviewed' : ''} ${isWeak ? 'weak' : ''}">
+                    <button type="button" class="surah-review-main" onclick="quickReviewSurahInJuz(${j.num}, '${escapeAttr(s.name)}', false)" aria-pressed="${isDone ? 'true' : 'false'}">
+                      <span class="sr-check-dot" aria-hidden="true">${isDone ? '✓' : ''}</span>
                       <span class="sr-surah-meta">
                         <strong>${escapeHtml(s.name)}</strong>
                         <small>${pCount} وجه</small>
                       </span>
                     </button>
-                    <button type="button" class="sr-weak-toggle" onclick="quickReviewSurahInJuz(${j.num}, '${escapeAttr(s.name)}', true)" title="اتراجعت بس محتاجة تظبيط">⚠</button>
+                    <button type="button" class="sr-weak-toggle ${isWeak ? 'active' : ''}" onclick="quickReviewSurahInJuz(${j.num}, '${escapeAttr(s.name)}', true)" title="تحديد كسورة تحتاج تظبيطاً" aria-pressed="${isWeak ? 'true' : 'false'}">⚠</button>
                   </div>`;
               }).join('')}
             </div>` : ''}
@@ -3067,8 +3069,8 @@ function computeAutoRatingFromWeakCount(weakCount) {
   return 'جيد';
 }
 
-function toggleSolidJuzExpand(juzNum) {
-  expandedSolidJuzs[juzNum] = !expandedSolidJuzs[juzNum];
+function toggleSolidJuzExpand(juzNum, currentlyOpen) {
+  expandedSolidJuzs[juzNum] = !currentlyOpen;
   renderSolidBox();
 }
 
@@ -3107,18 +3109,32 @@ function quickCompleteFullJuz(juzNum) {
   finalizeJuzCycleAuto(juzNum, weakList);
 }
 
-function quickReviewSurahInJuz(juzNum, surahName, needsWork) {
+function quickReviewSurahInJuz(juzNum, surahName, toggleWeakOnly) {
   const t = todayStr();
   const meta = state.solidMeta[juzNum] || { reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase, intervalDays: 2, nextReviewDate: t, weakSurahs: [], reviewedSurahsInCycle: [] };
   const doneNames = Array.isArray(meta.reviewedSurahsInCycle) ? [...meta.reviewedSurahsInCycle] : [];
   const weakList = Array.isArray(meta.weakSurahs) ? [...meta.weakSurahs] : [];
+  let toastMsg = '';
 
-  if (!doneNames.includes(surahName)) doneNames.push(surahName);
-  if (needsWork) {
-    if (!weakList.includes(surahName)) weakList.push(surahName);
+  if (toggleWeakOnly) {
+    const wIdx = weakList.indexOf(surahName);
+    if (wIdx !== -1) {
+      weakList.splice(wIdx, 1);
+      toastMsg = `أُزيلت «${surahName}» من قائمة التظبيط ✓`;
+    } else {
+      weakList.push(surahName);
+      if (!doneNames.includes(surahName)) doneNames.push(surahName);
+      toastMsg = `سُجّلت «${surahName}» للمراجعة والتظبيط ⚠`;
+    }
   } else {
-    const idx = weakList.indexOf(surahName);
-    if (idx !== -1) weakList.splice(idx, 1);
+    const dIdx = doneNames.indexOf(surahName);
+    if (dIdx !== -1) {
+      doneNames.splice(dIdx, 1);
+      toastMsg = `أُلغي تحديد «${surahName}»`;
+    } else {
+      doneNames.push(surahName);
+      toastMsg = `✓ تمت مراجعة «${surahName}»`;
+    }
   }
 
   const surahs = getJuzSurahs(juzNum);
@@ -3135,8 +3151,5 @@ function quickReviewSurahInJuz(juzNum, surahName, needsWork) {
   };
   expandedSolidJuzs[juzNum] = true;
   touchStreak(); saveState(); renderAll();
-  const left = surahs.length - doneNames.length;
-  showToast(needsWork
-    ? `سُجّلت «${surahName}» في قائمة التظبيط (متبقّي ${left} سورة)`
-    : `✓ تمت مراجعة «${surahName}» (متبقّي ${left} سورة في الدورة)`);
+  if (toastMsg) showToast(toastMsg);
 }
