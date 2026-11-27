@@ -1445,3 +1445,407 @@ input[type="range"] { width: 100%; accent-color: var(--accent-mid); height: 8px;
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
+
+
+/* ==========================================================================
+   v7.3 — CLEAR AFFORDANCE (INFO vs BUTTONS) + 3-TIER RESPONSIVE SHELL
+   Phone (< 640px) | Tablet (640px - 1023px) | Laptop & Desktop (>= 1024px)
+   ========================================================================== */
+
+/* ---- A. STATIC INFO & INSTRUCTIONS (Flat, matte, recessed, zero button look) ---- */
+.muted-note {
+  background: rgba(255, 255, 255, 0.025);
+  border: none;
+  border-right: 3px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 9px 12px;
+  margin: 0 0 14px;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  cursor: default;
+  user-select: text;
+}
+
+.alert-banner,
+.calc-preview-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: none;
+  border-right: 4px solid var(--accent-mid);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: none;
+  cursor: default;
+}
+
+.alert-danger {
+  background: var(--danger-soft);
+  border-right: 4px solid var(--danger);
+}
+
+/* Read-only status tags: flat, compact, borderless (NEVER look like pill buttons) */
+.tag,
+.pill-badge {
+  border: none !important;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  box-shadow: none !important;
+  cursor: default;
+}
+
+.pill-badge {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+/* ---- B. INTERACTIVE BUTTONS (Unmistakable tactile 3D lip, clear elevation, hover/press) ---- */
+.btn {
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.14);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.30), 0 8px 18px rgba(0, 0, 0, 0.20);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28);
+}
+
+.btn-gold {
+  background: var(--accent-grad);
+  color: var(--btn-primary-text);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 3px 0 var(--accent-deep), 0 6px 16px rgba(0, 0, 0, 0.24);
+}
+
+.btn-outline {
+  background: var(--bg-card-2);
+  border: 1.5px solid var(--accent-mid);
+  color: var(--accent-hi);
+}
+
+.btn-ghost {
+  background: var(--bg-card-2);
+  border: 1.5px solid var(--border-subtle);
+  color: var(--text-main);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.22);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--accent-border-strong);
+}
+
+.btn-success { background: var(--success-soft); border: 1.5px solid var(--success); color: var(--success); }
+.btn-info    { background: var(--info-soft);    border: 1.5px solid var(--info);    color: var(--info); }
+.btn-warn    { background: var(--warn-soft);    border: 1.5px solid var(--warn);    color: var(--warn); }
+.btn-danger  { background: var(--danger-soft);  border: 1.5px solid var(--danger);  color: var(--danger); }
+
+/* Clickable shortcut stat cards: unmistakable action affordance */
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--bg-card-2);
+  border: 1.5px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.24), 0 6px 14px rgba(0, 0, 0, 0.12);
+  transition: transform 0.14s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-box:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-hi);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.26), 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.stat-box:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.24);
+}
+
+.stat-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent-hi);
+  opacity: 0.92;
+}
+
+/* Interactive task rows & choice cards */
+.task-row,
+.choice-card {
+  background: var(--bg-card-2);
+  border: 1.5px solid var(--accent-border);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.22);
+  transition: transform 0.12s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.task-row:hover,
+.choice-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-hi);
+}
+
+.task-row:active,
+.choice-card:active {
+  transform: translateY(1px);
+}
+
+/* Segmented tabs: clear active pill elevation */
+.seg-btn {
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+.seg-btn:hover:not(.active) {
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+.seg-btn.active {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+/* Sidebar-only brand/footer hidden by default on Mobile & Tablet */
+.sidebar-brand,
+.sidebar-footer {
+  display: none;
+}
+
+.sidebar-nav-list {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+}
+
+.desktop-nav button .nav-ico {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.version-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+/* ---- C. MOBILE (< 640px): Native Bottom-Sheet Modals & Clean Spacing ---- */
+@media (max-width: 639px) {
+  .main-wrap {
+    padding: 12px 12px calc(var(--nav-height) + 26px + env(safe-area-inset-bottom, 0px));
+  }
+  .card {
+    padding: 15px 13px;
+    border-radius: 16px;
+  }
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-box {
+    border-radius: 22px 22px 0 0;
+    max-width: 100%;
+    max-height: 86vh;
+    padding: 18px 16px calc(22px + env(safe-area-inset-bottom, 0px));
+    border-bottom: none;
+  }
+  .bottom-nav button.active {
+    background: var(--accent-soft);
+    border-radius: 12px;
+  }
+  .bottom-nav button.active::before {
+    display: none;
+  }
+}
+
+/* ---- D. TABLET (640px - 1023px): Top Pill Nav + 2-Column Grids ---- */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .desktop-nav {
+    display: flex;
+    max-width: 860px;
+    margin: 14px auto 0;
+    padding: 0 18px;
+  }
+  .bottom-nav {
+    display: none !important;
+  }
+  .main-wrap {
+    max-width: 860px;
+    padding: 18px 18px 44px;
+  }
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  #solidBoxList,
+  #juzMapContainer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  #juzMapContainer .phase-header {
+    grid-column: 1 / -1;
+  }
+  #solidBoxList .juz-card,
+  #juzMapContainer .juz-card {
+    margin-bottom: 0;
+  }
+}
+
+/* ---- E. LAPTOP & DESKTOP (>= 1024px): True RTL Sidebar + Multi-Column Workspace ---- */
+@media (min-width: 1024px) {
+  .app-header {
+    display: none;
+  }
+  .bottom-nav {
+    display: none !important;
+  }
+  .desktop-nav {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 256px;
+    max-width: none;
+    margin: 0;
+    padding: 20px 16px;
+    background: var(--bg-nav);
+    border-left: 1px solid var(--accent-border);
+    z-index: 45;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .sidebar-brand .brand-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+  }
+  .sidebar-brand .brand-text strong {
+    display: block;
+    font-size: 1.04rem;
+    font-weight: 800;
+    color: var(--accent-hi);
+    line-height: 1.25;
+  }
+  .sidebar-brand .brand-text span {
+    display: block;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .sidebar-nav-list {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .desktop-nav button {
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    min-height: 48px;
+    border-radius: 12px;
+    text-align: right;
+    font-size: 0.92rem;
+    background: transparent;
+    border: 1.5px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.15s ease;
+  }
+  .desktop-nav button:hover:not(.active) {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+    color: var(--text-main);
+  }
+  .desktop-nav button.active {
+    background: var(--accent-soft);
+    border-color: var(--accent-border-strong);
+    color: var(--accent-hi);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+  }
+  .sidebar-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .main-wrap {
+    margin-right: 256px;
+    margin-left: auto;
+    max-width: 1180px;
+    padding: 24px 28px 48px;
+  }
+  .status-strip {
+    margin-right: 256px;
+  }
+  .dash-desktop-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .dash-col-side .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  #scheduleList,
+  #solidBoxList,
+  #linkingGroupsContainer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+  #scheduleList .week-day-row,
+  #solidBoxList .juz-card,
+  #linkingGroupsContainer .link-group-card {
+    margin-bottom: 0;
+  }
+  #juzMapContainer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+  #juzMapContainer .phase-header {
+    grid-column: 1 / -1;
+  }
+  #juzMapContainer .juz-card {
+    margin-bottom: 0;
+  }
+  .toast {
+    bottom: 24px;
+    left: calc(50% - 128px);
+  }
+}
+
+@media (min-width: 1380px) {
+  #juzMapContainer {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

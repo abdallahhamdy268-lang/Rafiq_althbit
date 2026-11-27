@@ -1219,7 +1219,14 @@ function renderHeader() {
   document.getElementById('headerUserSub').textContent = `${modeNames[p.mode] || 'خطتك'} • ${subCount} • ${p.dailyMin} د/يوم`;
 
   const graceActive = state.streak.graceUsedDate === todayStr();
-  document.getElementById('streakBadge').textContent = `🔥 ${state.streak.count} أيام${graceActive ? ' (سماح)' : ''}`;
+  const streakTxt = `🔥 ${state.streak.count} أيام${graceActive ? ' (سماح)' : ''}`;
+  document.getElementById('streakBadge').textContent = streakTxt;
+  const sbTitle = document.getElementById('sidebarUserTitle');
+  const sbSub = document.getElementById('sidebarUserSub');
+  const sbStreak = document.getElementById('sidebarStreakBadge');
+  if (sbTitle) sbTitle.textContent = document.getElementById('headerUserTitle').textContent;
+  if (sbSub) sbSub.textContent = document.getElementById('headerUserSub').textContent;
+  if (sbStreak) sbStreak.textContent = streakTxt;
 
   const profLine = document.getElementById('profileSummaryLine');
   if (profLine) {

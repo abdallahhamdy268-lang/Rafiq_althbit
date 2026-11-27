@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=7.3.0" />
 </head>
 <body>
 
@@ -216,13 +216,38 @@
     </div>
   </header>
 
-  <!-- Desktop Navigation -->
+  <!-- Tablet Top Nav / Desktop Right Sidebar -->
   <nav class="desktop-nav" role="tablist" aria-label="التنقل الرئيسي">
-    <button type="button" role="tab" aria-selected="true" class="active" data-tab="dashboard" onclick="switchTab('dashboard')">الرئيسية</button>
-    <button type="button" role="tab" aria-selected="false" data-tab="schedule" onclick="switchTab('schedule')">الجدول المرن</button>
-    <button type="button" role="tab" aria-selected="false" data-tab="solid" onclick="switchTab('solid')">صندوق التثبيت</button>
-    <button type="button" role="tab" aria-selected="false" data-tab="map" onclick="switchTab('map')">خريطة ٣٠ جزء</button>
-    <button type="button" role="tab" aria-selected="false" data-tab="tools" onclick="switchTab('tools')">الأدوات والإعدادات</button>
+    <div class="sidebar-brand">
+      <div class="brand-icon" aria-hidden="true">
+        <img src="icon-192.png" alt="شعار رفيق التثبيت" class="brand-img" />
+      </div>
+      <div class="brand-text">
+        <strong id="sidebarUserTitle">رفيق التثبيت</strong>
+        <span id="sidebarUserSub">خطتك القرآنية المرنة</span>
+      </div>
+    </div>
+    <div class="sidebar-nav-list">
+      <button type="button" role="tab" aria-selected="true" class="active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        <span class="nav-ico" aria-hidden="true">🏠</span><span>الرئيسية</span>
+      </button>
+      <button type="button" role="tab" aria-selected="false" data-tab="schedule" onclick="switchTab('schedule')">
+        <span class="nav-ico" aria-hidden="true">📅</span><span>الجدول المرن</span>
+      </button>
+      <button type="button" role="tab" aria-selected="false" data-tab="solid" onclick="switchTab('solid')">
+        <span class="nav-ico" aria-hidden="true">🛡️</span><span>صندوق التثبيت</span>
+      </button>
+      <button type="button" role="tab" aria-selected="false" data-tab="map" onclick="switchTab('map')">
+        <span class="nav-ico" aria-hidden="true">📖</span><span>خريطة ٣٠ جزء</span>
+      </button>
+      <button type="button" role="tab" aria-selected="false" data-tab="tools" onclick="switchTab('tools')">
+        <span class="nav-ico" aria-hidden="true">⚙️</span><span>الأدوات والإعدادات</span>
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="pill-badge" id="sidebarStreakBadge">🔥 0 أيام</div>
+      <span class="version-chip">الإصدار 7.3</span>
+    </div>
   </nav>
 
   <main class="main-wrap">
@@ -242,6 +267,8 @@
       <div id="firstTimeGuideBanner"></div>
       <div id="stabilizationAlert"></div>
 
+      <div class="dash-desktop-grid">
+        <div class="dash-col-main">
       <!-- 1. TODAY'S TASKS + MERGED SPACED REPETITION DUE ITEMS (TOP PRIORITY) -->
       <div class="card hero-card" id="todayCardWrapper">
         <div class="card-title">
@@ -275,6 +302,8 @@
       <!-- 2. NEW MEMORIZATION RIGHT ON HOME (hidden if Khatim) -->
       <div id="homeNewWorkflowCard"></div>
 
+        </div>
+        <div class="dash-col-side">
       <!-- 3. COLLAPSIBLE OVERALL KHATMA PROGRESS RING & BARS -->
       <div class="card" id="progressCollapsibleCard">
         <div class="card-title" style="margin-bottom:0;">
@@ -332,21 +361,25 @@
           <span class="stat-label"><span>الجزء النشط (مراجعة)</span><span style="color:var(--accent-hi);">تغيير ✎</span></span>
           <span class="stat-value" id="statCurrentRev">—</span>
           <span class="stat-sub" id="statCurrentRevSub">—</span>
+          <span class="stat-cta">اضغط للتبديل ←</span>
         </button>
         <button type="button" class="stat-box" onclick="openQuickFocusModal('new')">
           <span class="stat-label"><span>السورة النشطة (جديد)</span><span style="color:var(--info);" id="statNewEditHint">تغيير ✎</span></span>
           <span class="stat-value" style="color:var(--info);" id="statCurrentNew">—</span>
           <span class="stat-sub" id="statCurrentNewSub">—</span>
+          <span class="stat-cta">اضغط للتغيير ←</span>
         </button>
         <button type="button" class="stat-box" onclick="switchTab('solid'); setSolidTab('new');">
           <span class="stat-label"><span>صندوق التثبيت</span></span>
           <span class="stat-value" style="font-size:0.96rem;" id="statSolidNewCount">0 مقاطع</span>
           <span class="stat-sub" id="statSolidNewSub">مقاطع الربط والأجزاء</span>
+          <span class="stat-cta">افتح الصندوق ←</span>
         </button>
         <button type="button" class="stat-box" onclick="switchTab('schedule')">
           <span class="stat-label"><span>إنجاز الأسبوع</span></span>
           <span class="stat-value" style="color:var(--success);" id="statWeekPct">0%</span>
           <span class="stat-sub" id="statWeekSub">ابدأ أول مهمة اليوم</span>
+          <span class="stat-cta">عرض الجدول ←</span>
         </button>
       </div>
 
@@ -357,6 +390,8 @@
           <button type="button" class="btn btn-ghost btn-sm" onclick="openQuickFocusModal('rev')">تغيير الجزء</button>
         </div>
         <div class="surah-list" id="activeJuzSurahsList"></div>
+      </div>
+        </div>
       </div>
     </section>
 
@@ -872,9 +907,9 @@
 
   <div class="toast" id="toastEl" role="status" aria-live="polite"></div>
 
-  <script src="data.js"></script>
-  <script src="engine.js"></script>
-  <script src="storage.js"></script>
-  <script src="app.js"></script>
+  <script src="data.js?v=7.3.0"></script>
+  <script src="engine.js?v=7.3.0"></script>
+  <script src="storage.js?v=7.3.0"></script>
+  <script src="app.js?v=7.3.0"></script>
 </body>
 </html>
