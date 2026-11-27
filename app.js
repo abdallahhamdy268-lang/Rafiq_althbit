@@ -122,6 +122,8 @@ let editingDayId = null;
 let selectedRating = '';
 let selectedSrRating = '';
 let selectedWeakSurahs = [];
+let selectedReviewedSurahs = [];
+let expandedSolidJuzs = {};
 let selectedWeakPages = [];
 let srTarget = null; // { kind: 'old'|'new'|'passage'|'surah_solid', id, passageId?, title, overdueDays }
 let surahSearchQuery = '';
@@ -868,54 +870,142 @@ function openSrReviewModal(kind, id, title, overdueDays = 0, passageId = null) {
   selectedSrRating = '';
   selectedWeakSurahs = [];
   selectedWeakPages = [];
+  selectedReviewedSurahs = [];
 
   const kindLabel = kind === 'passage' ? 'تقييم مقطع مستقل داخل السورة'
     : (kind === 'surah_solid' ? 'صندوق التثبيت — سورة مكتملة (تثبيت دائم)'
-      : (kind === 'new' ? 'صندوق التثبيت — ربط وتثبيت السورة' : 'صندوق التثبيت — مراجعة جزء مكتمل'));
+      : (kind === 'new' ? 'صندوق التثبيت — ربط وتثبيت السورة' : 'اختر السور التي راجعتها اليوم فقط (أو اضغط «الجزء كاملاً»)، وحدّد ما يحتاج تظبيطاً'));
 
   document.getElementById('srReviewTargetInfo').innerHTML = `
     <strong style="color:var(--accent-hi);">${escapeHtml(title)}</strong>
-    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">${kindLabel}</div>
+    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px;">${kindLabel}</div>
   `;
   renderRatingButtons('srRatingGrid', '', 'selectSrRating');
-  const btn = document.getElementById('confirmSrBtn');
-  btn.disabled = true;
-  btn.textContent = 'اختر التقييم أولاً لحفظ المراجعة';
 
   const wpWrap = document.getElementById('srWeakPagesWrap');
+  const rateLbl = document.getElementById('srRatingLabel');
   if (kind === 'old') {
     const jDb = JUZ_DB.find((x) => x.num === Number(id));
-    const meta = state.solidMeta[id];
-    selectedWeakSurahs = meta && Array.isArray(meta.weakSurahs) ? [...meta.weakSurahs] : [];
-    selectedWeakPages = meta && Array.isArray(meta.weakPages) ? [...meta.weakPages] : [];
+    const meta = state.solidMeta[id] || {};
+    selectedWeakSurahs = Array.isArray(meta.weakSurahs) ? [...meta.weakSurahs] : [];
+    selectedWeakPages = Array.isArray(meta.weakPages) ? [...meta.weakPages] : [];
+    selectedReviewedSurahs = Array.isArray(meta.reviewedSurahsInCycle) ? [...meta.reviewedSurahsInCycle] : [];
+    if (rateLbl) rateLbl.textContent = '٢. كيف كان مستوى ثباتك فيما راجعته اليوم؟';
     if (jDb) {
       wpWrap.style.display = 'block';
       renderWeakSurahsAndPagesPicker(jDb);
     } else { wpWrap.style.display = 'none'; }
   } else {
+    if (rateLbl) rateLbl.textContent = 'كيف كان مستوى ثباتك في هذه المراجعة؟';
     wpWrap.style.display = 'none';
   }
+  updateSrConfirmBtn();
   openModal('srReviewModal');
 }
 
-// عرض أسماء السور الفعلية في تثبيت القديم (مع أرقام الأوجه فقط للسور الطويلة > 5 أوجه)
+function updateSrConfirmBtn() {
+  const btn = document.getElementById('confirmSrBtn');
+  if (!btn || !srTarget) return;
+  if (!selectedSrRating) {
+    btn.disabled = true;
+    btn.textContent = 'اختر التقييم أولاً لحفظ المراجعة';
+    return;
+  }
+  btn.disabled = false;
+  if (srTarget.kind === 'old') {
+    const surahs = getJuzSurahs(Number(srTarget.id));
+    const total = surahs.length;
+    const revCount = selectedReviewedSurahs.length;
+    if (total > 1 && revCount > 0 && revCount < total) {
+      btn.textContent = `حفظ مراجعة (${revCount} من ${total} سورة) ومتابعة الدورة ✓`;
+    } else {
+      btn.textContent = 'اعتماد إتمام الجزء وجدولة الموعد القادم ✓';
+    }
+  } else {
+    btn.textContent = 'حفظ وجدولة المراجعة القادمة تلقائياً ✓';
+  }
+}
+
+function selectAllSurahsInReview() {
+  if (!srTarget || srTarget.kind !== 'old') return;
+  const jDb = JUZ_DB.find((x) => x.num === Number(srTarget.id));
+  if (!jDb) return;
+  selectedReviewedSurahs = getJuzSurahs(jDb.num).map((s) => s.name);
+  renderWeakSurahsAndPagesPicker(jDb);
+  updateSrConfirmBtn();
+}
+
+function clearReviewedSurahsInReview() {
+  if (!srTarget || srTarget.kind !== 'old') return;
+  const jDb = JUZ_DB.find((x) => x.num === Number(srTarget.id));
+  if (!jDb) return;
+  selectedReviewedSurahs = [];
+  renderWeakSurahsAndPagesPicker(jDb);
+  updateSrConfirmBtn();
+}
+
+// بطاقات سور مريحة للعين: تحديد ما راجعته اليوم + علامة «تظبيط» مستقلة
 function renderWeakSurahsAndPagesPicker(jDb) {
   const surahs = getJuzSurahs(jDb.num);
-  const hasLongSurah = surahs.some((s) => s.pages > 5);
-  let html = '';
-  if (surahs.length > 0) {
-    html += surahs.map((s) => {
-      const sel = selectedWeakSurahs.includes(s.name);
-      return `<button type="button" class="weak-page-chip ${sel ? 'selected' : ''}" style="padding:4px 8px; min-width:86px;" onclick="toggleWeakSurah('${escapeAttr(s.name)}', ${jDb.num})">${s.name}</button>`;
+  const total = surahs.length;
+  const doneCount = surahs.filter((s) => selectedReviewedSurahs.includes(s.name)).length;
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+  const counterEl = document.getElementById('srCycleCounter');
+  const barEl = document.getElementById('srCycleBar');
+  if (counterEl) counterEl.textContent = `مُحدَّد للمراجعة: ${doneCount} من ${total} سورة (${pct}%)`;
+  if (barEl) barEl.style.width = `${pct}%`;
+
+  const gridEl = document.getElementById('srWeakPagesGrid');
+  if (gridEl) {
+    gridEl.innerHTML = surahs.map((s) => {
+      const isRev = selectedReviewedSurahs.includes(s.name);
+      const isWeak = selectedWeakSurahs.includes(s.name);
+      const pagesInJuz = formatNum(getSurahPagesInJuz(s, jDb));
+      return `
+        <div class="surah-review-card ${isRev ? 'reviewed' : ''} ${isWeak ? 'weak' : ''}">
+          <button type="button" class="surah-review-main" onclick="toggleReviewedSurah('${escapeAttr(s.name)}', ${jDb.num})" aria-pressed="${isRev ? 'true' : 'false'}">
+            <span class="sr-check-dot" aria-hidden="true">${isRev ? '✓' : ''}</span>
+            <span class="sr-surah-meta">
+              <strong>${escapeHtml(s.name)}</strong>
+              <small>${pagesInJuz} وجه</small>
+            </span>
+          </button>
+          <button type="button" class="sr-weak-toggle ${isWeak ? 'active' : ''}" onclick="toggleWeakSurah('${escapeAttr(s.name)}', ${jDb.num})" title="تحديد كسورة تحتاج تظبيطاً" aria-pressed="${isWeak ? 'true' : 'false'}">
+            ${isWeak ? '⚠ تظبيط' : 'تظبيط'}
+          </button>
+        </div>`;
     }).join('');
   }
-  if (hasLongSurah) {
-    for (let p = jDb.startPage; p <= jDb.endPage; p++) {
-      const sel = selectedWeakPages.includes(p);
-      html += `<button type="button" class="weak-page-chip ${sel ? 'selected' : ''}" onclick="toggleWeakPage(${p}, ${jDb.num})">ص ${p}</button>`;
+
+  const hasLongSurah = surahs.some((s) => s.pages > 5);
+  const longSec = document.getElementById('srLongPagesSection');
+  const longGrid = document.getElementById('srLongPagesGrid');
+  if (longSec && longGrid) {
+    if (hasLongSurah) {
+      longSec.style.display = 'block';
+      let pHtml = '';
+      for (let p = jDb.startPage; p <= jDb.endPage; p++) {
+        const sel = selectedWeakPages.includes(p);
+        pHtml += `<button type="button" class="weak-page-chip ${sel ? 'selected' : ''}" onclick="toggleWeakPage(${p}, ${jDb.num})">ص ${p}</button>`;
+      }
+      longGrid.innerHTML = pHtml;
+    } else {
+      longSec.style.display = 'none';
+      longGrid.innerHTML = '';
     }
   }
-  document.getElementById('srWeakPagesGrid').innerHTML = html;
+}
+
+function toggleReviewedSurah(surahName, juzNum) {
+  if (selectedReviewedSurahs.includes(surahName)) {
+    selectedReviewedSurahs = selectedReviewedSurahs.filter((x) => x !== surahName);
+  } else {
+    selectedReviewedSurahs.push(surahName);
+  }
+  const jDb = JUZ_DB.find((x) => x.num === juzNum);
+  if (jDb) renderWeakSurahsAndPagesPicker(jDb);
+  updateSrConfirmBtn();
 }
 
 function toggleWeakSurah(surahName, juzNum) {
@@ -936,9 +1026,7 @@ function toggleWeakPage(pageNum, juzNum) {
 function selectSrRating(rate) {
   selectedSrRating = rate;
   renderRatingButtons('srRatingGrid', rate, 'selectSrRating');
-  const btn = document.getElementById('confirmSrBtn');
-  btn.disabled = false;
-  btn.textContent = 'حفظ وجدولة المراجعة القادمة تلقائياً';
+  updateSrConfirmBtn();
 }
 
 function confirmSrReview() {
@@ -949,22 +1037,43 @@ function confirmSrReview() {
 
   if (srTarget.kind === 'old') {
     const meta = state.solidMeta[srTarget.id] || { reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase, intervalDays: 2 };
-    const next = computeSM2(meta, selectedSrRating, srTarget.overdueDays, level);
+    const surahs = getJuzSurahs(Number(srTarget.id));
+    const totalSurahs = surahs.length;
+    const isPartialCycle = totalSurahs > 1 && selectedReviewedSurahs.length > 0 && selectedReviewedSurahs.length < totalSurahs;
     const finalWeakSurahs = (selectedSrRating === 'ممتاز' && selectedWeakSurahs.length === 0) ? [] : [...selectedWeakSurahs];
     const finalWeakPages = (selectedSrRating === 'ممتاز' && selectedWeakPages.length === 0) ? [] : [...selectedWeakPages];
-    state.solidMeta[srTarget.id] = {
-      ...meta,
-      reviews: (meta.reviews || 0) + 1,
-      reps: next.reps, lapses: next.lapses, ease: next.ease,
-      lastReviewed: t, rating: selectedSrRating, critical: isCritical,
-      intervalDays: next.intervalDays, nextReviewDate: addDaysStr(t, next.intervalDays),
-      weakSurahs: finalWeakSurahs, weakPages: finalWeakPages
-    };
+
+    if (isPartialCycle) {
+      // مراجعة جزئية: حفظ السور المنجزة في الدورة الحالية مع إبقاء الجزء جاهزاً لاستكمال الباقي
+      state.solidMeta[srTarget.id] = {
+        ...meta,
+        lastReviewed: t,
+        rating: selectedSrRating,
+        critical: isCritical || !!meta.critical,
+        nextReviewDate: meta.nextReviewDate || t,
+        weakSurahs: finalWeakSurahs,
+        weakPages: finalWeakPages,
+        reviewedSurahsInCycle: [...selectedReviewedSurahs]
+      };
+      showToast(`تم حفظ مراجعة ${selectedReviewedSurahs.length} من ${totalSurahs} سورة — تبقّى ${totalSurahs - selectedReviewedSurahs.length} سورة لإتمام الدورة ✓`);
+    } else {
+      // إتمام الجزء كاملاً (أو تحديد الكل) ← حساب SM-2 وتصفير دورة السور للمرة القادمة
+      const next = computeSM2(meta, selectedSrRating, srTarget.overdueDays, level);
+      state.solidMeta[srTarget.id] = {
+        ...meta,
+        reviews: (meta.reviews || 0) + 1,
+        reps: next.reps, lapses: next.lapses, ease: next.ease,
+        lastReviewed: t, rating: selectedSrRating, critical: isCritical,
+        intervalDays: next.intervalDays, nextReviewDate: addDaysStr(t, next.intervalDays),
+        weakSurahs: finalWeakSurahs, weakPages: finalWeakPages,
+        reviewedSurahsInCycle: []
+      };
+      showToast(`تمت مراجعة الجزء كاملاً (${selectedSrRating}) — الموعد القادم بعد ${next.intervalDays} يوم ✓`);
+    }
     if (isCritical) {
       const j = state.juzList.find((x) => x.num === Number(srTarget.id));
       if (j) { j.tags = Array.isArray(j.tags) ? j.tags : []; if (!j.tags.includes('متشابهات')) j.tags.push('متشابهات'); }
     }
-    showToast(`تمت المراجعة (${selectedSrRating}) — الموعد القادم بعد ${next.intervalDays} يوم ✓`);
   } else if (srTarget.kind === 'passage') {
     // تقييم مقطع مستقل داخل «تثبيت الجديد»
     const g = state.newLinkingGroups.find((x) => x.id === srTarget.id);
@@ -1470,7 +1579,6 @@ function renderHomeNewWorkflow() {
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn btn-gold" style="flex:1;" onclick="toggleNewWirdForm(true)">+ تسجيل ورد جديد</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('new')">تغيير السورة</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('solid'); setSolidTab('new');">صندوق التثبيت</button>
           </div>
         </div>`;
     } else {
@@ -1688,6 +1796,20 @@ function confirmRecitation() {
           recomputeJuzProgress(j);
           syncSolidBoxMembership(j);
         });
+        // ترقية السورة المكتملة تلقائياً إلى «تثبيت القديم»
+        const grp = state.newLinkingGroups.find((g) => !g.archived && g.surahNum === w.surahNum);
+        if (grp) {
+          grp.archived = true;
+          state.completedSurahsSolid = state.completedSurahsSolid || [];
+          if (!state.completedSurahsSolid.some((c) => c.surahNum === w.surahNum)) {
+            state.completedSurahsSolid.unshift({
+              id: 'cs_' + Date.now(), surahNum: w.surahNum, surahName: w.surahName,
+              reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase,
+              intervalDays: 2, lastReviewed: today, rating: selectedRating,
+              nextReviewDate: addDaysStr(today, 2), critical: false
+            });
+          }
+        }
         state.activeNewSurahNum = null;
         const nextS = resolveActiveNewSurah(state.profile, state.juzList, null);
         state.activeNewSurahNum = nextS ? nextS.num : null;
@@ -1769,7 +1891,20 @@ function toggleDayTask(dayId, field) {
   const d = state.schedule.find((x) => x.id === dayId);
   if (!d) return;
   d[field] = !d[field];
-  if (d[field]) touchStreak();
+  if (d[field]) {
+    touchStreak();
+    // أتمتة تسجيل التقدم عند إتمام مهمة المراجعة الرئيسية دون الحاجة لضغط مزدوج
+    if (field === 'mDone' && d.main && d.main.includes('مراجعة') && !d._revAutoCredited) {
+      const revJuz = resolveActiveRevJuz(state.juzList, state.activeRevJuzNum);
+      if (revJuz && revJuz.donePages < revJuz.totalPages) {
+        revJuz.loggedPages = Number(((revJuz.loggedPages || 0) + 1).toFixed(2));
+        recomputeJuzProgress(revJuz);
+        syncSolidBoxMembership(revJuz);
+        d._revAutoCredited = true;
+        showToast(`تم إنجاز المهمة وتسجيل +١ وجه في ${revJuz.title} تلقائياً ✓`);
+      }
+    }
+  }
   saveState(); renderAll();
 }
 
@@ -1884,8 +2019,10 @@ function renderSolidTab() {
   const archivedGroups = state.newLinkingGroups.filter((g) => g.archived);
   const totalNewPassages = activeGroups.reduce((s, g) => s + g.passages.length, 0);
 
-  document.getElementById('solidBoxOldSummary').textContent = `${completedList.length} أجزاء${compSurahs.length ? ` • ${compSurahs.length} سور` : ''}`;
-  document.getElementById('solidBoxNewSummary').textContent = isKhatim ? 'مخفي (خاتم)' : `${totalNewPassages} مقاطع (${activeGroups.length} سورة)`;
+  const tabNewBtn = document.getElementById('solidTabNew');
+  const tabOldBtn = document.getElementById('solidTabOld');
+  if (tabNewBtn) tabNewBtn.textContent = `تثبيت جديد (${totalNewPassages})`;
+  if (tabOldBtn) tabOldBtn.textContent = `تثبيت قديم (${completedList.length + compSurahs.length})`;
 
   // 1. تثبيت جديد (نظام الكرة الثلجية: تقييم مستقل لكل مقطع + ربط ودمج + ترحيل السورة المكتملة)
   const linkContainer = document.getElementById('linkingGroupsContainer');
@@ -1982,22 +2119,63 @@ function renderSolidTab() {
   if (completedList.length === 0 && compSurahs.length === 0) {
     solidEl.innerHTML = '<div class="empty-state">قسم <strong>تثبيت القديم</strong> بانتظار أول جزء مكتمل أو سورة تكتمل من «تثبيت الجديد».</div>';
   } else {
-    solidEl.innerHTML = completedList.map((j) => {
-      const meta = state.solidMeta[j.num] || { reviews: 0, lastReviewed: '', rating: '', nextReviewDate: todayStr(), weakSurahs: [], weakPages: [] };
-      const ws = Array.isArray(meta.weakSurahs) && meta.weakSurahs.length > 0 ? ` • سور للتقوية: ${meta.weakSurahs.join('، ')}` : '';
-      const wp = (!ws && Array.isArray(meta.weakPages) && meta.weakPages.length > 0) ? ` • أوجه متفلتة: ص ${meta.weakPages.join('، ')}` : '';
+    solidEl.innerHTML = completedList.map((j, idx) => {
+      const meta = state.solidMeta[j.num] || { reviews: 0, lastReviewed: '', rating: '', nextReviewDate: todayStr(), weakSurahs: [], weakPages: [], reviewedSurahsInCycle: [] };
+      const surahs = getJuzSurahs(j.num);
+      const doneNames = Array.isArray(meta.reviewedSurahsInCycle) ? meta.reviewedSurahsInCycle : [];
+      const remaining = surahs.filter((s) => !doneNames.includes(s.name));
+      const cycleDone = surahs.length - remaining.length;
+      const cyclePct = surahs.length > 0 ? Math.round((cycleDone / surahs.length) * 100) : 0;
+      const weakSurahs = Array.isArray(meta.weakSurahs) ? meta.weakSurahs : [];
+      const isDue = diffDaysFromToday(meta.nextReviewDate || todayStr()) <= 0;
+      const isOpen = expandedSolidJuzs[j.num] !== undefined ? expandedSolidJuzs[j.num] : (idx === 0 && (isDue || cycleDone > 0));
       return `
-        <div class="log-item" style="align-items:center;">
-          <div>
-            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-              <strong style="font-size:0.92rem;">${j.title}</strong>
-              ${formatDueTag(meta.nextReviewDate || todayStr())}
+        <div class="solid-old-card">
+          <div class="solid-old-head">
+            <div>
+              <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
+                <strong class="solid-old-title">${escapeHtml(j.title)}</strong>
+                ${formatDueTag(meta.nextReviewDate || todayStr())}
+              </div>
+              <div class="solid-old-sub">${escapeHtml(j.range || '')} • متبقّي ${remaining.length} من ${surahs.length} سورة</div>
             </div>
-            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:3px;">
-              المراجعات: <strong style="color:var(--accent-hi);">${meta.reviews}</strong> • التقييم: <strong>${meta.rating || 'أول مراجعة'}</strong>${ws}${wp}
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-gold btn-sm" onclick="quickCompleteFullJuz(${j.num})">✓ راجعت الجزء كله</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSolidJuzExpand(${j.num})">${isOpen ? 'إخفاء السور ▲' : 'تحديد السور ▾'}</button>
             </div>
           </div>
-          <button type="button" class="btn btn-gold btn-sm" onclick="openSrReviewModal('old', ${j.num}, '${escapeAttr(j.title)}')">+ راجعته</button>
+          ${cycleDone > 0 ? `
+            <div class="solid-cycle-box">
+              <div class="progress-block-head" style="font-size:0.78rem; margin-bottom:4px;">
+                <span>أنجزت ${cycleDone} من ${surahs.length} سورة في هذه الدورة (${cyclePct}%)</span>
+                <button type="button" class="inline-undo-btn" onclick="resetJuzCycle(${j.num})">تراجع ↺</button>
+              </div>
+              <div class="bar-track" style="height:7px;"><div class="bar-fill-success" style="width:${cyclePct}%"></div></div>
+            </div>` : ''}
+          ${isOpen ? `
+            <div class="inline-surah-hint">اضغط على السورة فور مراجعتها (✓ تمام)، أو اضغط <strong>⚠</strong> إن احتاجت تظبيطاً:</div>
+            <div class="surah-review-grid inline-surah-grid">
+              ${remaining.map((s) => {
+                const jDb = JUZ_DB.find((x) => x.num === j.num);
+                const pCount = jDb ? formatNum(getSurahPagesInJuz(s, jDb)) : formatNum(s.pages);
+                return `
+                  <div class="surah-review-card">
+                    <button type="button" class="surah-review-main" onclick="quickReviewSurahInJuz(${j.num}, '${escapeAttr(s.name)}', false)">
+                      <span class="sr-check-dot" aria-hidden="true"></span>
+                      <span class="sr-surah-meta">
+                        <strong>${escapeHtml(s.name)}</strong>
+                        <small>${pCount} وجه</small>
+                      </span>
+                    </button>
+                    <button type="button" class="sr-weak-toggle" onclick="quickReviewSurahInJuz(${j.num}, '${escapeAttr(s.name)}', true)" title="اتراجعت بس محتاجة تظبيط">⚠</button>
+                  </div>`;
+              }).join('')}
+            </div>` : ''}
+          <div class="solid-old-meta">
+            <span>الدورات: <strong style="color:var(--accent-hi);">${meta.reviews || 0}</strong></span>
+            <span>آخر تقييم تلقائي: <strong>${meta.rating || 'لم يُقيَّم بعد'}</strong></span>
+          </div>
+          ${weakSurahs.length > 0 ? `<div class="solid-weak-row"><span class="tag tag-warn">تحتاج تظبيط: ${weakSurahs.map(escapeHtml).join('، ')}</span></div>` : ''}
         </div>`;
     }).join('');
   }
@@ -2879,4 +3057,86 @@ if (!state.onboarded) {
   document.getElementById('calcNewPages').value = state.calcNewPages ?? state.profile.pagesPerSession ?? 1;
   renderAll();
   renderTimer();
+}
+
+
+// ================= v7.5 ONE-TAP SURAH REVIEW + AUTO SM-2 =================
+function computeAutoRatingFromWeakCount(weakCount) {
+  if (weakCount <= 0) return 'ممتاز';
+  if (weakCount <= 2) return 'جيد جداً';
+  return 'جيد';
+}
+
+function toggleSolidJuzExpand(juzNum) {
+  expandedSolidJuzs[juzNum] = !expandedSolidJuzs[juzNum];
+  renderSolidBox();
+}
+
+function resetJuzCycle(juzNum) {
+  const meta = state.solidMeta[juzNum];
+  if (!meta) return;
+  meta.reviewedSurahsInCycle = [];
+  saveState(); renderAll();
+  showToast('تم تصفير الدورة الحالية لهذا الجزء ↺');
+}
+
+function finalizeJuzCycleAuto(juzNum, weakList) {
+  const t = todayStr();
+  const level = getEffectiveLevel(state.profile);
+  const meta = state.solidMeta[juzNum] || { reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase, intervalDays: 2 };
+  const autoRating = computeAutoRatingFromWeakCount(weakList.length);
+  const overdue = Math.max(0, -diffDaysFromToday(meta.nextReviewDate || t, t));
+  const next = computeSM2(meta, autoRating, overdue, level);
+  state.solidMeta[juzNum] = {
+    ...meta,
+    reviews: (meta.reviews || 0) + 1,
+    reps: next.reps, lapses: next.lapses, ease: next.ease,
+    lastReviewed: t, rating: autoRating, critical: false,
+    intervalDays: next.intervalDays, nextReviewDate: addDaysStr(t, next.intervalDays),
+    weakSurahs: [...weakList], weakPages: meta.weakPages || [],
+    reviewedSurahsInCycle: []
+  };
+  expandedSolidJuzs[juzNum] = false;
+  touchStreak(); saveState(); renderAll();
+  showToast(`أتممت الجزء بتقييم تلقائي (${autoRating}) — الموعد القادم بعد ${next.intervalDays} يوم ✓`);
+}
+
+function quickCompleteFullJuz(juzNum) {
+  const meta = state.solidMeta[juzNum] || {};
+  const weakList = Array.isArray(meta.weakSurahs) ? meta.weakSurahs : [];
+  finalizeJuzCycleAuto(juzNum, weakList);
+}
+
+function quickReviewSurahInJuz(juzNum, surahName, needsWork) {
+  const t = todayStr();
+  const meta = state.solidMeta[juzNum] || { reviews: 0, reps: 0, lapses: 0, ease: SR_CONFIG.defaultEase, intervalDays: 2, nextReviewDate: t, weakSurahs: [], reviewedSurahsInCycle: [] };
+  const doneNames = Array.isArray(meta.reviewedSurahsInCycle) ? [...meta.reviewedSurahsInCycle] : [];
+  const weakList = Array.isArray(meta.weakSurahs) ? [...meta.weakSurahs] : [];
+
+  if (!doneNames.includes(surahName)) doneNames.push(surahName);
+  if (needsWork) {
+    if (!weakList.includes(surahName)) weakList.push(surahName);
+  } else {
+    const idx = weakList.indexOf(surahName);
+    if (idx !== -1) weakList.splice(idx, 1);
+  }
+
+  const surahs = getJuzSurahs(juzNum);
+  if (doneNames.length >= surahs.length) {
+    finalizeJuzCycleAuto(juzNum, weakList);
+    return;
+  }
+
+  state.solidMeta[juzNum] = {
+    ...meta,
+    lastReviewed: t,
+    weakSurahs: weakList,
+    reviewedSurahsInCycle: doneNames
+  };
+  expandedSolidJuzs[juzNum] = true;
+  touchStreak(); saveState(); renderAll();
+  const left = surahs.length - doneNames.length;
+  showToast(needsWork
+    ? `سُجّلت «${surahName}» في قائمة التظبيط (متبقّي ${left} سورة)`
+    : `✓ تمت مراجعة «${surahName}» (متبقّي ${left} سورة في الدورة)`);
 }

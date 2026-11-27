@@ -266,5 +266,28 @@ test('٩. دوال app.js: حفظ الملاحظة عند مسح المتشاب�
   assert(archiveFnMatch[0].includes('lastArchivedDate === today'), 'archiveWeek تمنع الأرشفة المكررة في نفس اليوم');
 });
 
+
+// 10. Orientation rotation unlocked + partial Surah-by-Surah old review support
+test('١٠. دعم دوران الشاشة (orientation: any) + مراجعة القديم بالسور الجزئية والدورة المتواصلة', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+  assert.strictEqual(manifest.orientation, 'any', 'يجب أن يدعم manifest.json الدوران الحر orientation: any');
+  const appCode = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+  assert(appCode.includes('reviewedSurahsInCycle'), 'حفظ السور المراجعة جزئياً داخل الدورة');
+  assert(appCode.includes('function toggleReviewedSurah('), 'دالة تحديد السورة المراجعة اليوم');
+  assert(appCode.includes('function selectAllSurahsInReview('), 'زر تحديد الجزء كاملاً');
+});
+
+
+// 11. v7.5 1-tap inline Surah review + automatic SM-2 rating + decluttered UI
+test('١١. أتمتة تثبيت القديم بضغطة واحدة والتقييم التلقائي وتقليص الأزرار المكررة', () => {
+  const appCode = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  assert(appCode.includes('function quickReviewSurahInJuz('), 'quickReviewSurahInJuz موجودة');
+  assert(appCode.includes('function computeAutoRatingFromWeakCount('), 'التقييم التلقائي موجود');
+  assert(appCode.includes('function quickCompleteFullJuz('), 'إتمام الجزء بضغطة واحدة موجود');
+  assert(html.includes('adv-settings-details'), 'قسم الخيارات المتقدمة المطوي موجود');
+  assert(!html.includes('id="solidBoxNewSummary"'), 'إزالة بطاقة الملخص المكررة في صندوق التثبيت');
+});
+
 console.log(`\nالنتيجة النهائية: اجتاز ${passed} من ${passed + failed} اختباراً.`);
 if (failed > 0) process.exit(1);

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=7.3.0" />
+  <link rel="stylesheet" href="style.css?v=7.5.0" />
 </head>
 <body>
 
@@ -246,7 +246,7 @@
     </div>
     <div class="sidebar-footer">
       <div class="pill-badge" id="sidebarStreakBadge">🔥 0 أيام</div>
-      <span class="version-chip">الإصدار 7.3</span>
+      <span class="version-chip">الإصدار 7.5</span>
     </div>
   </nav>
 
@@ -294,7 +294,6 @@
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:11px;">
           <button type="button" class="btn btn-gold btn-sm" id="quickRevBtn" onclick="quickAddRevPage()">+١ وجه مراجعة</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تبديل جزء المراجعة</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSimpleMode()" id="homeSimpleModeBtn">وضع بسيط</button>
         </div>
       </div>
@@ -327,7 +326,7 @@
             <div class="hero-bars">
               <div id="heroRevBlock">
                 <div class="progress-block-head">
-                  <strong>المراجعة (الترميم) <button type="button" class="info-btn" onclick="openGlossaryModal()" aria-label="شرح المراجعة">؟</button></strong>
+                  <strong>المراجعة (الترميم)</strong>
                   <span id="revProgressLabel">0 / 0 جزء</span>
                 </div>
                 <div class="bar-track"><div class="bar-fill-gold" id="revProgressBar" style="width:0%"></div></div>
@@ -345,7 +344,7 @@
 
               <div>
                 <div class="progress-block-head">
-                  <strong>صندوق التثبيت <button type="button" class="info-btn" onclick="openGlossaryModal()" aria-label="شرح صندوق التثبيت">؟</button></strong>
+                  <strong>صندوق التثبيت</strong>
                   <span id="solidProgressLabel" style="color:var(--success);">0 أجزاء • 0 مقاطع</span>
                 </div>
                 <div class="bar-track"><div class="bar-fill-success" id="solidProgressBar" style="width:0%"></div></div>
@@ -387,7 +386,6 @@
       <div class="card card-subtle adv-only" id="activeJuzSurahsCard" style="display:none;">
         <div class="card-title">
           <h2 id="activeJuzSurahsTitle">🎯 سور الجزء النشط</h2>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="openQuickFocusModal('rev')">تغيير الجزء</button>
         </div>
         <div class="surah-list" id="activeJuzSurahsList"></div>
       </div>
@@ -401,8 +399,7 @@
         <div class="card-title">
           <h2>📅 الجدول الأسبوعي الحي والمرن</h2>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="openQuickFocusModal('rev')">تبديل جزء المراجعة</button>
-            <button type="button" class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع وعرض الملخص</button>
+              <button type="button" class="btn btn-gold btn-sm" onclick="archiveWeek()">إغلاق الأسبوع وعرض الملخص</button>
           </div>
         </div>
         <p class="muted-note">يتحدّث تلقائياً فور إتمام أي جزء أو تغيير سورتك النشطة؛ أي جزء تنجزه ينتقل لصندوق التثبيت ويحل الجزء التالي مكانه فوراً.</p>
@@ -420,18 +417,6 @@
 
     <!-- ================= TAB 3: SOLID BOX (NEW + OLD + MUTASHABIHAT + LOGS) ================= -->
     <section id="tab-solid" class="tab-panel">
-      <div class="grid-2" style="margin-bottom:12px;">
-        <button type="button" class="stat-box" onclick="setSolidTab('new')">
-          <span class="stat-label">🛡️ تثبيت جديد (مقاطع الربط)</span>
-          <span class="stat-value" style="color:var(--info);" id="solidBoxNewSummary">0 مقاطع</span>
-          <span class="stat-sub">تجميع مقاطع السور الطويلة</span>
-        </button>
-        <button type="button" class="stat-box" onclick="setSolidTab('old')">
-          <span class="stat-label">🛡️ تثبيت قديم (الأجزاء المكتملة)</span>
-          <span class="stat-value" style="color:var(--success);" id="solidBoxOldSummary">0 أجزاء</span>
-          <span class="stat-sub">بجدول تكرار متباعد ذكي</span>
-        </button>
-      </div>
 
       <div class="card" style="padding:10px;">
         <div class="seg-control" style="margin-bottom:0;" role="tablist">
@@ -554,8 +539,6 @@
           <div style="display:flex; gap:8px; margin-top:9px; flex-wrap:wrap;">
             <button type="submit" class="btn btn-gold btn-sm">+ إضافة موعد</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="exportRemindersIcs()">📅 إضافة للتقويم (.ics)</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="testSmartNotification()">تجربة إشعار الآن</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="checkNotificationHealth()">🩺 فحص دعم الإشعارات</button>
           </div>
         </form>
 
@@ -619,14 +602,21 @@
             استيراد نسخة احتياطية (v4/v5/v6/v7)
             <input type="file" accept=".json" onchange="importBackup(event)" style="display:none;" />
           </label>
-          <button type="button" class="btn btn-info btn-sm" id="settingsLegacyImportBtn" style="display:none;" onclick="importLegacyFromStorage()">استيراد من النسخة السابقة على الجهاز</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="restoreSnapshotBtn" style="display:none;" onclick="restoreLastAutoSnapshot()">استعادة آخر لقطة تلقائية</button>
         </div>
 
-        <div style="padding-top:12px; border-top:1px dashed var(--border-subtle); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-          <span style="font-size:0.8rem; color:var(--text-muted);">منطقة الخطر (تتطلب تأكيداً مزدوجاً)</span>
-          <button type="button" class="btn btn-danger btn-sm" onclick="openResetConfirmModal()">مسح البيانات والبدء من جديد</button>
-        </div>
+        <details class="adv-settings-details">
+          <summary>خيارات متقدمة واستعادة البيانات ▾</summary>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="testSmartNotification()">تجربة إشعار الآن</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="checkNotificationHealth()">🩺 فحص دعم الإشعارات</button>
+            <button type="button" class="btn btn-info btn-sm" id="settingsLegacyImportBtn" style="display:none;" onclick="importLegacyFromStorage()">استيراد من النسخة السابقة على الجهاز</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="restoreSnapshotBtn" style="display:none;" onclick="restoreLastAutoSnapshot()">استعادة آخر لقطة تلقائية</button>
+          </div>
+          <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--border-subtle); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <span style="font-size:0.8rem; color:var(--text-muted);">منطقة الخطر (تتطلب تأكيداً مزدوجاً)</span>
+            <button type="button" class="btn btn-danger btn-sm" onclick="openResetConfirmModal()">مسح البيانات والبدء من جديد</button>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -805,22 +795,37 @@
     </div>
   </div>
 
-  <!-- Modal: Spaced Repetition Review Rating (NO pre-selected rating + Weak Pages!) -->
+  <!-- Modal: Spaced Repetition Review (Partial Surah-by-Surah + Full Juz + Weak Tracking) -->
   <div class="modal-backdrop" id="srReviewModal" role="dialog" aria-modal="true" aria-labelledby="srModalTitle" onclick="if(event.target===this) closeModal('srReviewModal')">
-    <div class="modal-box">
+    <div class="modal-box modal-box-wide">
       <div class="card-title">
-        <h2 id="srModalTitle">🧠 تقييم المراجعة (SM-2)</h2>
+        <h2 id="srModalTitle">🧠 تسجيل مراجعة التثبيت</h2>
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('srReviewModal')">إغلاق</button>
       </div>
-      <div id="srReviewTargetInfo" style="padding:10px 12px; border-radius:10px; background:var(--accent-soft); border:1px solid var(--accent-border); margin-bottom:12px; font-size:0.85rem;"></div>
-      <label class="field-label">كيف كان مستوى ثباتك في هذه المراجعة؟</label>
-      <div class="rating-grid" id="srRatingGrid" role="radiogroup" aria-label="تقييم المراجعة"></div>
+      <div id="srReviewTargetInfo" class="calc-preview-card" style="margin-top:0; margin-bottom:12px;"></div>
 
-      <!-- Optional Weak Pages Tracker for Juz Reviews -->
-      <div id="srWeakPagesWrap" style="display:none; margin-bottom:12px;">
-        <label class="field-label">حدّد السور أو المواضع المتفلتة في هذا الجزء (اختياري):</label>
-        <div class="weak-pages-grid" id="srWeakPagesGrid"></div>
+      <!-- Step 1: Surah-by-Surah Reviewed Today (for Old Juz Reviews) -->
+      <div id="srWeakPagesWrap" style="display:none; margin-bottom:14px;">
+        <div class="sr-cycle-header">
+          <div>
+            <label class="field-label" style="margin-bottom:2px;">١. حدّد السور التي راجعتها اليوم:</label>
+            <div class="sr-cycle-counter" id="srCycleCounter">0 من 0 سورة في هذه الدورة</div>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-success btn-sm" onclick="selectAllSurahsInReview()">✓ الجزء كاملاً</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="clearReviewedSurahsInReview()">إلغاء</button>
+          </div>
+        </div>
+        <div class="bar-track" style="margin:6px 0 10px;"><div class="bar-fill-success" id="srCycleBar" style="width:0%"></div></div>
+        <div class="surah-review-grid" id="srWeakPagesGrid"></div>
+        <div id="srLongPagesSection" style="display:none; margin-top:10px;">
+          <label class="field-label">أوجه متفلتة محددة في السور الطويلة (اختياري):</label>
+          <div class="weak-pages-grid" id="srLongPagesGrid"></div>
+        </div>
       </div>
+
+      <label class="field-label" id="srRatingLabel">كيف كان مستوى ثباتك في هذه المراجعة؟</label>
+      <div class="rating-grid" id="srRatingGrid" role="radiogroup" aria-label="تقييم المراجعة"></div>
 
       <button type="button" class="btn btn-gold btn-block" id="confirmSrBtn" disabled onclick="confirmSrReview()">اختر التقييم أولاً لحفظ المراجعة</button>
     </div>
@@ -907,9 +912,9 @@
 
   <div class="toast" id="toastEl" role="status" aria-live="polite"></div>
 
-  <script src="data.js?v=7.3.0"></script>
-  <script src="engine.js?v=7.3.0"></script>
-  <script src="storage.js?v=7.3.0"></script>
-  <script src="app.js?v=7.3.0"></script>
+  <script src="data.js?v=7.5.0"></script>
+  <script src="engine.js?v=7.5.0"></script>
+  <script src="storage.js?v=7.5.0"></script>
+  <script src="app.js?v=7.5.0"></script>
 </body>
 </html>
